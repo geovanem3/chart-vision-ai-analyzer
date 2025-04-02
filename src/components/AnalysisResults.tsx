@@ -7,11 +7,13 @@ import { useAnalyzer } from '@/context/AnalyzerContext';
 import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetection';
 import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2 } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
+import { useLanguage } from '@/context/LanguageContext';
 
 const AnalysisResults = () => {
   const { analysisResults, setAnalysisResults, showTechnicalMarkup, setShowTechnicalMarkup } = useAnalyzer();
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     // Generate technical markup elements when image is loaded
@@ -56,15 +58,15 @@ const AnalysisResults = () => {
 
   const { patterns, timestamp } = analysisResults;
   const overallRecommendation = analyzeResults(patterns);
-  const formattedDate = new Date(timestamp).toLocaleString();
+  const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
   // Determine sentiment icon based on recommendation text
   const getSentimentIcon = () => {
     const recommendation = overallRecommendation.toLowerCase();
     
-    if (recommendation.includes('bullish') || recommendation.includes('upside')) {
+    if (recommendation.includes('alta') || recommendation.includes('compra')) {
       return <ArrowUp className="w-5 h-5 text-chart-up" />;
-    } else if (recommendation.includes('bearish') || recommendation.includes('downside')) {
+    } else if (recommendation.includes('baixa') || recommendation.includes('downside')) {
       return <ArrowDown className="w-5 h-5 text-chart-down" />;
     } else {
       return <ArrowRight className="w-5 h-5 text-chart-neutral" />;
@@ -77,18 +79,30 @@ const AnalysisResults = () => {
     if (confidence >= 0.6) return 'bg-chart-line';
     return 'bg-chart-neutral';
   };
+  
+  // Action badge color and text
+  const getActionBadge = (action?: 'compra' | 'venda' | 'neutro') => {
+    switch(action) {
+      case 'compra':
+        return <span className="ml-2 px-2 py-0.5 rounded-full bg-chart-up/20 text-chart-up text-xs font-medium">Compra</span>;
+      case 'venda':
+        return <span className="ml-2 px-2 py-0.5 rounded-full bg-chart-down/20 text-chart-down text-xs font-medium">Venda</span>;
+      default:
+        return <span className="ml-2 px-2 py-0.5 rounded-full bg-chart-neutral/20 text-chart-neutral text-xs font-medium">Neutro</span>;
+    }
+  };
 
   return (
     <Card className="p-4 my-4 w-full max-w-3xl">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h2 className="text-xl font-semibold">Analysis Results</h2>
-          <p className="text-sm text-muted-foreground">Analyzed on {formattedDate}</p>
+          <h2 className="text-xl font-semibold">Resultados da Análise</h2>
+          <p className="text-sm text-muted-foreground">Analisado em {formattedDate}</p>
         </div>
         <div className="flex items-center px-3 py-1 rounded-full bg-secondary">
           {getSentimentIcon()}
           <span className="ml-2 text-sm font-medium">
-            {patterns.length} patterns detected
+            {patterns.length} padrões detectados
           </span>
         </div>
       </div>
@@ -98,7 +112,7 @@ const AnalysisResults = () => {
           <img 
             ref={imageRef}
             src={analysisResults.imageUrl} 
-            alt="Analyzed Chart" 
+            alt="Gráfico Analisado" 
             className="w-full object-contain" 
             onLoad={handleImageLoad}
           />
@@ -108,7 +122,7 @@ const AnalysisResults = () => {
             <Switch 
               checked={showTechnicalMarkup} 
               onCheckedChange={setShowTechnicalMarkup}
-              aria-label="Toggle technical markup"
+              aria-label="Alternar marcação técnica"
             />
           </div>
           
@@ -125,21 +139,24 @@ const AnalysisResults = () => {
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-primary mt-0.5" />
           <div>
-            <h3 className="font-medium mb-1">Overall Assessment</h3>
+            <h3 className="font-medium mb-1">Avaliação Geral</h3>
             <p className="text-sm">{overallRecommendation}</p>
           </div>
         </div>
       </div>
       
       <div className="space-y-6">
-        <h3 className="font-medium">Detected Patterns</h3>
+        <h3 className="font-medium">Padrões Detectados</h3>
         
         {patterns.map((pattern, index) => (
           <div key={index} className="bg-secondary/50 rounded-lg p-4">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium">{pattern.type}</h4>
+              <div className="flex items-center">
+                <h4 className="font-medium">{pattern.type}</h4>
+                {pattern.action && getActionBadge(pattern.action)}
+              </div>
               <div className="text-sm">
-                Confidence: {Math.round(pattern.confidence * 100)}%
+                Confiança: {Math.round(pattern.confidence * 100)}%
               </div>
             </div>
             
@@ -152,11 +169,18 @@ const AnalysisResults = () => {
             
             {pattern.recommendation && (
               <div className="text-sm text-primary">
-                <span className="font-medium">Insight:</span> {pattern.recommendation}
+                <span className="font-medium">Recomendação:</span> {pattern.recommendation}
               </div>
             )}
           </div>
         ))}
+      </div>
+      
+      <div className="mt-8 pt-4 border-t border-border text-sm text-muted-foreground">
+        <p className="italic">
+          Observação: A IA realiza análise apenas com base na imagem fornecida e não tem acesso a dados históricos completos. 
+          Confirmações adicionais são recomendadas antes de tomar decisões de investimento.
+        </p>
       </div>
     </Card>
   );

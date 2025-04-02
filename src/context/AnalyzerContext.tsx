@@ -6,6 +6,7 @@ export type PatternResult = {
   confidence: number;
   description: string;
   recommendation?: string;
+  action?: 'compra' | 'venda' | 'neutro';
 };
 
 export type Point = {
@@ -14,7 +15,7 @@ export type Point = {
 };
 
 export type TechnicalElement = {
-  type: 'line' | 'arrow' | 'rectangle' | 'circle' | 'label';
+  type: 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'pattern';
   color: string;
   thickness?: number;
   dashArray?: number[];
@@ -25,13 +26,27 @@ export type TechnicalElement = {
   | { type: 'rectangle', position: Point, width: number, height: number }
   | { type: 'circle', center: Point, radius: number }
   | { type: 'label', position: Point, text: string, backgroundColor?: string }
+  | { type: 'pattern', patternType: 'OCO' | 'triangulo' | 'cunha' | 'bandeira' | 'topoduplo' | 'fundoduplo', points: Point[] }
 );
+
+export type CandleData = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  color: 'verde' | 'vermelho';
+  position: Point;
+  width: number;
+  height: number;
+};
 
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
   imageUrl?: string;
   technicalElements?: TechnicalElement[];
+  candles?: CandleData[];
+  manualRegion?: boolean;
 };
 
 type AnalyzerContextType = {

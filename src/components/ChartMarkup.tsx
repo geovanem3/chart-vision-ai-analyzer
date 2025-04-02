@@ -153,7 +153,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
     // Draw background if provided
     if (backgroundColor) {
       ctx.save();
-      ctx.fillStyle = backgroundColor;
+      ctx.fillStyle = backgroundColor || 'rgba(0, 0, 0, 0.7)';
       
       const textMetrics = ctx.measureText(text);
       const padding = 4;
