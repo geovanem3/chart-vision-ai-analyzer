@@ -2,8 +2,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, X, FlipHorizontal, Upload, Image } from 'lucide-react';
+import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toast } from '@/components/ui/use-toast';
 
 const CameraView = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -12,6 +14,7 @@ const CameraView = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraAccessAttempted, setCameraAccessAttempted] = useState(false);
 
   const { setCapturedImage } = useAnalyzer();
 
@@ -19,6 +22,7 @@ const CameraView = () => {
   const startCamera = async () => {
     try {
       setCameraError(null);
+      setCameraAccessAttempted(true);
       
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera access not supported in this browser');
@@ -37,10 +41,14 @@ const CameraView = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCameraActive(true);
+        toast({
+          title: "Câmera ativada",
+          description: "A câmera foi ativada com sucesso.",
+        });
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      let errorMessage = 'Failed to access camera. Please check permissions and try again.';
+      let errorMessage = 'Falha ao acessar a câmera. Verifique as permissões e tente novamente.';
       
       // More specific error messages based on error type
       if (error instanceof DOMException) {
@@ -49,11 +57,20 @@ const CameraView = () => {
         } else if (error.name === 'NotFoundError') {
           errorMessage = 'Nenhuma câmera foi encontrada no seu dispositivo.';
         } else if (error.name === 'NotReadableError') {
-          errorMessage = 'Não foi possível acessar a câmera. Ela pode estar sendo usada por outro aplicativo.';
+          errorMessage = 'Não foi possível acessar a câmera. Ela pode estar sendo usada por outro aplicativo ou há um problema com o hardware.';
+        } else if (error.name === 'OverconstrainedError') {
+          errorMessage = 'As configurações solicitadas para a câmera não são suportadas pelo seu dispositivo.';
+        } else if (error.name === 'AbortError') {
+          errorMessage = 'A operação de acesso à câmera foi cancelada.';
         }
       }
       
       setCameraError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "Erro na câmera",
+        description: errorMessage,
+      });
     }
   };
 
@@ -92,9 +109,18 @@ const CameraView = () => {
           const imageUrl = canvas.toDataURL('image/jpeg');
           setCapturedImage(imageUrl);
           stopCamera();
+          toast({
+            title: "Imagem capturada",
+            description: "Imagem capturada com sucesso e pronta para análise.",
+          });
         } catch (error) {
           console.error('Error capturing image:', error);
-          setCameraError('Failed to capture image. Please try again.');
+          setCameraError('Falha ao capturar imagem. Por favor, tente novamente.');
+          toast({
+            variant: "destructive",
+            title: "Erro ao capturar",
+            description: "Falha ao capturar imagem. Por favor, tente novamente.",
+          });
         }
       }
     }
@@ -108,6 +134,11 @@ const CameraView = () => {
     // Check if file is an image
     if (!file.type.startsWith('image/')) {
       setCameraError('Por favor, selecione um arquivo de imagem válido.');
+      toast({
+        variant: "destructive",
+        title: "Arquivo inválido",
+        description: "Por favor, selecione um arquivo de imagem válido.",
+      });
       return;
     }
 
@@ -116,10 +147,19 @@ const CameraView = () => {
       const imageUrl = e.target?.result as string;
       if (imageUrl) {
         setCapturedImage(imageUrl);
+        toast({
+          title: "Imagem carregada",
+          description: "Imagem carregada com sucesso e pronta para análise.",
+        });
       }
     };
     reader.onerror = () => {
       setCameraError('Erro ao ler o arquivo. Por favor, tente novamente.');
+      toast({
+        variant: "destructive",
+        title: "Erro de leitura",
+        description: "Erro ao ler o arquivo. Por favor, tente novamente.",
+      });
     };
     reader.readAsDataURL(file);
   };
@@ -133,7 +173,7 @@ const CameraView = () => {
 
   // Start camera when facing mode changes
   useEffect(() => {
-    if (!isCameraActive) {
+    if (!isCameraActive && cameraAccessAttempted) {
       startCamera();
     }
     
@@ -141,15 +181,19 @@ const CameraView = () => {
     return () => {
       stopCamera();
     };
-  }, [facingMode]);
+  }, [facingMode, cameraAccessAttempted]);
 
   return (
     <div className="w-full flex flex-col items-center">
       <div className="relative w-full max-w-3xl overflow-hidden rounded-xl aspect-video bg-black">
         {cameraError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-4">
-            <div className="text-center">
-              <p className="text-destructive mb-4">{cameraError}</p>
+            <div className="text-center max-w-md">
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Problema com a câmera</AlertTitle>
+                <AlertDescription>{cameraError}</AlertDescription>
+              </Alert>
               <div className="flex gap-4 justify-center">
                 <Button onClick={startCamera}>Tentar Novamente</Button>
                 <Button variant="outline" onClick={triggerFileUpload}>
@@ -226,33 +270,31 @@ const CameraView = () => {
         )}
       </div>
 
-      {/* Alternative option card when camera isn't available */}
-      {cameraError && (
-        <Card className="p-4 mt-6 text-center">
-          <h3 className="text-lg font-medium mb-2">Exemplos de Gráficos</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Você também pode usar um gráfico de exemplo para testar a análise.
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" onClick={() => setCapturedImage('/chart-example-1.jpg')} className="h-auto p-2">
-              <div className="flex flex-col items-center">
-                <span className="text-sm mb-1">Gráfico de Velas</span>
-                <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground">Exemplo 1</span>
-                </div>
+      {/* Sample chart examples */}
+      <Card className="p-4 mt-6 w-full">
+        <h3 className="text-lg font-medium mb-2">Exemplos de Gráficos</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Você pode usar um gráfico de exemplo para testar a análise.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Button variant="outline" onClick={() => setCapturedImage('/chart-example-1.jpg')} className="h-auto p-2">
+            <div className="flex flex-col items-center">
+              <span className="text-sm mb-1">Gráfico de Velas</span>
+              <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
+                <span className="text-xs text-muted-foreground">Exemplo 1</span>
               </div>
-            </Button>
-            <Button variant="outline" onClick={() => setCapturedImage('/chart-example-2.jpg')} className="h-auto p-2">
-              <div className="flex flex-col items-center">
-                <span className="text-sm mb-1">Gráfico de Linha</span>
-                <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground">Exemplo 2</span>
-                </div>
+            </div>
+          </Button>
+          <Button variant="outline" onClick={() => setCapturedImage('/chart-example-2.jpg')} className="h-auto p-2">
+            <div className="flex flex-col items-center">
+              <span className="text-sm mb-1">Gráfico de Linha</span>
+              <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
+                <span className="text-xs text-muted-foreground">Exemplo 2</span>
               </div>
-            </Button>
-          </div>
-        </Card>
-      )}
+            </div>
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 };
