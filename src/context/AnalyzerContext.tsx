@@ -8,10 +8,30 @@ export type PatternResult = {
   recommendation?: string;
 };
 
+export type Point = {
+  x: number;
+  y: number;
+};
+
+export type TechnicalElement = {
+  type: 'line' | 'arrow' | 'rectangle' | 'circle' | 'label';
+  color: string;
+  thickness?: number;
+  dashArray?: number[];
+  label?: string;
+} & (
+  | { type: 'line', points: Point[] }
+  | { type: 'arrow', start: Point, end: Point }
+  | { type: 'rectangle', position: Point, width: number, height: number }
+  | { type: 'circle', center: Point, radius: number }
+  | { type: 'label', position: Point, text: string, backgroundColor?: string }
+);
+
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
   imageUrl?: string;
+  technicalElements?: TechnicalElement[];
 };
 
 type AnalyzerContextType = {
@@ -24,6 +44,8 @@ type AnalyzerContextType = {
   selectedRegion: { x: number; y: number; width: number; height: number } | null;
   setSelectedRegion: (region: { x: number; y: number; width: number; height: number } | null) => void;
   resetAnalysis: () => void;
+  showTechnicalMarkup: boolean;
+  setShowTechnicalMarkup: (show: boolean) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -33,6 +55,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [showTechnicalMarkup, setShowTechnicalMarkup] = useState(true);
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -53,6 +76,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         selectedRegion,
         setSelectedRegion,
         resetAnalysis,
+        showTechnicalMarkup,
+        setShowTechnicalMarkup,
       }}
     >
       {children}

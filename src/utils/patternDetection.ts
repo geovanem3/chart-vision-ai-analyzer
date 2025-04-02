@@ -1,5 +1,5 @@
 
-import { PatternResult } from '../context/AnalyzerContext';
+import { PatternResult, TechnicalElement } from '../context/AnalyzerContext';
 
 /**
  * Detect chart patterns in the processed image
@@ -43,6 +43,24 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       confidence: 0.81,
       description: 'RSI (Relative Strength Index) value approximately 58',
       recommendation: 'Not overbought, still room for upward movement'
+    },
+    {
+      type: 'Elliott Wave',
+      confidence: 0.72,
+      description: 'Possibly in wave 3 of 5-wave Elliott structure',
+      recommendation: 'Potential for continued upward movement before correction'
+    },
+    {
+      type: 'Fibonacci Retracement',
+      confidence: 0.79,
+      description: 'Price testing 0.618 Fibonacci retracement level',
+      recommendation: 'Key support level, watch for bounce or breakdown'
+    },
+    {
+      type: 'Dow Theory',
+      confidence: 0.68,
+      description: 'Primary trend appears bullish with higher highs and lows',
+      recommendation: 'Align positions with the primary trend direction'
     }
   ];
 };
@@ -78,3 +96,144 @@ export const analyzeResults = (patterns: PatternResult[]): string => {
     return 'Mixed signals detected. Market may continue sideways.';
   }
 };
+
+/**
+ * Generate technical markup elements for visualization
+ */
+export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: number, imageHeight: number): TechnicalElement[] => {
+  const elements: TechnicalElement[] = [];
+  
+  // Helper to generate random positions within the image bounds
+  const randomPosition = () => {
+    return {
+      x: Math.floor(imageWidth * 0.1 + Math.random() * imageWidth * 0.8),
+      y: Math.floor(imageHeight * 0.1 + Math.random() * imageHeight * 0.8)
+    };
+  };
+  
+  // Map patterns to visual elements
+  patterns.forEach(pattern => {
+    switch(pattern.type) {
+      case 'Trend':
+        // Add trend line
+        const isBullish = pattern.description.toLowerCase().includes('up');
+        const startPoint = randomPosition();
+        const endPoint = {
+          x: startPoint.x + imageWidth * 0.3,
+          y: isBullish ? startPoint.y - imageHeight * 0.2 : startPoint.y + imageHeight * 0.2
+        };
+        
+        elements.push({
+          type: 'line',
+          points: [startPoint, endPoint],
+          color: isBullish ? '#22c55e' : '#ef4444',
+          thickness: 2,
+          label: isBullish ? 'Uptrend' : 'Downtrend'
+        });
+        break;
+        
+      case 'Support/Resistance':
+        // Add horizontal support/resistance lines
+        const isResistance = pattern.description.toLowerCase().includes('resistance');
+        const yPosition = isResistance ? imageHeight * 0.35 : imageHeight * 0.65;
+        
+        elements.push({
+          type: 'line',
+          points: [
+            { x: imageWidth * 0.1, y: yPosition },
+            { x: imageWidth * 0.9, y: yPosition }
+          ],
+          color: isResistance ? '#ef4444' : '#22c55e',
+          thickness: 2,
+          dashArray: [5, 5],
+          label: isResistance ? 'Resistance' : 'Support'
+        });
+        break;
+        
+      case 'Fibonacci Retracement':
+        // Add Fibonacci lines
+        const fibStart = { x: imageWidth * 0.1, y: imageHeight * 0.3 };
+        const fibEnd = { x: imageWidth * 0.1, y: imageHeight * 0.7 };
+        
+        const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+        fibLevels.forEach(level => {
+          const yPos = fibStart.y + (fibEnd.y - fibStart.y) * level;
+          elements.push({
+            type: 'line',
+            points: [
+              { x: imageWidth * 0.1, y: yPos },
+              { x: imageWidth * 0.9, y: yPos }
+            ],
+            color: '#0ea5e9',
+            thickness: level === 0.618 ? 2 : 1,
+            dashArray: level === 0.5 ? [5, 5] : undefined,
+            label: level === 0.618 ? `Fib ${level}` : undefined
+          });
+        });
+        break;
+        
+      case 'Elliott Wave':
+        // Add Elliott wave numbers
+        const wavePoints = [
+          { x: imageWidth * 0.2, y: imageHeight * 0.6 },
+          { x: imageWidth * 0.3, y: imageHeight * 0.4 },
+          { x: imageWidth * 0.5, y: imageHeight * 0.7 },
+          { x: imageWidth * 0.6, y: imageHeight * 0.5 },
+          { x: imageWidth * 0.8, y: imageHeight * 0.3 }
+        ];
+        
+        // Add wave lines
+        for (let i = 0; i < wavePoints.length - 1; i++) {
+          elements.push({
+            type: 'line',
+            points: [wavePoints[i], wavePoints[i+1]],
+            color: '#0ea5e9',
+            thickness: 2
+          });
+        }
+        
+        // Add wave labels
+        wavePoints.forEach((point, index) => {
+          elements.push({
+            type: 'label',
+            position: point,
+            text: `${index + 1}`,
+            color: '#0ea5e9',
+            backgroundColor: 'rgba(14, 165, 233, 0.2)'
+          });
+        });
+        break;
+        
+      case 'Candlestick Pattern':
+        // Mark candlestick pattern
+        const candlePos = randomPosition();
+        elements.push({
+          type: 'rectangle',
+          position: candlePos,
+          width: imageWidth * 0.15,
+          height: imageHeight * 0.15,
+          color: '#f59e0b',
+          thickness: 2,
+          dashArray: [5, 5],
+          label: 'Bullish Pattern'
+        });
+        break;
+        
+      case 'Dow Theory':
+        // Show primary trend direction
+        const dowStart = { x: imageWidth * 0.2, y: imageHeight * 0.6 };
+        elements.push({
+          type: 'arrow',
+          start: dowStart,
+          end: { x: dowStart.x + imageWidth * 0.6, y: dowStart.y - imageHeight * 0.3 },
+          color: '#22c55e',
+          thickness: 3,
+          label: 'Primary Trend'
+        });
+        break;
+    }
+  });
+  
+  return elements;
+};
+

@@ -1,13 +1,56 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { analyzeResults } from '@/utils/patternDetection';
-import { Info, ArrowUp, ArrowDown, ArrowRight } from 'lucide-react';
+import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetection';
+import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2 } from 'lucide-react';
+import ChartMarkup from './ChartMarkup';
 
 const AnalysisResults = () => {
-  const { analysisResults } = useAnalyzer();
+  const { analysisResults, setAnalysisResults, showTechnicalMarkup, setShowTechnicalMarkup } = useAnalyzer();
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    // Generate technical markup elements when image is loaded
+    if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
+      const width = imageRef.current.naturalWidth;
+      const height = imageRef.current.naturalHeight;
+      
+      setImageSize({ width, height });
+      
+      // Generate technical elements for the image
+      const elements = generateTechnicalMarkup(analysisResults.patterns, width, height);
+      
+      // Update analysis results with technical elements
+      setAnalysisResults({
+        ...analysisResults,
+        technicalElements: elements
+      });
+    }
+  }, [analysisResults, setAnalysisResults]);
+
+  // Handle image load event
+  const handleImageLoad = () => {
+    if (imageRef.current && analysisResults) {
+      const width = imageRef.current.naturalWidth;
+      const height = imageRef.current.naturalHeight;
+      
+      setImageSize({ width, height });
+      
+      // Generate technical elements if they don't exist yet
+      if (!analysisResults.technicalElements) {
+        const elements = generateTechnicalMarkup(analysisResults.patterns, width, height);
+        
+        setAnalysisResults({
+          ...analysisResults,
+          technicalElements: elements
+        });
+      }
+    }
+  };
 
   if (!analysisResults) return null;
 
@@ -49,6 +92,34 @@ const AnalysisResults = () => {
           </span>
         </div>
       </div>
+      
+      {analysisResults.imageUrl && (
+        <div className="relative w-full overflow-hidden rounded-lg mb-6">
+          <img 
+            ref={imageRef}
+            src={analysisResults.imageUrl} 
+            alt="Analyzed Chart" 
+            className="w-full object-contain" 
+            onLoad={handleImageLoad}
+          />
+          
+          <div className="absolute top-4 right-4 bg-background/80 rounded-full p-1 shadow-md flex items-center gap-2">
+            <BarChart2 className="h-4 w-4 text-primary" />
+            <Switch 
+              checked={showTechnicalMarkup} 
+              onCheckedChange={setShowTechnicalMarkup}
+              aria-label="Toggle technical markup"
+            />
+          </div>
+          
+          {imageSize.width > 0 && (
+            <ChartMarkup 
+              imageWidth={imageSize.width} 
+              imageHeight={imageSize.height} 
+            />
+          )}
+        </div>
+      )}
       
       <div className="gradient-border mb-6 p-4">
         <div className="flex items-start gap-3">

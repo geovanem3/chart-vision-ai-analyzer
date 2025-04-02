@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { processImage, cropToRegion } from '@/utils/imageProcessing';
-import { detectPatterns, analyzeResults } from '@/utils/patternDetection';
+import { detectPatterns, generateTechnicalMarkup } from '@/utils/patternDetection';
 import { Loader2, BarChart2, RefreshCw } from 'lucide-react';
 
 const ControlPanel = () => {
@@ -37,7 +37,8 @@ const ControlPanel = () => {
       const processedImage = await processImage(croppedImage);
       const patterns = await detectPatterns(processedImage);
       
-      // Set results
+      // Set results without technical elements initially
+      // Technical elements will be added after the image loads in AnalysisResults
       setAnalysisResults({
         patterns,
         timestamp: Date.now(),
@@ -78,26 +79,34 @@ const ControlPanel = () => {
           <ul className="text-sm space-y-1">
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-up mr-2"></span>
-              <span>Bullish Pattern Detection</span>
+              <span>Trend Detection</span>
             </li>
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-down mr-2"></span>
-              <span>Bearish Pattern Detection</span>
-            </li>
-            <li className="flex items-center">
-              <span className="w-3 h-3 rounded-full bg-chart-neutral mr-2"></span>
               <span>Support/Resistance Levels</span>
             </li>
             <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-chart-neutral mr-2"></span>
+              <span>Candlestick Patterns</span>
+            </li>
+            <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-line mr-2"></span>
-              <span>Trend Analysis</span>
+              <span>Elliott Wave Analysis</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-primary mr-2"></span>
+              <span>Fibonacci Retracement</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-secondary mr-2"></span>
+              <span>Dow Theory Principles</span>
             </li>
           </ul>
         </div>
         
         <div className="flex flex-col justify-end space-y-4">
           <p className="text-sm text-muted-foreground">
-            The analyzer will process the selected region and detect common trading patterns.
+            The analyzer will process the selected region and detect technical analysis patterns and indicators.
           </p>
           
           <Button 
