@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,16 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+        // Chart Vision AI Analyzer custom colors
+        chart: {
+          up: '#22c55e', // Green for bullish
+          down: '#ef4444', // Red for bearish
+          neutral: '#94a3b8', // Slate for neutral
+          line: '#0ea5e9', // Sky blue for chart lines
+          grid: '#1e293b', // Dark slate for grid lines
+          overlay: 'rgba(15, 23, 42, 0.7)', // Dark background with opacity
+        }
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +94,20 @@ export default {
 					to: {
 						height: '0'
 					}
-				}
+				},
+        'pulse-opacity': {
+          '0%, 100%': {
+            opacity: '1'
+          },
+          '50%': {
+            opacity: '0.5'
+          }
+        }
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-opacity': 'pulse-opacity 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
 			}
 		}
 	},
