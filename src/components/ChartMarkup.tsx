@@ -92,6 +92,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
         labelPosition = { x: 10, y: 10 };
       }
       
+      // Fix: Pass element.color directly instead of ctx.strokeStyle
       drawText(ctx, labelPosition, element.label, element.color);
     }
     
@@ -169,7 +170,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       ctx.restore();
     }
     
-    drawText(ctx, position, text, ctx.strokeStyle);
+    // Fix: Use a string color instead of ctx.strokeStyle
+    drawText(ctx, position, text, typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000');
   };
 
   const drawText = (ctx: CanvasRenderingContext2D, position: Point, text: string, color: string) => {
