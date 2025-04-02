@@ -2,11 +2,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, X, FlipHorizontal } from 'lucide-react';
+import { Camera, X, FlipHorizontal, Upload, Image } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 
 const CameraView = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -38,7 +40,20 @@ const CameraView = () => {
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      setCameraError('Failed to access camera. Please check permissions and try again.');
+      let errorMessage = 'Failed to access camera. Please check permissions and try again.';
+      
+      // More specific error messages based on error type
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Câmera bloqueada. Por favor, permita o acesso à câmera nas configurações do seu navegador.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'Nenhuma câmera foi encontrada no seu dispositivo.';
+        } else if (error.name === 'NotReadableError') {
+          errorMessage = 'Não foi possível acessar a câmera. Ela pode estar sendo usada por outro aplicativo.';
+        }
+      }
+      
+      setCameraError(errorMessage);
     }
   };
 
@@ -85,6 +100,37 @@ const CameraView = () => {
     }
   };
 
+  // Handle file upload
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      setCameraError('Por favor, selecione um arquivo de imagem válido.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      if (imageUrl) {
+        setCapturedImage(imageUrl);
+      }
+    };
+    reader.onerror = () => {
+      setCameraError('Erro ao ler o arquivo. Por favor, tente novamente.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Trigger file input click
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   // Start camera when facing mode changes
   useEffect(() => {
     if (!isCameraActive) {
@@ -104,7 +150,13 @@ const CameraView = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-4">
             <div className="text-center">
               <p className="text-destructive mb-4">{cameraError}</p>
-              <Button onClick={startCamera}>Retry</Button>
+              <div className="flex gap-4 justify-center">
+                <Button onClick={startCamera}>Tentar Novamente</Button>
+                <Button variant="outline" onClick={triggerFileUpload}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Carregar Imagem
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -152,12 +204,55 @@ const CameraView = () => {
             </Button>
           </>
         ) : (
-          <Button onClick={startCamera} className="gap-2">
-            <Camera className="w-4 h-4" />
-            <span>Start Camera</span>
-          </Button>
+          <div className="flex gap-4">
+            <Button onClick={startCamera} className="gap-2">
+              <Camera className="w-4 h-4" />
+              <span>Iniciar Câmera</span>
+            </Button>
+            
+            <Button variant="outline" onClick={triggerFileUpload} className="gap-2">
+              <Image className="w-4 h-4" />
+              <span>Carregar Imagem</span>
+            </Button>
+            
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              accept="image/*" 
+              className="hidden"
+            />
+          </div>
         )}
       </div>
+
+      {/* Alternative option card when camera isn't available */}
+      {cameraError && (
+        <Card className="p-4 mt-6 text-center">
+          <h3 className="text-lg font-medium mb-2">Exemplos de Gráficos</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Você também pode usar um gráfico de exemplo para testar a análise.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <Button variant="outline" onClick={() => setCapturedImage('/chart-example-1.jpg')} className="h-auto p-2">
+              <div className="flex flex-col items-center">
+                <span className="text-sm mb-1">Gráfico de Velas</span>
+                <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground">Exemplo 1</span>
+                </div>
+              </div>
+            </Button>
+            <Button variant="outline" onClick={() => setCapturedImage('/chart-example-2.jpg')} className="h-auto p-2">
+              <div className="flex flex-col items-center">
+                <span className="text-sm mb-1">Gráfico de Linha</span>
+                <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground">Exemplo 2</span>
+                </div>
+              </div>
+            </Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
