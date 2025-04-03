@@ -15,7 +15,8 @@ const ControlPanel = () => {
     setIsAnalyzing, 
     isAnalyzing, 
     setAnalysisResults,
-    resetAnalysis
+    resetAnalysis,
+    regionType
   } = useAnalyzer();
   const { toast } = useToast();
 
@@ -35,7 +36,7 @@ const ControlPanel = () => {
       // Processo de análise aprimorado
       toast({
         title: "Processando",
-        description: "Recortando região selecionada..."
+        description: `Recortando região ${selectedRegion.type === 'circle' ? 'circular' : 'retangular'} selecionada...`
       });
       
       // Recortar a região selecionada
@@ -57,11 +58,21 @@ const ControlPanel = () => {
       // Detectar padrões na imagem processada
       const patterns = await detectPatterns(processedImage);
       
+      // Obter dimensões para mapeamento técnico
+      let technicalWidth, technicalHeight;
+      if (selectedRegion.type === 'rectangle') {
+        technicalWidth = selectedRegion.width;
+        technicalHeight = selectedRegion.height;
+      } else {
+        technicalWidth = selectedRegion.radius * 2;
+        technicalHeight = selectedRegion.radius * 2;
+      }
+      
       // Obter elementos técnicos com base nos padrões detectados
-      const technicalElements = generateTechnicalMarkup(patterns, selectedRegion.width, selectedRegion.height);
+      const technicalElements = generateTechnicalMarkup(patterns, technicalWidth, technicalHeight);
       
       // Detectar candles na imagem
-      const candles = await detectCandles(processedImage, selectedRegion.width, selectedRegion.height);
+      const candles = await detectCandles(processedImage, technicalWidth, technicalHeight);
       
       // Definir resultados completos
       setAnalysisResults({
@@ -75,7 +86,7 @@ const ControlPanel = () => {
       
       toast({
         title: "Análise completa",
-        description: "Padrões do gráfico foram detectados com sucesso."
+        description: `Padrões do gráfico foram detectados com sucesso na região ${selectedRegion.type === 'circle' ? 'circular' : 'retangular'}.`
       });
     } catch (error) {
       console.error('Erro na análise:', error);
@@ -134,7 +145,7 @@ const ControlPanel = () => {
         
         <div className="flex flex-col justify-end space-y-4">
           <p className="text-sm text-muted-foreground">
-            O analisador processará a região selecionada e detectará padrões e indicadores de análise técnica.
+            O analisador processará a região {selectedRegion?.type === 'circle' ? 'circular' : 'retangular'} selecionada e detectará padrões e indicadores de análise técnica exatamente na área selecionada.
           </p>
           
           <Button 

@@ -49,6 +49,25 @@ export type AnalysisResult = {
   manualRegion?: boolean;
 };
 
+export type RegionType = 'rectangle' | 'circle';
+
+export type RectangleRegion = {
+  type: 'rectangle';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type CircleRegion = {
+  type: 'circle';
+  centerX: number;
+  centerY: number;
+  radius: number;
+};
+
+export type SelectedRegion = RectangleRegion | CircleRegion;
+
 type AnalyzerContextType = {
   capturedImage: string | null;
   setCapturedImage: (image: string | null) => void;
@@ -56,11 +75,13 @@ type AnalyzerContextType = {
   setIsAnalyzing: (analyzing: boolean) => void;
   analysisResults: AnalysisResult | null;
   setAnalysisResults: (results: AnalysisResult | null) => void;
-  selectedRegion: { x: number; y: number; width: number; height: number } | null;
-  setSelectedRegion: (region: { x: number; y: number; width: number; height: number } | null) => void;
+  selectedRegion: SelectedRegion | null;
+  setSelectedRegion: (region: SelectedRegion | null) => void;
   resetAnalysis: () => void;
   showTechnicalMarkup: boolean;
   setShowTechnicalMarkup: (show: boolean) => void;
+  regionType: RegionType;
+  setRegionType: (type: RegionType) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -69,8 +90,9 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
   const [showTechnicalMarkup, setShowTechnicalMarkup] = useState(true);
+  const [regionType, setRegionType] = useState<RegionType>('circle');
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -93,6 +115,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         resetAnalysis,
         showTechnicalMarkup,
         setShowTechnicalMarkup,
+        regionType,
+        setRegionType,
       }}
     >
       {children}

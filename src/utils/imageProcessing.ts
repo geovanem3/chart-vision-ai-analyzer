@@ -1,7 +1,8 @@
-
 /**
  * Image processing utilities for chart analysis
  */
+
+import { SelectedRegion } from '@/context/AnalyzerContext';
 
 // Process the captured image to enhance chart features
 export const processImage = async (imageUrl: string): Promise<string> => {
@@ -141,7 +142,7 @@ export const detectChartRegion = async (imageUrl: string): Promise<{ x: number; 
 // Crop image to the selected region
 export const cropToRegion = async (
   imageUrl: string, 
-  region: { x: number; y: number; width: number; height: number }
+  region: SelectedRegion
 ): Promise<string> => {
   console.log('Recortando para região:', region);
   
@@ -149,22 +150,44 @@ export const cropToRegion = async (
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = region.width;
-      canvas.height = region.height;
       
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(
-          img, 
-          region.x, region.y, region.width, region.height, 
-          0, 0, region.width, region.height
-        );
+      if (region.type === 'rectangle') {
+        canvas.width = region.width;
+        canvas.height = region.height;
         
-        resolve(canvas.toDataURL('image/jpeg', 1.0));
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(
+            img, 
+            region.x, region.y, region.width, region.height, 
+            0, 0, region.width, region.height
+          );
+        }
       } else {
-        // Fallback if context isn't available
-        resolve(imageUrl);
+        // Para regiões circulares, o canvas deve acomodar o círculo
+        const diameter = region.radius * 2;
+        canvas.width = diameter;
+        canvas.height = diameter;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Criar uma máscara circular
+          ctx.beginPath();
+          ctx.arc(region.radius, region.radius, region.radius, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+          
+          // Desenhar apenas a parte da imagem dentro do círculo
+          ctx.drawImage(
+            img,
+            region.centerX - region.radius, region.centerY - region.radius,
+            diameter, diameter,
+            0, 0, diameter, diameter
+          );
+        }
       }
+      
+      resolve(canvas.toDataURL('image/jpeg', 1.0));
     };
     img.src = imageUrl;
   });
