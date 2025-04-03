@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { processImage, cropToRegion } from '@/utils/imageProcessing';
-import { detectPatterns, generateTechnicalMarkup } from '@/utils/patternDetection';
+import { detectPatterns, generateTechnicalMarkup, detectCandles } from '@/utils/patternDetection';
 import { Loader2, BarChart2, RefreshCw } from 'lucide-react';
 
 const ControlPanel = () => {
@@ -22,8 +22,8 @@ const ControlPanel = () => {
   const handleAnalyze = async () => {
     if (!capturedImage || !selectedRegion) {
       toast({
-        title: "Missing information",
-        description: "Please capture an image and select a region first.",
+        title: "Informação faltando",
+        description: "Por favor, capture uma imagem e selecione uma região primeiro.",
         variant: "destructive"
       });
       return;
@@ -32,28 +32,56 @@ const ControlPanel = () => {
     try {
       setIsAnalyzing(true);
       
-      // Process steps
+      // Processo de análise aprimorado
+      toast({
+        title: "Processando",
+        description: "Recortando região selecionada..."
+      });
+      
+      // Recortar a região selecionada
       const croppedImage = await cropToRegion(capturedImage, selectedRegion);
+      
+      toast({
+        title: "Processando",
+        description: "Melhorando qualidade da imagem..."
+      });
+      
+      // Processar a imagem para melhorar detecção
       const processedImage = await processImage(croppedImage);
+      
+      toast({
+        title: "Processando",
+        description: "Detectando padrões gráficos..."
+      });
+      
+      // Detectar padrões na imagem processada
       const patterns = await detectPatterns(processedImage);
       
-      // Set results without technical elements initially
-      // Technical elements will be added after the image loads in AnalysisResults
+      // Obter elementos técnicos com base nos padrões detectados
+      const technicalElements = generateTechnicalMarkup(patterns, selectedRegion.width, selectedRegion.height);
+      
+      // Detectar candles na imagem
+      const candles = await detectCandles(processedImage, selectedRegion.width, selectedRegion.height);
+      
+      // Definir resultados completos
       setAnalysisResults({
         patterns,
         timestamp: Date.now(),
-        imageUrl: croppedImage
+        imageUrl: croppedImage,
+        technicalElements,
+        candles,
+        manualRegion: true // Indicar que a região foi selecionada manualmente
       });
       
       toast({
-        title: "Analysis complete",
-        description: "Chart patterns have been successfully detected."
+        title: "Análise completa",
+        description: "Padrões do gráfico foram detectados com sucesso."
       });
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('Erro na análise:', error);
       toast({
-        title: "Analysis failed",
-        description: "An error occurred while analyzing the chart. Please try again.",
+        title: "Falha na análise",
+        description: "Ocorreu um erro ao analisar o gráfico. Por favor, tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -66,47 +94,47 @@ const ControlPanel = () => {
   return (
     <Card className="p-4 my-4 w-full max-w-3xl">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium">Chart Analysis Controls</h3>
+        <h3 className="text-lg font-medium">Controles de Análise do Gráfico</h3>
         <Button variant="ghost" size="sm" onClick={resetAnalysis}>
           <RefreshCw className="w-4 h-4 mr-2" />
-          New Analysis
+          Nova Análise
         </Button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <h4 className="text-sm text-muted-foreground">Analysis Settings</h4>
+          <h4 className="text-sm text-muted-foreground">Configurações de Análise</h4>
           <ul className="text-sm space-y-1">
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-up mr-2"></span>
-              <span>Trend Detection</span>
+              <span>Detecção de Tendência</span>
             </li>
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-down mr-2"></span>
-              <span>Support/Resistance Levels</span>
+              <span>Níveis de Suporte/Resistência</span>
             </li>
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-neutral mr-2"></span>
-              <span>Candlestick Patterns</span>
+              <span>Padrões de Candles</span>
             </li>
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-chart-line mr-2"></span>
-              <span>Elliott Wave Analysis</span>
+              <span>Formações Gráficas OCO</span>
             </li>
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-primary mr-2"></span>
-              <span>Fibonacci Retracement</span>
+              <span>Triângulos e Cunhas</span>
             </li>
             <li className="flex items-center">
               <span className="w-3 h-3 rounded-full bg-secondary mr-2"></span>
-              <span>Dow Theory Principles</span>
+              <span>Topos e Fundos Duplos</span>
             </li>
           </ul>
         </div>
         
         <div className="flex flex-col justify-end space-y-4">
           <p className="text-sm text-muted-foreground">
-            The analyzer will process the selected region and detect technical analysis patterns and indicators.
+            O analisador processará a região selecionada e detectará padrões e indicadores de análise técnica.
           </p>
           
           <Button 
@@ -117,12 +145,12 @@ const ControlPanel = () => {
             {isAnalyzing ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
+                Analisando...
               </>
             ) : (
               <>
                 <BarChart2 className="w-4 h-4 mr-2" />
-                Analyze Chart
+                Analisar Gráfico
               </>
             )}
           </Button>
