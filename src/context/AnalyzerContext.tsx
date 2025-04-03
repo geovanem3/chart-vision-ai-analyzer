@@ -26,7 +26,7 @@ export type TechnicalElement = {
   | { type: 'rectangle', position: Point, width: number, height: number }
   | { type: 'circle', center: Point, radius: number }
   | { type: 'label', position: Point, text: string, backgroundColor?: string }
-  | { type: 'pattern', patternType: 'OCO' | 'triangulo' | 'cunha' | 'bandeira' | 'topoduplo' | 'fundoduplo', points: Point[] }
+  | { type: 'pattern', patternType: 'OCO' | 'triangulo' | 'cunha' | 'bandeira' | 'topoduplo' | 'fundoduplo' | 'eliotwave' | 'dowtheory' | 'trendline', points: Point[] }
 );
 
 export type CandleData = {

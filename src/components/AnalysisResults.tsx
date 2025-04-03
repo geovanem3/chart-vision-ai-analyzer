@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -24,17 +23,14 @@ const AnalysisResults = () => {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // Generate technical markup elements when image is loaded
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
       const width = imageRef.current.naturalWidth;
       const height = imageRef.current.naturalHeight;
       
       setImageSize({ width, height });
       
-      // Generate technical elements for the image
       const elements = generateTechnicalMarkup(analysisResults.patterns, width, height);
       
-      // Update analysis results with technical elements
       setAnalysisResults({
         ...analysisResults,
         technicalElements: elements
@@ -42,7 +38,6 @@ const AnalysisResults = () => {
     }
   }, [analysisResults, setAnalysisResults]);
 
-  // Handle image load event
   const handleImageLoad = () => {
     if (imageRef.current && analysisResults) {
       const width = imageRef.current.naturalWidth;
@@ -50,7 +45,6 @@ const AnalysisResults = () => {
       
       setImageSize({ width, height });
       
-      // Generate technical elements if they don't exist yet
       if (!analysisResults.technicalElements) {
         const elements = generateTechnicalMarkup(analysisResults.patterns, width, height);
         
@@ -72,7 +66,42 @@ const AnalysisResults = () => {
   const overallRecommendation = analyzeResults(patterns);
   const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
-  // Determine sentiment icon based on recommendation text
+  const groupPatternsByCategory = (patterns = []) => {
+    const categories = {
+      'Tendência': [],
+      'Formação de Preço': [],
+      'Suporte/Resistência': [],
+      'Teoria de Dow': [],
+      'Ondas de Elliott': [],
+      'Linha de Tendência': [],
+      'Outros': []
+    };
+    
+    patterns.forEach(pattern => {
+      if (pattern.type.includes('Tendência')) {
+        categories['Tendência'].push(pattern);
+      } else if (['Triângulo', 'OCO', 'Cunha', 'Bandeira', 'Topo/Fundo Duplo'].includes(pattern.type)) {
+        categories['Formação de Preço'].push(pattern);
+      } else if (pattern.type.includes('Suporte/Resistência')) {
+        categories['Suporte/Resistência'].push(pattern);
+      } else if (pattern.type.includes('Dow')) {
+        categories['Teoria de Dow'].push(pattern);
+      } else if (pattern.type.includes('Elliott')) {
+        categories['Ondas de Elliott'].push(pattern);
+      } else if (pattern.type.includes('Tendência')) {
+        categories['Linha de Tendência'].push(pattern);
+      } else {
+        categories['Outros'].push(pattern);
+      }
+    });
+    
+    return Object.entries(categories)
+      .filter(([_, patterns]) => patterns.length > 0)
+      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
+  };
+
+  const groupedPatterns = groupPatternsByCategory(patterns);
+
   const getSentimentIcon = () => {
     const recommendation = overallRecommendation.toLowerCase();
     
@@ -85,14 +114,12 @@ const AnalysisResults = () => {
     }
   };
 
-  // Color for confidence level
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'bg-chart-up';
     if (confidence >= 0.6) return 'bg-chart-line';
     return 'bg-chart-neutral';
   };
   
-  // Action badge color and text
   const getActionBadge = (action?: 'compra' | 'venda' | 'neutro') => {
     switch(action) {
       case 'compra':
@@ -187,32 +214,39 @@ const AnalysisResults = () => {
       </div>
       
       <div className="space-y-6">
-        <h3 className="font-medium">Padrões Detectados</h3>
+        <h3 className="font-medium mb-4">Padrões Detectados</h3>
         
-        {patterns.map((pattern, index) => (
-          <div key={index} className="bg-secondary/50 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center">
-                <h4 className="font-medium">{pattern.type}</h4>
-                {pattern.action && getActionBadge(pattern.action)}
-              </div>
-              <div className="text-sm">
-                Confiança: {Math.round(pattern.confidence * 100)}%
-              </div>
+        {Object.entries(groupedPatterns).map(([category, patterns]) => (
+          <div key={category} className="mb-6">
+            <h4 className="text-sm font-medium mb-3 text-muted-foreground uppercase tracking-wide">{category}</h4>
+            <div className="space-y-4">
+              {patterns.map((pattern: PatternResult, index: number) => (
+                <div key={index} className="bg-secondary/50 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center">
+                      <h4 className="font-medium">{pattern.type}</h4>
+                      {pattern.action && getActionBadge(pattern.action)}
+                    </div>
+                    <div className="text-sm">
+                      Confiança: {Math.round(pattern.confidence * 100)}%
+                    </div>
+                  </div>
+                  
+                  <Progress 
+                    value={pattern.confidence * 100} 
+                    className={`h-1.5 mb-3 ${getConfidenceColor(pattern.confidence)}`} 
+                  />
+                  
+                  <p className="text-sm mb-2">{pattern.description}</p>
+                  
+                  {pattern.recommendation && (
+                    <div className="text-sm text-primary">
+                      <span className="font-medium">Recomendação:</span> {pattern.recommendation}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            
-            <Progress 
-              value={pattern.confidence * 100} 
-              className={`h-1.5 mb-3 ${getConfidenceColor(pattern.confidence)}`} 
-            />
-            
-            <p className="text-sm mb-2">{pattern.description}</p>
-            
-            {pattern.recommendation && (
-              <div className="text-sm text-primary">
-                <span className="font-medium">Recomendação:</span> {pattern.recommendation}
-              </div>
-            )}
           </div>
         ))}
       </div>

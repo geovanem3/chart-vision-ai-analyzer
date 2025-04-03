@@ -77,6 +77,11 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       
       // Candlestick patterns
       detectCandlestickPatterns(chartElements.candles, patterns);
+      
+      // Novos padrões de análise técnica
+      detectDowTheory(chartElements.candles, patterns);
+      detectElliottWaves(chartElements.candles, patterns);
+      detectTrendLines(chartElements.candles, patterns);
     }
     
     // Se não detectou padrões suficientes, adicionar alguns baseados na distribuição estatística
@@ -401,6 +406,188 @@ const detectCandlestickPatterns = (
 };
 
 /**
+ * Detect Dow Theory patterns in the processed image
+ */
+const detectDowTheory = (
+  candles: { x: number, y: number, width: number, height: number, color: 'verde' | 'vermelho' }[],
+  patterns: PatternResult[]
+) => {
+  if (candles.length < 10) return; // Need enough candles for Dow Theory
+  
+  // Ordenar candles por posição x
+  const sortedCandles = [...candles].sort((a, b) => a.x - b.x);
+  
+  // Detectar tendências primárias, secundárias e terciárias conforme Teoria de Dow
+  
+  // 1. Verificar tendência primária (longo prazo)
+  let primaryTrend = 'neutro';
+  const firstThird = sortedCandles.slice(0, Math.floor(sortedCandles.length / 3));
+  const lastThird = sortedCandles.slice(Math.floor(sortedCandles.length * 2 / 3));
+  
+  const firstAvgY = firstThird.reduce((sum, c) => sum + c.y, 0) / firstThird.length;
+  const lastAvgY = lastThird.reduce((sum, c) => sum + c.y, 0) / lastThird.length;
+  
+  // Em coordenadas de tela, y menor = mais alto no gráfico
+  if (lastAvgY < firstAvgY - 20) {
+    primaryTrend = 'compra'; // Tendência de alta
+  } else if (lastAvgY > firstAvgY + 20) {
+    primaryTrend = 'venda'; // Tendência de baixa
+  }
+  
+  // 2. Verificar confirmação de volume (simplificado)
+  const greenVolume = sortedCandles.filter(c => c.color === 'verde').length;
+  const redVolume = sortedCandles.filter(c => c.color === 'vermelho').length;
+  
+  // 3. Identificar padrões conforme Dow Theory
+  if (primaryTrend !== 'neutro') {
+    patterns.push({
+      type: 'Teoria de Dow',
+      confidence: 0.75,
+      description: primaryTrend === 'compra' 
+        ? 'Tendência primária de alta detectada segundo Dow' 
+        : 'Tendência primária de baixa detectada segundo Dow',
+      recommendation: primaryTrend === 'compra'
+        ? 'Considere operações de compra seguindo a tendência principal'
+        : 'Considere operações de venda seguindo a tendência principal',
+      action: primaryTrend as 'compra' | 'venda' | 'neutro'
+    });
+  } else {
+    patterns.push({
+      type: 'Teoria de Dow',
+      confidence: 0.60,
+      description: 'Possível fase de acumulação/distribuição (Dow)',
+      recommendation: 'Aguarde confirmação de direção da tendência primária',
+      action: 'neutro'
+    });
+  }
+};
+
+/**
+ * Detect Elliott Wave patterns in the processed image
+ */
+const detectElliottWaves = (
+  candles: { x: number, y: number, width: number, height: number, color: 'verde' | 'vermelho' }[],
+  patterns: PatternResult[]
+) => {
+  if (candles.length < 8) return; // Need enough candles for Elliott
+  
+  // Ordenar candles por posição x
+  const sortedCandles = [...candles].sort((a, b) => a.x - b.x);
+  
+  // Encontrar pontos de pivô (extremos locais)
+  const pivots: {index: number, y: number, type: 'high' | 'low'}[] = [];
+  
+  for (let i = 1; i < sortedCandles.length - 1; i++) {
+    const prev = sortedCandles[i-1].y;
+    const current = sortedCandles[i].y;
+    const next = sortedCandles[i+1].y;
+    
+    if (current < prev && current < next) {
+      // Ponto mais alto (menor y)
+      pivots.push({index: i, y: current, type: 'high'});
+    } else if (current > prev && current > next) {
+      // Ponto mais baixo (maior y)
+      pivots.push({index: i, y: current, type: 'low'});
+    }
+  }
+  
+  // Precisamos de pelo menos 5 pivôs para formar uma onda de Elliott (5 ondas + 3 correções)
+  if (pivots.length >= 5) {
+    // Verificar padrão de 5 ondas (simplificado)
+    let isElliottPattern = false;
+    
+    // Ordenar pivôs por índice
+    pivots.sort((a, b) => a.index - b.index);
+    
+    // Verificar se temos uma sequência de alternância high-low ou low-high
+    let alternating = true;
+    for (let i = 1; i < pivots.length; i++) {
+      if (pivots[i].type === pivots[i-1].type) {
+        alternating = false;
+        break;
+      }
+    }
+    
+    if (alternating && pivots.length >= 5) {
+      // Temos uma alternância de máximos e mínimos
+      // As ondas 1, 3, 5 são na direção da tendência, as ondas 2, 4 são correções
+      
+      // Determinar se é um padrão de alta ou baixa
+      let isUptrend = false;
+      if (pivots[0].type === 'low') {
+        isUptrend = true; // Começa com um mínimo, então é um padrão de alta
+      }
+      
+      patterns.push({
+        type: 'Ondas de Elliott',
+        confidence: 0.70,
+        description: isUptrend 
+          ? 'Possível estrutura de 5 ondas de Elliott em alta' 
+          : 'Possível estrutura de 5 ondas de Elliott em baixa',
+        recommendation: isUptrend
+          ? 'Observe possível correção ABC após as 5 ondas de impulso'
+          : 'Observe possível correção ABC após as 5 ondas de impulso',
+        action: isUptrend ? 'compra' : 'venda'
+      });
+    }
+  }
+};
+
+/**
+ * Detect trend lines in the processed image
+ */
+const detectTrendLines = (
+  candles: { x: number, y: number, width: number, height: number, color: 'verde' | 'vermelho' }[],
+  patterns: PatternResult[]
+) => {
+  if (candles.length < 5) return;
+  
+  // Ordenar candles por posição x
+  const sortedCandles = [...candles].sort((a, b) => a.x - b.x);
+  
+  // Encontrar pontos de máximo e mínimo
+  const highs: {x: number, y: number}[] = [];
+  const lows: {x: number, y: number}[] = [];
+  
+  for (let i = 1; i < sortedCandles.length - 1; i++) {
+    const prev = sortedCandles[i-1].y;
+    const current = sortedCandles[i].y;
+    const next = sortedCandles[i+1].y;
+    
+    if (current < prev && current < next) {
+      // Máximo (menor y)
+      highs.push({x: sortedCandles[i].x, y: current});
+    } else if (current > prev && current > next) {
+      // Mínimo (maior y)
+      lows.push({x: sortedCandles[i].x, y: current});
+    }
+  }
+  
+  // Precisamos de pelo menos 2 pontos para formar uma linha de tendência
+  if (highs.length >= 2) {
+    // Linha de tendência de resistência (conectando máximos)
+    patterns.push({
+      type: 'Linha de Tendência',
+      confidence: 0.78,
+      description: 'Linha de resistência detectada conectando dois ou mais topos',
+      recommendation: 'Observe o comportamento do preço ao se aproximar desta resistência',
+      action: 'neutro'
+    });
+  }
+  
+  if (lows.length >= 2) {
+    // Linha de tendência de suporte (conectando mínimos)
+    patterns.push({
+      type: 'Linha de Tendência',
+      confidence: 0.78,
+      description: 'Linha de suporte detectada conectando dois ou mais fundos',
+      recommendation: 'Observe o comportamento do preço ao se aproximar deste suporte',
+      action: 'neutro'
+    });
+  }
+};
+
+/**
  * Analyze the results to provide a summary recommendation
  */
 export const analyzeResults = (patterns: PatternResult[]): string => {
@@ -661,6 +848,142 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: n
           dashArray: [5 * scaleFactor, 5 * scaleFactor],
           label: pattern.action === 'compra' ? 'Padrão de Alta' : 'Padrão de Baixa'
         });
+        break;
+        
+      case 'Teoria de Dow':
+        // Draw Dow Theory markup
+        const isDowBullish = pattern.action === 'compra';
+        const dowWidth = imageWidth * 0.7;
+        const dowHeight = imageHeight * 0.15;
+        
+        // Draw primary trend
+        elements.push({
+          type: 'line',
+          points: [
+            { x: imageWidth * 0.15, y: isDowBullish ? imageHeight * 0.7 : imageHeight * 0.3 },
+            { x: imageWidth * 0.85, y: isDowBullish ? imageHeight * 0.3 : imageHeight * 0.7 }
+          ],
+          color: isDowBullish ? '#22c55e' : '#ef4444',
+          thickness: 3 * scaleFactor,
+          label: 'Tendência Primária'
+        });
+        
+        // Draw secondary trend (counter-movement)
+        for (let i = 0; i < 3; i++) {
+          const startX = imageWidth * 0.2 + (i * dowWidth * 0.3);
+          const endX = startX + dowWidth * 0.2;
+          const startY = isDowBullish ? 
+            imageHeight * 0.65 - (i * dowHeight) : 
+            imageHeight * 0.35 + (i * dowHeight);
+          const endY = isDowBullish ? 
+            startY + dowHeight * 0.5 : 
+            startY - dowHeight * 0.5;
+          
+          elements.push({
+            type: 'line',
+            points: [
+              { x: startX, y: startY },
+              { x: endX, y: endY }
+            ],
+            color: isDowBullish ? '#ef4444' : '#22c55e',
+            thickness: 1.5 * scaleFactor,
+            dashArray: [5 * scaleFactor, 5 * scaleFactor]
+          });
+        }
+        
+        // Add Dow Theory label
+        elements.push({
+          type: 'label',
+          position: { x: imageWidth * 0.5, y: imageHeight * 0.1 },
+          text: 'Teoria de Dow',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          color: '#ffffff'
+        });
+        break;
+        
+      case 'Ondas de Elliott':
+        // Draw Elliott Wave pattern
+        const isElliottBullish = pattern.action === 'compra';
+        const waveStartX = imageWidth * 0.15;
+        const waveWidth = imageWidth * 0.7;
+        const waveHeight = imageHeight * 0.25;
+        const waveY = isElliottBullish ? imageHeight * 0.7 : imageHeight * 0.3;
+        
+        const elliotPoints: Point[] = [];
+        
+        if (isElliottBullish) {
+          // Ondas 1, 3, 5 (impulso para cima)
+          // Ondas 2, 4 (correção para baixo)
+          elliotPoints.push({ x: waveStartX, y: waveY });                                  // Início
+          elliotPoints.push({ x: waveStartX + waveWidth*0.2, y: waveY - waveHeight*0.5 }); // Onda 1
+          elliotPoints.push({ x: waveStartX + waveWidth*0.3, y: waveY - waveHeight*0.3 }); // Onda 2
+          elliotPoints.push({ x: waveStartX + waveWidth*0.5, y: waveY - waveHeight*0.8 }); // Onda 3
+          elliotPoints.push({ x: waveStartX + waveWidth*0.6, y: waveY - waveHeight*0.6 }); // Onda 4
+          elliotPoints.push({ x: waveStartX + waveWidth*0.8, y: waveY - waveHeight*0.7 }); // Onda 5
+        } else {
+          // Ondas 1, 3, 5 (impulso para baixo)
+          // Ondas 2, 4 (correção para cima)
+          elliotPoints.push({ x: waveStartX, y: waveY });                                  // Início
+          elliotPoints.push({ x: waveStartX + waveWidth*0.2, y: waveY + waveHeight*0.5 }); // Onda 1
+          elliotPoints.push({ x: waveStartX + waveWidth*0.3, y: waveY + waveHeight*0.3 }); // Onda 2
+          elliotPoints.push({ x: waveStartX + waveWidth*0.5, y: waveY + waveHeight*0.8 }); // Onda 3
+          elliotPoints.push({ x: waveStartX + waveWidth*0.6, y: waveY + waveHeight*0.6 }); // Onda 4
+          elliotPoints.push({ x: waveStartX + waveWidth*0.8, y: waveY + waveHeight*0.7 }); // Onda 5
+        }
+        
+        elements.push({
+          type: 'pattern',
+          patternType: 'eliotwave',
+          points: elliotPoints,
+          color: isElliottBullish ? '#22c55e' : '#ef4444',
+          thickness: 2 * scaleFactor,
+          label: 'Ondas de Elliott'
+        });
+        
+        // Adicionar rótulos para cada onda
+        for (let i = 1; i <= 5; i++) {
+          elements.push({
+            type: 'label',
+            position: { 
+              x: elliotPoints[i].x, 
+              y: elliotPoints[i].y - 15 * scaleFactor 
+            },
+            text: `${i}`,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            color: '#ffffff'
+          });
+        }
+        break;
+        
+      case 'Linha de Tendência':
+        // Draw trend lines
+        if (pattern.description.includes('resistência')) {
+          // Linha de resistência (conectando topos)
+          elements.push({
+            type: 'pattern',
+            patternType: 'trendline',
+            points: [
+              { x: imageWidth * 0.1, y: imageHeight * 0.3 },
+              { x: imageWidth * 0.9, y: imageHeight * 0.4 }
+            ],
+            color: '#ef4444',
+            thickness: 2 * scaleFactor,
+            label: 'Resistência'
+          });
+        } else if (pattern.description.includes('suporte')) {
+          // Linha de suporte (conectando fundos)
+          elements.push({
+            type: 'pattern',
+            patternType: 'trendline',
+            points: [
+              { x: imageWidth * 0.1, y: imageHeight * 0.7 },
+              { x: imageWidth * 0.9, y: imageHeight * 0.6 }
+            ],
+            color: '#22c55e',
+            thickness: 2 * scaleFactor,
+            label: 'Suporte'
+          });
+        }
         break;
     }
   });

@@ -9,7 +9,7 @@ interface ChartMarkupProps {
 }
 
 const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) => {
-  const { analysisResults, showTechnicalMarkup } = useAnalyzer();
+  const { analysisResults, showTechnicalMarkup, markupSize } = useAnalyzer();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -24,16 +24,29 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Calcular fator de escala baseado no tamanho da imagem
+    // Calcular fator de escala baseado no tamanho da imagem e na preferência do usuário
     // Quanto menor a imagem, menores devem ser as marcações
-    const scaleFactor = Math.min(imageWidth, imageHeight) / 500;
+    let baseScaleFactor = Math.min(imageWidth, imageHeight) / 600;
+    
+    // Ajustar o fator de escala com base na preferência do usuário
+    switch (markupSize) {
+      case 'small':
+        baseScaleFactor *= 0.7;
+        break;
+      case 'large':
+        baseScaleFactor *= 1.3;
+        break;
+      default: // 'medium'
+        // Manter o valor base
+        break;
+    }
 
     // Draw each technical element with appropriate scaling
     analysisResults.technicalElements.forEach(element => {
-      drawElement(ctx, element, scaleFactor);
+      drawElement(ctx, element, baseScaleFactor);
     });
 
-  }, [analysisResults, showTechnicalMarkup, imageWidth, imageHeight]);
+  }, [analysisResults, showTechnicalMarkup, imageWidth, imageHeight, markupSize]);
 
   const drawElement = (ctx: CanvasRenderingContext2D, element: TechnicalElement, scale: number) => {
     ctx.save();
@@ -193,6 +206,41 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
         ctx.stroke();
         ctx.setLineDash([]);
       }
+    } else if (patternType === 'eliotwave') {
+      // Destaque para as ondas de Elliott
+      // Adicionar pontos de numeração das ondas
+      for (let i = 1; i < points.length; i++) {
+        ctx.beginPath();
+        ctx.arc(points[i].x, points[i].y, 3 * scale, 0, 2 * Math.PI);
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fill();
+      }
+    } else if (patternType === 'dowtheory') {
+      // Linhas principais da Teoria de Dow já desenhadas pela conexão dos pontos
+      // Podemos adicionar indicações visuais para tendências primárias/secundárias
+    } else if (patternType === 'trendline') {
+      // Para as linhas de tendência, basta desenhar a linha
+      // mas podemos adicionar setas para indicar direção
+      if (points.length >= 2) {
+        const start = points[0];
+        const end = points[points.length - 1];
+        
+        // Calcular ângulo para possível extensão
+        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        
+        // Estender ligeiramente a linha para a direita
+        const extension = 20 * scale;
+        const extendedX = end.x + extension * Math.cos(angle);
+        const extendedY = end.y + extension * Math.sin(angle);
+        
+        // Desenhar a extensão como uma linha pontilhada
+        ctx.beginPath();
+        ctx.setLineDash([3 * scale, 3 * scale]);
+        ctx.moveTo(end.x, end.y);
+        ctx.lineTo(extendedX, extendedY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
     }
   };
 
@@ -221,7 +269,21 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
   };
 
   const drawText = (ctx: CanvasRenderingContext2D, position: Point, text: string, color: string, scale: number) => {
-    const fontSize = Math.max(10, Math.min(14, 12 * scale));
+    // Ajustar tamanho da fonte com base na escala e no tamanho das marcações selecionado pelo usuário
+    let fontSize = 12;
+    switch (markupSize) {
+      case 'small':
+        fontSize = 10;
+        break;
+      case 'large':
+        fontSize = 14;
+        break;
+      default: // 'medium'
+        fontSize = 12;
+        break;
+    }
+    
+    fontSize = Math.max(8, Math.min(16, fontSize * scale));
     
     ctx.fillStyle = color;
     ctx.font = `${fontSize}px sans-serif`;
