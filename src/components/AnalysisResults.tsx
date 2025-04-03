@@ -2,12 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { useAnalyzer } from '@/context/AnalyzerContext';
+import { useAnalyzer, PatternResult } from '@/context/AnalyzerContext';
 import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetection';
 import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2, ZoomIn, ZoomOut } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
-import { Slider } from '@/components/ui/slider';
 
 const AnalysisResults = () => {
   const { 
@@ -66,8 +65,8 @@ const AnalysisResults = () => {
   const overallRecommendation = analyzeResults(patterns);
   const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
-  const groupPatternsByCategory = (patterns = []) => {
-    const categories = {
+  const groupPatternsByCategory = (patterns: PatternResult[] = []) => {
+    const categories: Record<string, PatternResult[]> = {
       'Tendência': [],
       'Formação de Preço': [],
       'Suporte/Resistência': [],
@@ -97,7 +96,7 @@ const AnalysisResults = () => {
     
     return Object.entries(categories)
       .filter(([_, patterns]) => patterns.length > 0)
-      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
+      .reduce<Record<string, PatternResult[]>>((obj, [key, value]) => ({ ...obj, [key]: value }), {});
   };
 
   const groupedPatterns = groupPatternsByCategory(patterns);
