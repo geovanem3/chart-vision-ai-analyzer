@@ -5,12 +5,20 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetection';
-import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2 } from 'lucide-react';
+import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2, ZoomIn, ZoomOut } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
+import { Slider } from '@/components/ui/slider';
 
 const AnalysisResults = () => {
-  const { analysisResults, setAnalysisResults, showTechnicalMarkup, setShowTechnicalMarkup } = useAnalyzer();
+  const { 
+    analysisResults, 
+    setAnalysisResults, 
+    showTechnicalMarkup, 
+    setShowTechnicalMarkup,
+    markupSize,
+    setMarkupSize
+  } = useAnalyzer();
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
   const { t } = useLanguage();
@@ -52,6 +60,10 @@ const AnalysisResults = () => {
         });
       }
     }
+  };
+
+  const handleSizeChange = (size: 'small' | 'medium' | 'large') => {
+    setMarkupSize(size);
   };
 
   if (!analysisResults) return null;
@@ -117,13 +129,42 @@ const AnalysisResults = () => {
             onLoad={handleImageLoad}
           />
           
-          <div className="absolute top-4 right-4 bg-background/80 rounded-full p-1 shadow-md flex items-center gap-2">
-            <BarChart2 className="h-4 w-4 text-primary" />
-            <Switch 
-              checked={showTechnicalMarkup} 
-              onCheckedChange={setShowTechnicalMarkup}
-              aria-label="Alternar marcação técnica"
-            />
+          <div className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm rounded-lg p-2 shadow-md flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <BarChart2 className="h-4 w-4 text-primary" />
+              <Switch 
+                checked={showTechnicalMarkup} 
+                onCheckedChange={setShowTechnicalMarkup}
+                aria-label="Alternar marcação técnica"
+              />
+            </div>
+            
+            {showTechnicalMarkup && (
+              <div className="flex flex-col gap-2">
+                <div className="text-xs font-medium text-center">Tamanho</div>
+                <div className="flex justify-between items-center gap-2">
+                  <ZoomOut className="h-3 w-3 text-muted-foreground" />
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => handleSizeChange('small')}
+                      className={`w-2 h-2 rounded-full ${markupSize === 'small' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                      aria-label="Marcações pequenas"
+                    />
+                    <button 
+                      onClick={() => handleSizeChange('medium')}
+                      className={`w-2 h-2 rounded-full ${markupSize === 'medium' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                      aria-label="Marcações médias"
+                    />
+                    <button 
+                      onClick={() => handleSizeChange('large')}
+                      className={`w-2 h-2 rounded-full ${markupSize === 'large' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                      aria-label="Marcações grandes"
+                    />
+                  </div>
+                  <ZoomIn className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </div>
+            )}
           </div>
           
           {imageSize.width > 0 && (

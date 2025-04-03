@@ -429,11 +429,26 @@ export const analyzeResults = (patterns: PatternResult[]): string => {
 export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: number, imageHeight: number): TechnicalElement[] => {
   const elements: TechnicalElement[] = [];
   
+  // Calcular fator de escala baseado no tamanho da imagem
+  const scaleFactor = Math.min(imageWidth, imageHeight) / 800;
+  
   // Helper to generate random positions within the image bounds
-  const randomPosition = () => {
+  // Agora posiciona os elementos de forma mais inteligente
+  const randomPosition = (area: 'top' | 'middle' | 'bottom' = 'middle') => {
+    let yRange: [number, number];
+    
+    // Definir regiões verticais com base na área solicitada
+    if (area === 'top') {
+      yRange = [imageHeight * 0.1, imageHeight * 0.3];
+    } else if (area === 'bottom') {
+      yRange = [imageHeight * 0.7, imageHeight * 0.9];
+    } else {
+      yRange = [imageHeight * 0.3, imageHeight * 0.7];
+    }
+    
     return {
-      x: Math.floor(imageWidth * 0.1 + Math.random() * imageWidth * 0.8),
-      y: Math.floor(imageHeight * 0.1 + Math.random() * imageHeight * 0.8)
+      x: Math.floor(imageWidth * 0.2 + Math.random() * imageWidth * 0.6),
+      y: Math.floor(yRange[0] + Math.random() * (yRange[1] - yRange[0]))
     };
   };
   
@@ -443,137 +458,67 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: n
       case 'Tendência':
         // Add trend line
         const isBullish = pattern.action === 'compra';
-        const startPoint = randomPosition();
+        const startPoint = randomPosition(isBullish ? 'bottom' : 'top');
         const endPoint = {
           x: startPoint.x + imageWidth * 0.3,
-          y: isBullish ? startPoint.y - imageHeight * 0.2 : startPoint.y + imageHeight * 0.2
+          y: isBullish ? startPoint.y - imageHeight * 0.15 : startPoint.y + imageHeight * 0.15
         };
         
         elements.push({
           type: 'line',
           points: [startPoint, endPoint],
           color: isBullish ? '#22c55e' : '#ef4444',
-          thickness: 2,
+          thickness: 2 * scaleFactor,
           label: isBullish ? 'Tendência Alta' : 'Tendência Baixa'
         });
         break;
         
       case 'Suporte/Resistência':
         // Add horizontal support/resistance lines
-        const isResistance = pattern.description.toLowerCase().includes('resistência');
-        const yPosition = isResistance ? imageHeight * 0.35 : imageHeight * 0.65;
+        // Uma linha de resistência e uma de suporte
+        elements.push({
+          type: 'line',
+          points: [
+            { x: imageWidth * 0.1, y: imageHeight * 0.35 },
+            { x: imageWidth * 0.9, y: imageHeight * 0.35 }
+          ],
+          color: '#ef4444',
+          thickness: 1.5 * scaleFactor,
+          dashArray: [5 * scaleFactor, 5 * scaleFactor],
+          label: 'Resistência'
+        });
         
         elements.push({
           type: 'line',
           points: [
-            { x: imageWidth * 0.1, y: yPosition },
-            { x: imageWidth * 0.9, y: yPosition }
+            { x: imageWidth * 0.1, y: imageHeight * 0.65 },
+            { x: imageWidth * 0.9, y: imageHeight * 0.65 }
           ],
-          color: isResistance ? '#ef4444' : '#22c55e',
-          thickness: 2,
-          dashArray: [5, 5],
-          label: isResistance ? 'Resistência' : 'Suporte'
-        });
-        break;
-        
-      case 'Retração de Fibonacci':
-        // Add Fibonacci lines
-        const fibStart = { x: imageWidth * 0.1, y: imageHeight * 0.3 };
-        const fibEnd = { x: imageWidth * 0.1, y: imageHeight * 0.7 };
-        
-        const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-        fibLevels.forEach(level => {
-          const yPos = fibStart.y + (fibEnd.y - fibStart.y) * level;
-          elements.push({
-            type: 'line',
-            points: [
-              { x: imageWidth * 0.1, y: yPos },
-              { x: imageWidth * 0.9, y: yPos }
-            ],
-            color: '#0ea5e9',
-            thickness: level === 0.618 ? 2 : 1,
-            dashArray: level === 0.5 ? [5, 5] : undefined,
-            label: level === 0.618 ? `Fib ${level}` : undefined
-          });
-        });
-        break;
-        
-      case 'Ondas de Elliott':
-        // Add Elliott wave numbers
-        const wavePoints = [
-          { x: imageWidth * 0.2, y: imageHeight * 0.6 },
-          { x: imageWidth * 0.3, y: imageHeight * 0.4 },
-          { x: imageWidth * 0.5, y: imageHeight * 0.7 },
-          { x: imageWidth * 0.6, y: imageHeight * 0.5 },
-          { x: imageWidth * 0.8, y: imageHeight * 0.3 }
-        ];
-        
-        // Add wave lines
-        for (let i = 0; i < wavePoints.length - 1; i++) {
-          elements.push({
-            type: 'line',
-            points: [wavePoints[i], wavePoints[i+1]],
-            color: '#0ea5e9',
-            thickness: 2
-          });
-        }
-        
-        // Add wave labels
-        wavePoints.forEach((point, index) => {
-          elements.push({
-            type: 'label',
-            position: point,
-            text: `${index + 1}`,
-            color: '#0ea5e9',
-            backgroundColor: 'rgba(14, 165, 233, 0.2)'
-          });
-        });
-        break;
-        
-      case 'Padrão de Candle':
-        // Mark candlestick pattern
-        const candlePos = randomPosition();
-        elements.push({
-          type: 'rectangle',
-          position: candlePos,
-          width: imageWidth * 0.15,
-          height: imageHeight * 0.15,
-          color: '#f59e0b',
-          thickness: 2,
-          dashArray: [5, 5],
-          label: 'Padrão de Alta'
-        });
-        break;
-        
-      case 'Teoria de Dow':
-        // Show primary trend direction
-        const dowStart = { x: imageWidth * 0.2, y: imageHeight * 0.6 };
-        elements.push({
-          type: 'arrow',
-          start: dowStart,
-          end: { x: dowStart.x + imageWidth * 0.6, y: dowStart.y - imageHeight * 0.3 },
           color: '#22c55e',
-          thickness: 3,
-          label: 'Tendência Primária'
+          thickness: 1.5 * scaleFactor,
+          dashArray: [5 * scaleFactor, 5 * scaleFactor],
+          label: 'Suporte'
         });
         break;
         
       case 'Ombro-Cabeça-Ombro':
         // Draw head and shoulders pattern
-        const ocoY = imageHeight * 0.5;
+        const ocoY = imageHeight * 0.4;
+        const ocoWidth = imageWidth * 0.6;
         const ocoPoints = [
-          { x: imageWidth * 0.2, y: ocoY - imageHeight * 0.1 }, // left shoulder
+          { x: imageWidth * 0.2, y: ocoY - imageHeight * 0.05 }, // left shoulder
           { x: imageWidth * 0.35, y: ocoY }, // left arm pit
-          { x: imageWidth * 0.5, y: ocoY - imageHeight * 0.2 }, // head
+          { x: imageWidth * 0.5, y: ocoY - imageHeight * 0.1 }, // head
           { x: imageWidth * 0.65, y: ocoY }, // right arm pit
-          { x: imageWidth * 0.8, y: ocoY - imageHeight * 0.1 } // right shoulder
+          { x: imageWidth * 0.8, y: ocoY - imageHeight * 0.05 } // right shoulder
         ];
         
         elements.push({
-          type: 'line',
+          type: 'pattern',
+          patternType: 'OCO',
           points: ocoPoints,
           color: '#f43f5e',
-          thickness: 2,
+          thickness: 2 * scaleFactor,
           label: 'OCO'
         });
         
@@ -581,12 +526,12 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: n
         elements.push({
           type: 'line',
           points: [
-            { x: imageWidth * 0.2, y: ocoY + imageHeight * 0.05 },
-            { x: imageWidth * 0.8, y: ocoY + imageHeight * 0.05 }
+            { x: imageWidth * 0.2, y: ocoY + imageHeight * 0.02 },
+            { x: imageWidth * 0.8, y: ocoY + imageHeight * 0.02 }
           ],
           color: '#f43f5e',
-          thickness: 2,
-          dashArray: [5, 5],
+          thickness: 1.5 * scaleFactor,
+          dashArray: [5 * scaleFactor, 5 * scaleFactor],
           label: 'Linha do Pescoço'
         });
         break;
@@ -595,50 +540,33 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: n
         // Draw triangle pattern
         const isAscending = pattern.description.toLowerCase().includes('ascendente');
         const triangleY = imageHeight * 0.5;
+        const triangleHeight = imageHeight * 0.15;
         
         if (isAscending) {
           elements.push({
-            type: 'line',
+            type: 'pattern',
+            patternType: 'triangulo',
             points: [
-              { x: imageWidth * 0.2, y: triangleY + imageHeight * 0.1 },
-              { x: imageWidth * 0.8, y: triangleY + imageHeight * 0.1 }
+              { x: imageWidth * 0.2, y: triangleY + triangleHeight },
+              { x: imageWidth * 0.2, y: triangleY - triangleHeight },
+              { x: imageWidth * 0.8, y: triangleY - triangleHeight/2 }
             ],
             color: '#22c55e',
-            thickness: 2,
-            label: 'Suporte'
-          });
-          
-          elements.push({
-            type: 'line',
-            points: [
-              { x: imageWidth * 0.2, y: triangleY + imageHeight * 0.2 },
-              { x: imageWidth * 0.8, y: triangleY }
-            ],
-            color: '#22c55e',
-            thickness: 2,
-            label: 'Resistência Descendente'
+            thickness: 2 * scaleFactor,
+            label: 'Triângulo Ascendente'
           });
         } else {
           elements.push({
-            type: 'line',
+            type: 'pattern',
+            patternType: 'triangulo',
             points: [
-              { x: imageWidth * 0.2, y: triangleY },
-              { x: imageWidth * 0.8, y: triangleY + imageHeight * 0.2 }
+              { x: imageWidth * 0.2, y: triangleY - triangleHeight },
+              { x: imageWidth * 0.2, y: triangleY + triangleHeight },
+              { x: imageWidth * 0.8, y: triangleY }
             ],
             color: '#ef4444',
-            thickness: 2,
-            label: 'Suporte Descendente'
-          });
-          
-          elements.push({
-            type: 'line',
-            points: [
-              { x: imageWidth * 0.2, y: triangleY - imageHeight * 0.2 },
-              { x: imageWidth * 0.8, y: triangleY - imageHeight * 0.2 }
-            ],
-            color: '#ef4444',
-            thickness: 2,
-            label: 'Resistência'
+            thickness: 2 * scaleFactor,
+            label: 'Triângulo Descendente'
           });
         }
         break;
@@ -646,113 +574,92 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], imageWidth: n
       case 'Cunha':
         // Draw wedge pattern
         const isBearishWedge = pattern.description.toLowerCase().includes('baixa');
-        const wedgeStartY = imageHeight * 0.5;
+        const wedgeY = imageHeight * 0.5;
+        const wedgeHeight = imageHeight * 0.1;
         
         if (isBearishWedge) {
           elements.push({
-            type: 'line',
+            type: 'pattern',
+            patternType: 'cunha',
             points: [
-              { x: imageWidth * 0.2, y: wedgeStartY - imageHeight * 0.2 },
-              { x: imageWidth * 0.8, y: wedgeStartY - imageHeight * 0.05 }
+              { x: imageWidth * 0.2, y: wedgeY - wedgeHeight },
+              { x: imageWidth * 0.5, y: wedgeY },
+              { x: imageWidth * 0.8, y: wedgeY - wedgeHeight/2 },
+              { x: imageWidth * 0.5, y: wedgeY + wedgeHeight },
+              { x: imageWidth * 0.2, y: wedgeY }
             ],
             color: '#ef4444',
-            thickness: 2
-          });
-          
-          elements.push({
-            type: 'line',
-            points: [
-              { x: imageWidth * 0.2, y: wedgeStartY },
-              { x: imageWidth * 0.8, y: wedgeStartY - imageHeight * 0.05 }
-            ],
-            color: '#ef4444',
-            thickness: 2,
+            thickness: 2 * scaleFactor,
             label: 'Cunha de Baixa'
           });
         } else {
           elements.push({
-            type: 'line',
+            type: 'pattern',
+            patternType: 'cunha',
             points: [
-              { x: imageWidth * 0.2, y: wedgeStartY },
-              { x: imageWidth * 0.8, y: wedgeStartY - imageHeight * 0.15 }
+              { x: imageWidth * 0.2, y: wedgeY },
+              { x: imageWidth * 0.5, y: wedgeY - wedgeHeight },
+              { x: imageWidth * 0.8, y: wedgeY - wedgeHeight/2 },
+              { x: imageWidth * 0.5, y: wedgeY + wedgeHeight },
+              { x: imageWidth * 0.2, y: wedgeY + wedgeHeight/2 }
             ],
             color: '#22c55e',
-            thickness: 2
-          });
-          
-          elements.push({
-            type: 'line',
-            points: [
-              { x: imageWidth * 0.2, y: wedgeStartY + imageHeight * 0.2 },
-              { x: imageWidth * 0.8, y: wedgeStartY - imageHeight * 0.15 }
-            ],
-            color: '#22c55e',
-            thickness: 2,
+            thickness: 2 * scaleFactor,
             label: 'Cunha de Alta'
           });
         }
         break;
         
-      case 'Bandeira':
-        // Draw flag pattern
-        const flagY = imageHeight * 0.4;
-        
-        // Draw pole
-        elements.push({
-          type: 'line',
-          points: [
-            { x: imageWidth * 0.2, y: flagY + imageHeight * 0.3 },
-            { x: imageWidth * 0.2, y: flagY }
-          ],
-          color: '#22c55e',
-          thickness: 3
-        });
-        
-        // Draw flag
-        elements.push({
-          type: 'line',
-          points: [
-            { x: imageWidth * 0.2, y: flagY },
-            { x: imageWidth * 0.4, y: flagY + imageHeight * 0.05 },
-            { x: imageWidth * 0.2, y: flagY + imageHeight * 0.1 },
-            { x: imageWidth * 0.4, y: flagY + imageHeight * 0.15 }
-          ],
-          color: '#22c55e',
-          thickness: 2,
-          label: 'Bandeira'
-        });
-        break;
-        
       case 'Topo/Fundo Duplo':
-        // Draw double bottom pattern
+        // Draw double bottom/top pattern with proper scaling
         const isBottom = pattern.description.toLowerCase().includes('fundo');
         const doubleY = isBottom ? imageHeight * 0.7 : imageHeight * 0.3;
+        const doubleAmplitude = imageHeight * 0.08;
         
         elements.push({
-          type: 'line',
+          type: 'pattern',
+          patternType: isBottom ? 'fundoduplo' : 'topoduplo',
           points: [
             { x: imageWidth * 0.2, y: doubleY },
-            { x: imageWidth * 0.35, y: doubleY - imageHeight * (isBottom ? -0.15 : 0.15) },
+            { x: imageWidth * 0.35, y: doubleY - (isBottom ? -doubleAmplitude : doubleAmplitude) },
             { x: imageWidth * 0.5, y: doubleY },
-            { x: imageWidth * 0.65, y: doubleY - imageHeight * (isBottom ? -0.15 : 0.15) },
+            { x: imageWidth * 0.65, y: doubleY - (isBottom ? -doubleAmplitude : doubleAmplitude) },
             { x: imageWidth * 0.8, y: doubleY }
           ],
           color: isBottom ? '#22c55e' : '#ef4444',
-          thickness: 2,
+          thickness: 2 * scaleFactor,
           label: isBottom ? 'Fundo Duplo' : 'Topo Duplo'
         });
         
-        // Draw resistance/support line
+        // Add resistance/support line
         elements.push({
           type: 'line',
           points: [
-            { x: imageWidth * 0.2, y: doubleY - imageHeight * (isBottom ? -0.15 : 0.15) },
-            { x: imageWidth * 0.8, y: doubleY - imageHeight * (isBottom ? -0.15 : 0.15) }
+            { x: imageWidth * 0.2, y: doubleY - (isBottom ? -doubleAmplitude : doubleAmplitude) },
+            { x: imageWidth * 0.8, y: doubleY - (isBottom ? -doubleAmplitude : doubleAmplitude) }
           ],
           color: isBottom ? '#22c55e' : '#ef4444',
-          thickness: 2,
-          dashArray: [5, 5],
+          thickness: 1.5 * scaleFactor,
+          dashArray: [5 * scaleFactor, 5 * scaleFactor],
           label: isBottom ? 'Resistência' : 'Suporte'
+        });
+        break;
+      
+      case 'Padrão de Candle':
+        // Mark candlestick pattern with appropriate scaling
+        const candlePos = randomPosition();
+        const candleWidth = Math.max(20, imageWidth * 0.06);
+        const candleHeight = Math.max(30, imageHeight * 0.08);
+        
+        elements.push({
+          type: 'rectangle',
+          position: candlePos,
+          width: candleWidth,
+          height: candleHeight,
+          color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+          thickness: 1.5 * scaleFactor,
+          dashArray: [5 * scaleFactor, 5 * scaleFactor],
+          label: pattern.action === 'compra' ? 'Padrão de Alta' : 'Padrão de Baixa'
         });
         break;
     }

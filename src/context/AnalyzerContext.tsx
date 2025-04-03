@@ -68,6 +68,8 @@ export type CircleRegion = {
 
 export type SelectedRegion = RectangleRegion | CircleRegion;
 
+export type MarkupSize = 'small' | 'medium' | 'large';
+
 type AnalyzerContextType = {
   capturedImage: string | null;
   setCapturedImage: (image: string | null) => void;
@@ -82,6 +84,10 @@ type AnalyzerContextType = {
   setShowTechnicalMarkup: (show: boolean) => void;
   regionType: RegionType;
   setRegionType: (type: RegionType) => void;
+  isManualAdjustment: boolean;
+  setIsManualAdjustment: (manual: boolean) => void;
+  markupSize: MarkupSize;
+  setMarkupSize: (size: MarkupSize) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -93,6 +99,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
   const [showTechnicalMarkup, setShowTechnicalMarkup] = useState(true);
   const [regionType, setRegionType] = useState<RegionType>('circle');
+  const [isManualAdjustment, setIsManualAdjustment] = useState(false);
+  const [markupSize, setMarkupSize] = useState<MarkupSize>('medium');
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -117,6 +125,10 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setShowTechnicalMarkup,
         regionType,
         setRegionType,
+        isManualAdjustment,
+        setIsManualAdjustment,
+        markupSize,
+        setMarkupSize,
       }}
     >
       {children}

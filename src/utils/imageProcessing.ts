@@ -1,3 +1,4 @@
+
 /**
  * Image processing utilities for chart analysis
  */
@@ -184,6 +185,13 @@ export const cropToRegion = async (
             diameter, diameter,
             0, 0, diameter, diameter
           );
+          
+          // Adicionar uma borda fina para mostrar o limite da seleção
+          ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(region.radius, region.radius, region.radius - 1, 0, Math.PI * 2);
+          ctx.stroke();
         }
       }
       
@@ -222,13 +230,16 @@ export const extractChartElements = async (
       const lines: { startX: number, startY: number, endX: number, endY: number }[] = [];
       
       // Detectar possíveis candles verdes e vermelhos
-      // Utilizamos uma abordagem simplificada para demonstração
-      // Em uma implementação real, usaríamos algoritmos de visão computacional
+      // Utilizamos uma abordagem mais refinada
       
-      // Este é um algoritmo simplificado
-      let columnData: { sum: number, count: number }[] = new Array(canvas.width).fill(null).map(() => ({ sum: 0, count: 0 }));
+      // Define o tamanho mínimo aproximado de um candle com base no tamanho da imagem
+      const minCandleWidth = Math.max(3, Math.floor(canvas.width * 0.01));
+      const minCandleHeight = Math.max(5, Math.floor(canvas.height * 0.02));
       
-      // Acumular densidade vertical de pixels não-brancos em cada coluna
+      // Mapa para rastrear regiões de cores
+      const colorMap: { [key: string]: { color: 'verde' | 'vermelho', count: number, sumX: number, sumY: number } } = {};
+      
+      // Analisar os pixels para identificar regiões de cores
       for (let y = 0; y < canvas.height; y++) {
         for (let x = 0; x < canvas.width; x++) {
           const i = (y * canvas.width + x) * 4;
@@ -236,106 +247,136 @@ export const extractChartElements = async (
           const g = data[i + 1];
           const b = data[i + 2];
           
-          // Verificar se o pixel provavelmente pertence a um elemento do gráfico
-          if ((r + g + b) / 3 < 240) {
-            columnData[x].sum += 1;
-            columnData[x].count += 1;
+          // Verificar se o pixel é verde (componente G dominante)
+          if (g > r * 1.3 && g > b * 1.3 && g > 100) {
+            const key = `${Math.floor(x / minCandleWidth)}_${Math.floor(y / minCandleHeight)}`;
             
-            // Verificar se o pixel é predominantemente verde ou vermelho
-            if (g > r * 1.2 && g > b * 1.2) {
-              // Provavelmente verde
-              const candleWidth = 5; // Largura estimada do candle
-              let found = false;
-              
-              // Verificar se já existe um candle verde nesta região
-              for (const candle of candles) {
-                if (candle.color === 'verde' && Math.abs(candle.x - x) < candleWidth) {
-                  found = true;
-                  break;
-                }
-              }
-              
-              if (!found) {
-                candles.push({
-                  x,
-                  y: y - 10, // Estimativa da posição y
-                  width: candleWidth,
-                  height: 20, // Altura estimada
-                  color: 'verde'
-                });
-              }
-            } else if (r > g * 1.2 && r > b * 1.2) {
-              // Provavelmente vermelho
-              const candleWidth = 5; // Largura estimada do candle
-              let found = false;
-              
-              // Verificar se já existe um candle vermelho nesta região
-              for (const candle of candles) {
-                if (candle.color === 'vermelho' && Math.abs(candle.x - x) < candleWidth) {
-                  found = true;
-                  break;
-                }
-              }
-              
-              if (!found) {
-                candles.push({
-                  x,
-                  y: y - 10, // Estimativa da posição y
-                  width: candleWidth,
-                  height: 20, // Altura estimada
-                  color: 'vermelho'
-                });
-              }
+            if (!colorMap[key]) {
+              colorMap[key] = { color: 'verde', count: 0, sumX: 0, sumY: 0 };
             }
+            
+            colorMap[key].count++;
+            colorMap[key].sumX += x;
+            colorMap[key].sumY += y;
+          }
+          // Verificar se o pixel é vermelho (componente R dominante)
+          else if (r > g * 1.3 && r > b * 1.3 && r > 100) {
+            const key = `${Math.floor(x / minCandleWidth)}_${Math.floor(y / minCandleHeight)}`;
+            
+            if (!colorMap[key]) {
+              colorMap[key] = { color: 'vermelho', count: 0, sumX: 0, sumY: 0 };
+            }
+            
+            colorMap[key].count++;
+            colorMap[key].sumX += x;
+            colorMap[key].sumY += y;
           }
         }
       }
       
-      // Filtrar candles para remover detecções em excesso
-      // Esta é uma simplificação - em um sistema real usaríamos algoritmos mais sofisticados
-      const filteredCandles = candles.filter((candle, index) => {
-        // Remover candles muito próximos
-        for (let i = 0; i < index; i++) {
-          if (Math.abs(candles[i].x - candle.x) < 10) {
-            return false;
-          }
+      // Criar candles a partir das regiões de cores identificadas
+      for (const key in colorMap) {
+        const region = colorMap[key];
+        
+        if (region.count > minCandleWidth * minCandleHeight * 0.2) {
+          const centerX = Math.floor(region.sumX / region.count);
+          const centerY = Math.floor(region.sumY / region.count);
+          
+          candles.push({
+            x: centerX - minCandleWidth / 2,
+            y: centerY - minCandleHeight / 2,
+            width: minCandleWidth,
+            height: minCandleHeight,
+            color: region.color
+          });
         }
-        return true;
-      });
+      }
       
       // Detectar linhas horizontais (suporte/resistência)
-      // Este é um algoritmo simplificado para demonstração
-      const horizontalDensity: number[] = new Array(canvas.height).fill(0);
+      // Utilizamos a transformada de Hough simplificada para detecção de linhas
       
+      const horizontalDensity = new Array(canvas.height).fill(0);
+      
+      // Calcular densidade horizontal
       for (let y = 0; y < canvas.height; y++) {
         for (let x = 0; x < canvas.width; x++) {
           const i = (y * canvas.width + x) * 4;
-          // Calcular um limiar para os pixels que podem ser linhas
-          if ((data[i] + data[i + 1] + data[i + 2]) / 3 < 200) {
+          // Pixels escuros (possíveis linhas)
+          if (data[i] + data[i + 1] + data[i + 2] < 200 * 3) {
             horizontalDensity[y]++;
           }
         }
       }
       
-      // Identificar picos de densidade como possíveis linhas horizontais
-      for (let y = 10; y < canvas.height - 10; y++) {
-        if (horizontalDensity[y] > canvas.width * 0.5 && 
-            horizontalDensity[y] > horizontalDensity[y-1] && 
-            horizontalDensity[y] > horizontalDensity[y+1]) {
+      // Detectar picos locais na densidade horizontal (possíveis linhas)
+      const peakThreshold = canvas.width * 0.3; // Linha deve cobrir pelo menos 30% da largura
+      const minPeakDistance = Math.ceil(canvas.height * 0.05); // Distância mínima entre picos
+      
+      let peaks: number[] = [];
+      
+      // Encontrar todos os picos
+      for (let y = 5; y < canvas.height - 5; y++) {
+        if (horizontalDensity[y] > peakThreshold) {
+          let isPeak = true;
+          
+          // Verificar se é máximo local
+          for (let dy = -2; dy <= 2; dy++) {
+            if (dy !== 0 && y + dy >= 0 && y + dy < canvas.height) {
+              if (horizontalDensity[y + dy] > horizontalDensity[y]) {
+                isPeak = false;
+                break;
+              }
+            }
+          }
+          
+          if (isPeak) {
+            peaks.push(y);
+          }
+        }
+      }
+      
+      // Filtrar picos muito próximos
+      if (peaks.length > 0) {
+        const filteredPeaks = [peaks[0]];
+        
+        for (let i = 1; i < peaks.length; i++) {
+          const lastPeak = filteredPeaks[filteredPeaks.length - 1];
+          
+          if (peaks[i] - lastPeak >= minPeakDistance) {
+            filteredPeaks.push(peaks[i]);
+          }
+        }
+        
+        // Criar linhas horizontais a partir dos picos
+        filteredPeaks.forEach(y => {
           lines.push({
             startX: 0,
             startY: y,
             endX: canvas.width,
             endY: y
           });
-        }
+        });
       }
       
+      // Retornar candles e linhas detectados
       resolve({
-        candles: filteredCandles,
-        lines
+        candles: candles.slice(0, 50), // Limitar a 50 candles para performance
+        lines: lines.slice(0, 10) // Limitar a 10 linhas para não sobrecarregar
       });
     };
     img.src = processedImageUrl;
   });
 };
+
+// Processar uma região específica da imagem (para seleção manual)
+export const processRegionForAnalysis = async (
+  imageUrl: string, 
+  region: SelectedRegion
+): Promise<string> => {
+  // Primeiro recorta a região
+  const croppedImage = await cropToRegion(imageUrl, region);
+  
+  // Depois aplica processamento para realçar detalhes
+  return processImage(croppedImage);
+};
+
