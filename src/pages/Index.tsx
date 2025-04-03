@@ -3,7 +3,21 @@ import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
+import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
 import { BarChart2 } from 'lucide-react';
+import { useAnalyzer } from '@/context/AnalyzerContext';
+
+// Wrapper component to access context
+const GraphAnalyzerWithMarkupToolbar = () => {
+  const { capturedImage } = useAnalyzer();
+  
+  return (
+    <>
+      <GraphAnalyzer />
+      {capturedImage && <ManualMarkupToolbar />}
+    </>
+  );
+};
 
 const Index = () => {
   return (
@@ -33,7 +47,7 @@ const Index = () => {
               </p>
             </div>
             
-            <GraphAnalyzer />
+            <GraphAnalyzerWithMarkupToolbar />
           </main>
           
           <footer className="py-6 border-t border-border/60">

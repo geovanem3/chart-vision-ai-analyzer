@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TechnicalElement, Point } from '@/context/AnalyzerContext';
@@ -9,11 +8,11 @@ interface ChartMarkupProps {
 }
 
 const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) => {
-  const { analysisResults, showTechnicalMarkup, markupSize } = useAnalyzer();
+  const { analysisResults, showTechnicalMarkup, markupSize, manualMarkups } = useAnalyzer();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current || !analysisResults?.technicalElements || !showTechnicalMarkup) {
+    if (!canvasRef.current) {
       return;
     }
 
@@ -41,12 +40,19 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
         break;
     }
 
-    // Draw each technical element with appropriate scaling
-    analysisResults.technicalElements.forEach(element => {
+    // Draw manual markups
+    manualMarkups.forEach(element => {
       drawElement(ctx, element, baseScaleFactor);
     });
 
-  }, [analysisResults, showTechnicalMarkup, imageWidth, imageHeight, markupSize]);
+    // Draw each technical element from analysis results with appropriate scaling
+    if (analysisResults?.technicalElements && showTechnicalMarkup) {
+      analysisResults.technicalElements.forEach(element => {
+        drawElement(ctx, element, baseScaleFactor);
+      });
+    }
+
+  }, [analysisResults, showTechnicalMarkup, imageWidth, imageHeight, markupSize, manualMarkups]);
 
   const drawElement = (ctx: CanvasRenderingContext2D, element: TechnicalElement, scale: number) => {
     ctx.save();
@@ -291,7 +297,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
     ctx.fillText(text, position.x, position.y);
   };
 
-  if (!showTechnicalMarkup || !analysisResults?.technicalElements) {
+  if ((!showTechnicalMarkup || !analysisResults?.technicalElements) && manualMarkups.length === 0) {
     return null;
   }
 

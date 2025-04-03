@@ -23,6 +23,7 @@ export type TechnicalElement = {
 } & (
   | { type: 'line', points: Point[] }
   | { type: 'arrow', start: Point, end: Point }
+  | { type: 'arrow', start: Point, end: Point }
   | { type: 'rectangle', position: Point, width: number, height: number }
   | { type: 'circle', center: Point, radius: number }
   | { type: 'label', position: Point, text: string, backgroundColor?: string }
@@ -70,6 +71,8 @@ export type SelectedRegion = RectangleRegion | CircleRegion;
 
 export type MarkupSize = 'small' | 'medium' | 'large';
 
+export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';
+
 type AnalyzerContextType = {
   capturedImage: string | null;
   setCapturedImage: (image: string | null) => void;
@@ -88,6 +91,14 @@ type AnalyzerContextType = {
   setIsManualAdjustment: (manual: boolean) => void;
   markupSize: MarkupSize;
   setMarkupSize: (size: MarkupSize) => void;
+  manualMarkupTool: MarkupToolType;
+  setManualMarkupTool: (tool: MarkupToolType) => void;
+  manualMarkups: TechnicalElement[];
+  addManualMarkup: (markup: TechnicalElement) => void;
+  clearManualMarkups: () => void;
+  removeLastMarkup: () => void;
+  isMarkupMode: boolean;
+  setMarkupMode: (enabled: boolean) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -101,12 +112,27 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [regionType, setRegionType] = useState<RegionType>('circle');
   const [isManualAdjustment, setIsManualAdjustment] = useState(false);
   const [markupSize, setMarkupSize] = useState<MarkupSize>('medium');
+  const [manualMarkupTool, setManualMarkupTool] = useState<MarkupToolType>('line');
+  const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
+  const [isMarkupMode, setMarkupMode] = useState(false);
 
   const resetAnalysis = () => {
     setCapturedImage(null);
     setIsAnalyzing(false);
     setAnalysisResults(null);
     setSelectedRegion(null);
+  };
+
+  const addManualMarkup = (markup: TechnicalElement) => {
+    setManualMarkups(prev => [...prev, markup]);
+  };
+
+  const clearManualMarkups = () => {
+    setManualMarkups([]);
+  };
+
+  const removeLastMarkup = () => {
+    setManualMarkups(prev => prev.slice(0, -1));
   };
 
   return (
@@ -129,6 +155,14 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setIsManualAdjustment,
         markupSize,
         setMarkupSize,
+        manualMarkupTool,
+        setManualMarkupTool,
+        manualMarkups,
+        addManualMarkup,
+        clearManualMarkups,
+        removeLastMarkup,
+        isMarkupMode,
+        setMarkupMode,
       }}
     >
       {children}
