@@ -4,7 +4,7 @@ import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, Eye, Scan } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 
 // Wrapper component to access context
@@ -42,9 +42,31 @@ const Index = () => {
                 Analyze Financial Charts with AI
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Capture images of financial charts and let our AI detect trading patterns, 
-                support/resistance levels, and trend indicators automatically.
+                Capture imagens de gráficos financeiros e deixe nossa IA detectar padrões de negociação, 
+                níveis de suporte/resistência e indicadores de tendência automaticamente.
               </p>
+              
+              <div className="flex justify-center space-x-8 mt-6">
+                <div className="flex flex-col items-center">
+                  <div className="bg-primary/10 rounded-full p-3 mb-2">
+                    <Scan className="h-6 w-6 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium">Seleção Precisa</p>
+                  <p className="text-xs text-muted-foreground">
+                    Selecione áreas específicas do gráfico para análise detalhada
+                  </p>
+                </div>
+                
+                <div className="flex flex-col items-center">
+                  <div className="bg-primary/10 rounded-full p-3 mb-2">
+                    <Eye className="h-6 w-6 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium">Ajuste Manual</p>
+                  <p className="text-xs text-muted-foreground">
+                    Refinamento preciso para obter os melhores resultados de análise
+                  </p>
+                </div>
+              </div>
             </div>
             
             <GraphAnalyzerWithMarkupToolbar />

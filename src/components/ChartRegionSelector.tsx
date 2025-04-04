@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { useAnalyzer, Point, TechnicalElement } from '@/context/AnalyzerContext';
 import { Card } from '@/components/ui/card';
 import { detectChartRegion } from '@/utils/imageProcessing';
-import { Circle, Scan } from 'lucide-react';
+import { Circle, Scan, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 
 const ChartRegionSelector = () => {
   const { 
@@ -28,6 +29,10 @@ const ChartRegionSelector = () => {
   const [labelText, setLabelText] = useState('');
   const [showLabelInput, setShowLabelInput] = useState(false);
   const [pendingLabelPosition, setPendingLabelPosition] = useState<Point | null>(null);
+  const [showPrecisionControls, setShowPrecisionControls] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  
+  const FINE_ADJUST_PX = 5;
   
   useEffect(() => {
     if (capturedImage) {
@@ -249,6 +254,120 @@ const ChartRegionSelector = () => {
       }
     }
     setIsDragging(false);
+  };
+
+  const adjustSelectedRegion = (direction: 'left' | 'right' | 'up' | 'down', amount: number) => {
+    if (!selectedRegion) return;
+    
+    if (selectedRegion.type === 'rectangle') {
+      const newRegion = { ...selectedRegion };
+      
+      switch (direction) {
+        case 'left':
+          if (amount < 0) {
+            newRegion.x += amount;
+            newRegion.width -= amount;
+          } else {
+            newRegion.x += amount;
+            newRegion.width -= amount;
+          }
+          break;
+        case 'right':
+          newRegion.width += amount;
+          break;
+        case 'up':
+          if (amount < 0) {
+            newRegion.y += amount;
+            newRegion.height -= amount;
+          } else {
+            newRegion.y += amount;
+            newRegion.height -= amount;
+          }
+          break;
+        case 'down':
+          newRegion.height += amount;
+          break;
+      }
+      
+      newRegion.width = Math.max(20, newRegion.width);
+      newRegion.height = Math.max(20, newRegion.height);
+      
+      setSelectedRegion(newRegion);
+    } else if (selectedRegion.type === 'circle') {
+      const newRegion = { ...selectedRegion };
+      
+      switch (direction) {
+        case 'left':
+          newRegion.centerX -= amount;
+          break;
+        case 'right':
+          newRegion.centerX += amount;
+          break;
+        case 'up':
+          newRegion.centerY -= amount;
+          break;
+        case 'down':
+          newRegion.centerY += amount;
+          break;
+      }
+      
+      setSelectedRegion(newRegion);
+    }
+  };
+
+  const adjustRadius = (amount: number) => {
+    if (!selectedRegion || selectedRegion.type !== 'circle') return;
+    
+    setSelectedRegion({
+      ...selectedRegion,
+      radius: Math.max(10, selectedRegion.radius + amount)
+    });
+  };
+
+  const moveRegion = (direction: 'left' | 'right' | 'up' | 'down') => {
+    const amount = FINE_ADJUST_PX;
+    
+    if (!selectedRegion) return;
+    
+    if (selectedRegion.type === 'rectangle') {
+      const newRegion = { ...selectedRegion };
+      
+      switch (direction) {
+        case 'left':
+          newRegion.x -= amount;
+          break;
+        case 'right':
+          newRegion.x += amount;
+          break;
+        case 'up':
+          newRegion.y -= amount;
+          break;
+        case 'down':
+          newRegion.y += amount;
+          break;
+      }
+      
+      setSelectedRegion(newRegion);
+    } else if (selectedRegion.type === 'circle') {
+      const newRegion = { ...selectedRegion };
+      
+      switch (direction) {
+        case 'left':
+          newRegion.centerX -= amount;
+          break;
+        case 'right':
+          newRegion.centerX += amount;
+          break;
+        case 'up':
+          newRegion.centerY -= amount;
+          break;
+        case 'down':
+          newRegion.centerY += amount;
+          break;
+      }
+      
+      setSelectedRegion(newRegion);
+    }
   };
 
   const resetSelection = async () => {
@@ -598,6 +717,7 @@ const ChartRegionSelector = () => {
       <div 
         ref={containerRef}
         className="relative w-full overflow-hidden rounded-lg mb-4 cursor-crosshair"
+        style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -606,7 +726,7 @@ const ChartRegionSelector = () => {
         <img 
           ref={imageRef}
           src={capturedImage} 
-          alt="Captured Chart" 
+          alt="Captura do Gráfico" 
           className="w-full object-contain" 
           onLoad={handleImageLoad}
         />
@@ -642,6 +762,96 @@ const ChartRegionSelector = () => {
           <Button variant="outline" size="sm" onClick={() => setShowLabelInput(false)}>Cancelar</Button>
         </div>
       )}
+      
+      <div className="mb-4">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setShowPrecisionControls(!showPrecisionControls)}
+          className="mb-2"
+        >
+          {showPrecisionControls ? 'Esconder Controles de Precisão' : 'Mostrar Controles de Precisão'}
+        </Button>
+        
+        {showPrecisionControls && !isMarkupMode && (
+          <div className="space-y-4 p-4 border rounded-md">
+            <div>
+              <h4 className="text-sm font-medium mb-2">Zoom</h4>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">1x</span>
+                <Slider
+                  value={[zoomLevel]}
+                  onValueChange={(value) => setZoomLevel(value[0])}
+                  min={1}
+                  max={2}
+                  step={0.1}
+                  className="flex-1"
+                />
+                <span className="text-sm text-muted-foreground">2x</span>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-medium mb-2">Ajuste Fino da Posição</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <div />
+                <Button size="sm" variant="outline" onClick={() => moveRegion('up')}>
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <div />
+                
+                <Button size="sm" variant="outline" onClick={() => moveRegion('left')}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div />
+                <Button size="sm" variant="outline" onClick={() => moveRegion('right')}>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                
+                <div />
+                <Button size="sm" variant="outline" onClick={() => moveRegion('down')}>
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+                <div />
+              </div>
+            </div>
+            
+            {selectedRegion?.type === 'rectangle' && (
+              <div>
+                <h4 className="text-sm font-medium mb-2">Ajuste de Tamanho</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('left', 5)}>
+                    <span className="mr-1">←</span> Reduzir Largura
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('right', 5)}>
+                    Aumentar Largura <span className="ml-1">→</span>
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('up', 5)}>
+                    <span className="mr-1">↑</span> Reduzir Altura
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('down', 5)}>
+                    Aumentar Altura <span className="ml-1">↓</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {selectedRegion?.type === 'circle' && (
+              <div>
+                <h4 className="text-sm font-medium mb-2">Ajuste do Raio</h4>
+                <div className="flex space-x-2">
+                  <Button size="sm" variant="outline" onClick={() => adjustRadius(-5)}>
+                    Reduzir Raio
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => adjustRadius(5)}>
+                    Aumentar Raio
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       
       <div className="flex justify-end">
         {!isMarkupMode && (
