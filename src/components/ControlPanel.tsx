@@ -61,7 +61,9 @@ const ControlPanel = () => {
         toast({
           title: "Aviso de qualidade",
           description: qualityResult.message,
-          variant: "warning"
+          // Changed to default with a custom className
+          variant: "default",
+          className: "bg-amber-50 border-amber-200 text-amber-800"
         });
         
         // Habilitar modo de marcação manual se a qualidade for ruim
@@ -128,7 +130,9 @@ const ControlPanel = () => {
         toast({
           title: "Aviso",
           description: processedResult.error || "Erro ao processar a imagem. A análise pode ser imprecisa.",
-          variant: "warning"
+          // Changed to default with a custom className
+          variant: "default",
+          className: "bg-amber-50 border-amber-200 text-amber-800"
         });
         // Continuar mesmo com erro, mas usando a imagem original recortada
       }
@@ -147,7 +151,9 @@ const ControlPanel = () => {
         toast({
           title: "Dificuldade na análise",
           description: "Não foi possível identificar padrões claros. Utilize as ferramentas de marcação manual para melhorar a análise.",
-          variant: "warning"
+          // Changed to default with a custom className
+          variant: "default",
+          className: "bg-amber-50 border-amber-200 text-amber-800"
         });
         setMarkupMode(true);
       }
@@ -172,7 +178,9 @@ const ControlPanel = () => {
         toast({
           title: "Aviso",
           description: "Não foi possível detectar candles ou elementos de gráfico. A análise pode ser limitada.",
-          variant: "warning"
+          // Changed to default with a custom className
+          variant: "default",
+          className: "bg-amber-50 border-amber-200 text-amber-800"
         });
       }
       
@@ -189,7 +197,8 @@ const ControlPanel = () => {
       toast({
         title: "Análise completa",
         description: `Padrões do gráfico foram detectados ${patterns.length > 0 ? 'com sucesso' : 'parcialmente'} na região ${selectedRegion.type === 'circle' ? 'circular' : 'retangular'}.`,
-        variant: patterns.length > 0 ? "default" : "warning"
+        variant: patterns.length > 0 ? "default" : "default",
+        className: patterns.length > 0 ? "" : "bg-amber-50 border-amber-200 text-amber-800"
       });
     } catch (error) {
       console.error('Erro na análise:', error);
