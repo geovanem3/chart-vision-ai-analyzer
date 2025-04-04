@@ -247,9 +247,9 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
         labelPosition = { x: 10, y: 10 };
       }
       
-      drawText(ctx, labelPosition, element.label, 
-        typeof element.color === 'string' ? element.color : '#000000', 
-        scale);
+      // Convert strokeStyle to string to ensure we're passing a string to drawText
+      const colorString = typeof element.color === 'string' ? element.color : '#000000';
+      drawText(ctx, labelPosition, element.label, colorString, scale);
     }
     
     ctx.restore();
@@ -426,9 +426,9 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       ctx.restore();
     }
     
-    drawText(ctx, position, text, 
-      typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000', 
-      1);
+    // Ensure we're passing a string to drawText by converting ctx.strokeStyle to string if needed
+    const strokeStyleString = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
+    drawText(ctx, position, text, strokeStyleString, 1);
   };
 
   const drawText = (ctx: CanvasRenderingContext2D, position: Point, text: string, color: string, scale: number) => {
