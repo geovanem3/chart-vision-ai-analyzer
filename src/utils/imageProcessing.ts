@@ -1,4 +1,3 @@
-
 /**
  * Image processing utilities for chart analysis
  */
@@ -6,137 +5,266 @@
 import { SelectedRegion } from '@/context/AnalyzerContext';
 
 // Process the captured image to enhance chart features
-export const processImage = async (imageUrl: string): Promise<string> => {
+export const processImage = async (imageUrl: string): Promise<{success: boolean; data: string; error?: string}> => {
   console.log('Processando imagem:', imageUrl);
   
   return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+    try {
+      const img = new Image();
       
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Desenhar a imagem original
-        ctx.drawImage(img, 0, 0);
-        
-        // Aplicar melhorias para destacar elementos do gráfico
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        // Melhorar o contraste para destacar candles
-        for (let i = 0; i < data.length; i += 4) {
-          // Calcular luminosidade
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
           
-          // Aumentar contraste
-          const threshold = 120;
-          const factor = 1.2;
-          
-          if (luminance > threshold) {
-            data[i] = Math.min(255, r * factor);
-            data[i + 1] = Math.min(255, g * factor);
-            data[i + 2] = Math.min(255, b * factor);
-          } else {
-            data[i] = r / factor;
-            data[i + 1] = g / factor;
-            data[i + 2] = b / factor;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({
+              success: false,
+              data: imageUrl,
+              error: 'Falha ao criar contexto de canvas para processamento de imagem.'
+            });
+            return;
           }
+          
+          // Verificar dimensões mínimas
+          if (img.width < 200 || img.height < 200) {
+            resolve({
+              success: false,
+              data: imageUrl,
+              error: 'Imagem muito pequena para processamento preciso. Recomenda-se usar imagens maiores.'
+            });
+            return;
+          }
+          
+          // Desenhar a imagem original
+          ctx.drawImage(img, 0, 0);
+          
+          // Verificar se a imagem tem variação suficiente (não é uma imagem em branco ou muito plana)
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Calcular variância de luminosidade para verificar se a imagem tem detalhes suficientes
+          let totalLuminance = 0;
+          let pixelCount = 0;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            totalLuminance += luminance;
+            pixelCount++;
+          }
+          
+          const avgLuminance = totalLuminance / pixelCount;
+          let variance = 0;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            variance += Math.pow(luminance - avgLuminance, 2);
+          }
+          
+          variance /= pixelCount;
+          
+          // Se a variância for muito baixa, a imagem pode não ter detalhes suficientes
+          if (variance < 100) {
+            resolve({
+              success: false,
+              data: imageUrl,
+              error: 'Imagem com baixo contraste ou poucos detalhes. A análise pode ser imprecisa.'
+            });
+            return;
+          }
+          
+          // Melhorar o contraste para destacar candles
+          for (let i = 0; i < data.length; i += 4) {
+            // Calcular luminosidade
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            // Aumentar contraste
+            const threshold = 120;
+            const factor = 1.2;
+            
+            if (luminance > threshold) {
+              data[i] = Math.min(255, r * factor);
+              data[i + 1] = Math.min(255, g * factor);
+              data[i + 2] = Math.min(255, b * factor);
+            } else {
+              data[i] = r / factor;
+              data[i + 1] = g / factor;
+              data[i + 2] = b / factor;
+            }
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          resolve({
+            success: true,
+            data: canvas.toDataURL('image/jpeg')
+          });
+        } catch (e) {
+          console.error('Erro durante o processamento de imagem:', e);
+          resolve({
+            success: false,
+            data: imageUrl,
+            error: 'Erro ao processar a imagem. Tente uma imagem diferente ou ajuste manualmente.'
+          });
         }
-        
-        ctx.putImageData(imageData, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg'));
-      } else {
-        // Se não conseguir aplicar o processamento, retornar a imagem original
-        resolve(imageUrl);
-      }
-    };
-    img.src = imageUrl;
+      };
+      
+      img.onerror = () => {
+        resolve({
+          success: false,
+          data: imageUrl,
+          error: 'Falha ao carregar a imagem para processamento.'
+        });
+      };
+      
+      img.src = imageUrl;
+    } catch (e) {
+      console.error('Erro ao iniciar processamento de imagem:', e);
+      resolve({
+        success: false,
+        data: imageUrl,
+        error: 'Erro inesperado ao processar a imagem.'
+      });
+    }
   });
 };
 
 // Extract chart region from the image if no region is manually selected
-export const detectChartRegion = async (imageUrl: string): Promise<{ x: number; y: number; width: number; height: number } | null> => {
+export const detectChartRegion = async (imageUrl: string): Promise<{
+  success: boolean;
+  data: { x: number; y: number; width: number; height: number } | null;
+  error?: string;
+}> => {
   console.log('Detectando região do gráfico em:', imageUrl);
   
   // Create an image element to get the dimensions
   return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      // Analisar a imagem para detectar automaticamente a área do gráfico
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+    try {
+      const img = new Image();
       
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        // Detectar bordas para encontrar a região do gráfico
-        let left = canvas.width;
-        let right = 0;
-        let top = canvas.height;
-        let bottom = 0;
-        
-        const threshold = 50; // Limiar para detectar mudanças significativas de cor
-        
-        // Varrer pixels para detectar limites do gráfico
-        for (let y = 0; y < canvas.height; y++) {
-          for (let x = 0; x < canvas.width; x++) {
-            const i = (y * canvas.width + x) * 4;
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            
-            // Detectar pixels que provavelmente fazem parte do gráfico
-            // (Pixels não-brancos e não-pretos)
-            if ((r + g + b) / 3 < 240 && (r + g + b) / 3 > 15) {
-              if (x < left) left = x;
-              if (x > right) right = x;
-              if (y < top) top = y;
-              if (y > bottom) bottom = y;
+      img.onload = () => {
+        try {
+          // Analisar a imagem para detectar automaticamente a área do gráfico
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({
+              success: false,
+              data: null,
+              error: 'Falha ao criar contexto de canvas para detecção de região.'
+            });
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Detectar bordas para encontrar a região do gráfico
+          let left = canvas.width;
+          let right = 0;
+          let top = canvas.height;
+          let bottom = 0;
+          
+          const threshold = 50; // Limiar para detectar mudanças significativas de cor
+          
+          // Varrer pixels para detectar limites do gráfico
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              const i = (y * canvas.width + x) * 4;
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              
+              // Detectar pixels que provavelmente fazem parte do gráfico
+              // (Pixels não-brancos e não-pretos)
+              if ((r + g + b) / 3 < 240 && (r + g + b) / 3 > 15) {
+                if (x < left) left = x;
+                if (x > right) right = x;
+                if (y < top) top = y;
+                if (y > bottom) bottom = y;
+              }
             }
           }
-        }
-        
-        // Ajustar os limites para garantir que não percam parte importante do gráfico
-        left = Math.max(0, left - 10);
-        top = Math.max(0, top - 10);
-        right = Math.min(canvas.width, right + 10);
-        bottom = Math.min(canvas.height, bottom + 10);
-        
-        const width = right - left;
-        const height = bottom - top;
-        
-        // Verificar se os limites detectados são razoáveis
-        if (width > 50 && height > 50) {
-          resolve({ x: left, y: top, width, height });
-        } else {
-          // Default para 80% da imagem centralizada
-          const defaultWidth = img.width * 0.8;
-          const defaultHeight = img.height * 0.8;
-          const x = (img.width - defaultWidth) / 2;
-          const y = (img.height - defaultHeight) / 2;
           
-          resolve({ x, y, width: defaultWidth, height: defaultHeight });
+          // Ajustar os limites para garantir que não percam parte importante do gráfico
+          left = Math.max(0, left - 10);
+          top = Math.max(0, top - 10);
+          right = Math.min(canvas.width, right + 10);
+          bottom = Math.min(canvas.height, bottom + 10);
+          
+          const width = right - left;
+          const height = bottom - top;
+          
+          // Verificar se os limites detectados são razoáveis
+          if (width > 50 && height > 50) {
+            resolve({
+              success: true,
+              data: { x: left, y: top, width, height }
+            });
+          } else {
+            // Default para 80% da imagem centralizada
+            const defaultWidth = img.width * 0.8;
+            const defaultHeight = img.height * 0.8;
+            const x = (img.width - defaultWidth) / 2;
+            const y = (img.height - defaultHeight) / 2;
+            
+            resolve({
+              success: false,
+              data: { x, y, width: defaultWidth, height: defaultHeight },
+              error: 'Não foi possível detectar automaticamente a região do gráfico com precisão. Ajuste manualmente para melhor resultado.'
+            });
+          }
+        } catch (e) {
+          console.error('Erro durante detecção de região:', e);
+          
+          // Fallback para 80% da imagem
+          const width = img.width * 0.8;
+          const height = img.height * 0.8;
+          const x = (img.width - width) / 2;
+          const y = (img.height - height) / 2;
+          
+          resolve({
+            success: false,
+            data: { x, y, width, height },
+            error: 'Erro ao detectar região do gráfico. Ajuste manualmente para melhor resultado.'
+          });
         }
-      } else {
-        // Fallback para 80% da imagem
-        const width = img.width * 0.8;
-        const height = img.height * 0.8;
-        const x = (img.width - width) / 2;
-        const y = (img.height - height) / 2;
-        
-        resolve({ x, y, width, height });
-      }
-    };
-    img.src = imageUrl;
+      };
+      
+      img.onerror = () => {
+        resolve({
+          success: false,
+          data: null,
+          error: 'Falha ao carregar a imagem para detecção de região.'
+        });
+      };
+      
+      img.src = imageUrl;
+    } catch (e) {
+      console.error('Erro ao iniciar detecção de região:', e);
+      resolve({
+        success: false,
+        data: null,
+        error: 'Erro inesperado ao detectar região do gráfico.'
+      });
+    }
   });
 };
 
@@ -144,60 +272,105 @@ export const detectChartRegion = async (imageUrl: string): Promise<{ x: number; 
 export const cropToRegion = async (
   imageUrl: string, 
   region: SelectedRegion
-): Promise<string> => {
+): Promise<{success: boolean; data: string; error?: string}> => {
   console.log('Recortando para região:', region);
   
   return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
+    try {
+      const img = new Image();
       
-      if (region.type === 'rectangle') {
-        canvas.width = region.width;
-        canvas.height = region.height;
-        
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(
-            img, 
-            region.x, region.y, region.width, region.height, 
-            0, 0, region.width, region.height
-          );
-        }
-      } else {
-        // Para regiões circulares, o canvas deve acomodar o círculo
-        const diameter = region.radius * 2;
-        canvas.width = diameter;
-        canvas.height = diameter;
-        
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          // Criar uma máscara circular
-          ctx.beginPath();
-          ctx.arc(region.radius, region.radius, region.radius, 0, Math.PI * 2);
-          ctx.closePath();
-          ctx.clip();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
           
-          // Desenhar apenas a parte da imagem dentro do círculo
-          ctx.drawImage(
-            img,
-            region.centerX - region.radius, region.centerY - region.radius,
-            diameter, diameter,
-            0, 0, diameter, diameter
-          );
+          if (region.type === 'rectangle') {
+            canvas.width = region.width;
+            canvas.height = region.height;
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(
+                img, 
+                region.x, region.y, region.width, region.height, 
+                0, 0, region.width, region.height
+              );
+            } else {
+              resolve({
+                success: false,
+                data: imageUrl,
+                error: 'Falha ao criar contexto de canvas para recorte da região.'
+              });
+              return;
+            }
+          } else {
+            // Para regiões circulares, o canvas deve acomodar o círculo
+            const diameter = region.radius * 2;
+            canvas.width = diameter;
+            canvas.height = diameter;
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              // Criar uma máscara circular
+              ctx.beginPath();
+              ctx.arc(region.radius, region.radius, region.radius, 0, Math.PI * 2);
+              ctx.closePath();
+              ctx.clip();
+              
+              // Desenhar apenas a parte da imagem dentro do círculo
+              ctx.drawImage(
+                img,
+                region.centerX - region.radius, region.centerY - region.radius,
+                diameter, diameter,
+                0, 0, diameter, diameter
+              );
+              
+              // Adicionar uma borda fina para mostrar o limite da seleção
+              ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(region.radius, region.radius, region.radius - 1, 0, Math.PI * 2);
+              ctx.stroke();
+            } else {
+              resolve({
+                success: false,
+                data: imageUrl,
+                error: 'Falha ao criar contexto de canvas para recorte da região.'
+              });
+              return;
+            }
+          }
           
-          // Adicionar uma borda fina para mostrar o limite da seleção
-          ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(region.radius, region.radius, region.radius - 1, 0, Math.PI * 2);
-          ctx.stroke();
+          resolve({
+            success: true,
+            data: canvas.toDataURL('image/jpeg', 1.0)
+          });
+        } catch (e) {
+          console.error('Erro durante recorte da região:', e);
+          resolve({
+            success: false,
+            data: imageUrl,
+            error: 'Erro ao recortar a região selecionada.'
+          });
         }
-      }
+      };
       
-      resolve(canvas.toDataURL('image/jpeg', 1.0));
-    };
-    img.src = imageUrl;
+      img.onerror = () => {
+        resolve({
+          success: false,
+          data: imageUrl,
+          error: 'Falha ao carregar a imagem para recorte da região.'
+        });
+      };
+      
+      img.src = imageUrl;
+    } catch (e) {
+      console.error('Erro ao iniciar recorte da região:', e);
+      resolve({
+        success: false,
+        data: imageUrl,
+        error: 'Erro inesperado ao recortar a região.'
+      });
+    }
   });
 };
 
@@ -372,11 +545,162 @@ export const extractChartElements = async (
 export const processRegionForAnalysis = async (
   imageUrl: string, 
   region: SelectedRegion
-): Promise<string> => {
+): Promise<{success: boolean; data: string; error?: string}> => {
   // Primeiro recorta a região
-  const croppedImage = await cropToRegion(imageUrl, region);
+  const croppedResult = await cropToRegion(imageUrl, region);
+  
+  if (!croppedResult.success) {
+    return croppedResult;
+  }
   
   // Depois aplica processamento para realçar detalhes
-  return processImage(croppedImage);
+  return processImage(croppedResult.data);
 };
 
+// Verificar se a imagem tem qualidade suficiente para análise
+export const checkImageQuality = async (imageUrl: string): Promise<{
+  isGoodQuality: boolean;
+  message: string;
+  details?: {
+    resolution: string;
+    contrast: string;
+    noise: string;
+  }
+}> => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      
+      img.onload = () => {
+        try {
+          // Verificar resolução
+          const hasGoodResolution = img.width >= 400 && img.height >= 300;
+          
+          // Criar canvas para análise de pixels
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({
+              isGoodQuality: false,
+              message: 'Não foi possível analisar a qualidade da imagem.'
+            });
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Verificar contraste
+          let minLuminance = 255;
+          let maxLuminance = 0;
+          let totalLuminance = 0;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            minLuminance = Math.min(minLuminance, luminance);
+            maxLuminance = Math.max(maxLuminance, luminance);
+            totalLuminance += luminance;
+          }
+          
+          const contrast = maxLuminance - minLuminance;
+          const hasGoodContrast = contrast > 50;
+          
+          // Verificar ruído (simplificado)
+          const avgLuminance = totalLuminance / (data.length / 4);
+          let noiseEstimate = 0;
+          
+          for (let y = 1; y < canvas.height - 1; y++) {
+            for (let x = 1; x < canvas.width - 1; x++) {
+              const i = (y * canvas.width + x) * 4;
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+              
+              // Comparar com pixels vizinhos
+              const iTop = ((y - 1) * canvas.width + x) * 4;
+              const iBottom = ((y + 1) * canvas.width + x) * 4;
+              const iLeft = (y * canvas.width + (x - 1)) * 4;
+              const iRight = (y * canvas.width + (x + 1)) * 4;
+              
+              const luminanceTop = 0.299 * data[iTop] + 0.587 * data[iTop + 1] + 0.114 * data[iTop + 2];
+              const luminanceBottom = 0.299 * data[iBottom] + 0.587 * data[iBottom + 1] + 0.114 * data[iBottom + 2];
+              const luminanceLeft = 0.299 * data[iLeft] + 0.587 * data[iLeft + 1] + 0.114 * data[iLeft + 2];
+              const luminanceRight = 0.299 * data[iRight] + 0.587 * data[iRight + 1] + 0.114 * data[iRight + 2];
+              
+              const diff = Math.abs(luminance - luminanceTop) + 
+                          Math.abs(luminance - luminanceBottom) +
+                          Math.abs(luminance - luminanceLeft) +
+                          Math.abs(luminance - luminanceRight);
+                          
+              noiseEstimate += diff;
+            }
+          }
+          
+          // Normalizar a estimativa de ruído
+          noiseEstimate /= (canvas.width - 2) * (canvas.height - 2);
+          const hasLowNoise = noiseEstimate < 30;
+          
+          // Determinar qualidade global
+          const isGoodQuality = hasGoodResolution && hasGoodContrast && hasLowNoise;
+          
+          // Preparar mensagem
+          let message = isGoodQuality 
+            ? 'Imagem com boa qualidade para análise.'
+            : 'A qualidade da imagem pode afetar a precisão da análise.';
+            
+          if (!hasGoodResolution) {
+            message += ' Resolução baixa.';
+          }
+          
+          if (!hasGoodContrast) {
+            message += ' Contraste insuficiente.';
+          }
+          
+          if (!hasLowNoise) {
+            message += ' Presença de ruído detectada.';
+          }
+          
+          resolve({
+            isGoodQuality,
+            message,
+            details: {
+              resolution: hasGoodResolution ? 'Boa' : 'Baixa',
+              contrast: hasGoodContrast ? 'Adequado' : 'Insuficiente',
+              noise: hasLowNoise ? 'Baixo' : 'Alto'
+            }
+          });
+        } catch (e) {
+          console.error('Erro durante análise de qualidade:', e);
+          resolve({
+            isGoodQuality: false,
+            message: 'Erro ao analisar a qualidade da imagem.'
+          });
+        }
+      };
+      
+      img.onerror = () => {
+        resolve({
+          isGoodQuality: false,
+          message: 'Falha ao carregar a imagem para análise de qualidade.'
+        });
+      };
+      
+      img.src = imageUrl;
+    } catch (e) {
+      console.error('Erro ao iniciar análise de qualidade:', e);
+      resolve({
+        isGoodQuality: false,
+        message: 'Erro inesperado ao analisar a qualidade da imagem.'
+      });
+    }
+  });
+};

@@ -4,17 +4,30 @@ import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
-import { BarChart2, Eye, Scan, ZoomIn, AlertTriangle } from 'lucide-react';
+import { BarChart2, Eye, Scan, ZoomIn, AlertTriangle, ImageOff } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Wrapper component to access context
 const GraphAnalyzerWithMarkupToolbar = () => {
-  const { capturedImage } = useAnalyzer();
+  const { capturedImage, analysisResults } = useAnalyzer();
   
   return (
     <>
       <GraphAnalyzer />
       {capturedImage && <ManualMarkupToolbar />}
+      
+      {capturedImage && !analysisResults && (
+        <Alert className="my-4 border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertTitle>Qualidade da imagem importante</AlertTitle>
+          <AlertDescription>
+            Para uma análise precisa, use imagens nítidas de gráficos com boa resolução. 
+            Se a análise automática falhar, utilize as ferramentas de marcação manual para 
+            ajustar as áreas críticas do gráfico.
+          </AlertDescription>
+        </Alert>
+      )}
     </>
   );
 };
@@ -84,6 +97,16 @@ const Index = () => {
                   <p className="text-sm font-medium">Análise Crítica</p>
                   <p className="text-xs text-muted-foreground">
                     Avaliação minuciosa com níveis de confiança e alertas de possíveis divergências
+                  </p>
+                </div>
+                
+                <div className="flex flex-col items-center">
+                  <div className="bg-red-500/10 rounded-full p-3 mb-2">
+                    <ImageOff className="h-6 w-6 text-red-500" />
+                  </div>
+                  <p className="text-sm font-medium">Qualidade da Imagem</p>
+                  <p className="text-xs text-muted-foreground">
+                    Imagens de baixa qualidade podem prejudicar a análise automática
                   </p>
                 </div>
               </div>

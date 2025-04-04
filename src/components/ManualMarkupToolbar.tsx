@@ -15,7 +15,8 @@ import {
   BarChart2, 
   Trash2,
   Undo,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { 
@@ -24,6 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const ManualMarkupToolbar = () => {
   const { 
@@ -32,7 +34,8 @@ const ManualMarkupToolbar = () => {
     isMarkupMode, 
     setMarkupMode,
     clearManualMarkups,
-    removeLastMarkup
+    removeLastMarkup,
+    analysisResults
   } = useAnalyzer();
 
   const tools: { value: MarkupToolType; icon: React.ReactNode; label: string; description: string }[] = [
@@ -85,6 +88,11 @@ const ManualMarkupToolbar = () => {
       description: 'Aplique os princípios da Teoria de Dow para identificar tendências primárias e secundárias.'
     },
   ];
+  
+  // Verificar se a análise automática encontrou poucos padrões
+  const hasLimitedAutoAnalysis = analysisResults?.patterns?.length === 0 || 
+                               (analysisResults?.patterns?.length === 1 && 
+                                analysisResults?.patterns[0].type === 'Erro na Análise');
 
   return (
     <Card className="p-4 my-4 w-full max-w-3xl">
@@ -107,6 +115,17 @@ const ManualMarkupToolbar = () => {
           <Switch checked={isMarkupMode} onCheckedChange={setMarkupMode} />
         </div>
       </div>
+
+      {hasLimitedAutoAnalysis && (
+        <Alert className="mb-4 border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertTitle>Análise automática limitada</AlertTitle>
+          <AlertDescription>
+            A análise automática encontrou dificuldades em identificar padrões nesta imagem. 
+            Utilize as ferramentas de marcação manual para adicionar seus próprios insights e melhorar a precisão.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {isMarkupMode && (
         <>
@@ -153,7 +172,8 @@ const ManualMarkupToolbar = () => {
               </Button>
             </div>
             <div className="text-xs text-amber-500 italic">
-              Dica: Use marcações precisas para corrigir desalinhamentos detectados pela IA
+              <AlertTriangle className="h-3 w-3 inline-block mr-1" />
+              Dica: Use marcações precisas para corrigir desalinhamentos e melhorar a análise quando a qualidade da imagem for baixa
             </div>
           </div>
         </>
