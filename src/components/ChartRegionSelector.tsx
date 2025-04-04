@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer, Point, TechnicalElement } from '@/context/AnalyzerContext';
@@ -30,7 +29,6 @@ const ChartRegionSelector = () => {
   const [showLabelInput, setShowLabelInput] = useState(false);
   const [pendingLabelPosition, setPendingLabelPosition] = useState<Point | null>(null);
   
-  // Detect chart region automatically when image loads
   useEffect(() => {
     if (capturedImage) {
       detectChartRegion(capturedImage).then((region) => {
@@ -47,7 +45,6 @@ const ChartRegionSelector = () => {
     }
   }, [capturedImage, setSelectedRegion]);
 
-  // Update image size when it loads
   const handleImageLoad = () => {
     if (imageRef.current) {
       setImageSize({
@@ -57,7 +54,6 @@ const ChartRegionSelector = () => {
     }
   };
 
-  // Create a manual markup based on drawing
   const createManualMarkup = () => {
     if (!isDragging) return;
     
@@ -159,7 +155,6 @@ const ChartRegionSelector = () => {
       }
     })();
     
-    // Add markup except for label which needs text input
     if (manualMarkupTool !== 'label') {
       addManualMarkup(markup);
     } else {
@@ -185,18 +180,12 @@ const ChartRegionSelector = () => {
     }
   };
 
-  // Start drawing selection region or markup
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
 
-    // Get container bounds
     const rect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate coordinates relative to container
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
-    // Scale to image natural size
     const scaleX = imageSize.width / rect.width;
     const scaleY = imageSize.height / rect.height;
     
@@ -208,18 +197,12 @@ const ChartRegionSelector = () => {
     setIsDragging(true);
   };
 
-  // Update selection region while dragging
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !containerRef.current) return;
 
-    // Get container bounds
     const rect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate coordinates relative to container
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
-    // Scale to image natural size
     const scaleX = imageSize.width / rect.width;
     const scaleY = imageSize.height / rect.height;
     
@@ -229,7 +212,6 @@ const ChartRegionSelector = () => {
     setCurrentPoint({ x: imageX, y: imageY });
   };
 
-  // Finalize selection region or add markup
   const handleMouseUp = () => {
     if (isDragging) {
       if (isMarkupMode) {
@@ -241,7 +223,6 @@ const ChartRegionSelector = () => {
           const regionX = Math.min(currentPoint.x, startPoint.x);
           const regionY = Math.min(currentPoint.y, startPoint.y);
           
-          // Only set region if it has a meaningful size
           if (width > 20 && height > 20) {
             setSelectedRegion({
               type: 'rectangle',
@@ -252,12 +233,10 @@ const ChartRegionSelector = () => {
             });
           }
         } else if (regionType === 'circle') {
-          // Calculate radius from start point to current point
           const deltaX = currentPoint.x - startPoint.x;
           const deltaY = currentPoint.y - startPoint.y;
           const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
           
-          // Only set region if radius is meaningful
           if (radius > 20) {
             setSelectedRegion({
               type: 'circle',
@@ -272,7 +251,6 @@ const ChartRegionSelector = () => {
     setIsDragging(false);
   };
 
-  // Reset selection to automatic
   const resetSelection = async () => {
     if (capturedImage) {
       const region = await detectChartRegion(capturedImage);
@@ -288,7 +266,6 @@ const ChartRegionSelector = () => {
     }
   };
 
-  // Calculate display styles for selection overlay
   const getSelectionStyles = () => {
     if (!selectedRegion || !containerRef.current) return {};
     
@@ -315,7 +292,6 @@ const ChartRegionSelector = () => {
     }
   };
 
-  // Calculate display styles for temporary selection overlay
   const getTempSelectionStyles = () => {
     if (!isDragging || !containerRef.current) return {};
     
@@ -324,7 +300,6 @@ const ChartRegionSelector = () => {
     const scaleY = rect.height / imageSize.height;
     
     if (isMarkupMode) {
-      // For markup mode, display appropriate shape based on markup tool
       switch (manualMarkupTool) {
         case 'rectangle':
           const width = Math.abs(currentPoint.x - startPoint.x);
@@ -356,7 +331,6 @@ const ChartRegionSelector = () => {
             borderRadius: '50%'
           };
         default:
-          // For line, arrow, trendline, etc - show a thin line
           return {
             left: `${Math.min(startPoint.x, currentPoint.x) * scaleX}px`,
             top: `${Math.min(startPoint.y, currentPoint.y) * scaleY}px`,
@@ -364,13 +338,11 @@ const ChartRegionSelector = () => {
             height: `${Math.abs(currentPoint.y - startPoint.y) * scaleY}px`,
             border: 'none',
             background: 'none',
-            pointerEvents: 'none',
-            // Draw a line from start to current point
+            pointerEvents: 'none' as const,
             backgroundImage: `linear-gradient(to bottom right, transparent calc(50% - 1px), rgba(124, 58, 237, 0.8) calc(50%), transparent calc(50% + 1px))`,
           };
       }
     } else {
-      // For region selection
       if (regionType === 'rectangle') {
         const width = Math.abs(currentPoint.x - startPoint.x);
         const height = Math.abs(currentPoint.y - startPoint.y);
@@ -400,7 +372,6 @@ const ChartRegionSelector = () => {
     }
   };
 
-  // Draw temporary markup line for showing preview
   const getTempLine = () => {
     if (!isDragging || !containerRef.current || !isMarkupMode || 
         !['line', 'arrow', 'trendline', 'eliotwave', 'dowtheory'].includes(manualMarkupTool)) {
@@ -436,7 +407,6 @@ const ChartRegionSelector = () => {
     );
   };
 
-  // Render manual markups
   const renderManualMarkups = () => {
     if (!containerRef.current || manualMarkups.length === 0) return null;
     
@@ -463,7 +433,7 @@ const ChartRegionSelector = () => {
               const dx = markup.end.x - markup.start.x;
               const dy = markup.end.y - markup.start.y;
               const angle = Math.atan2(dy, dx);
-              const headLength = 10; // arrow head length
+              const headLength = 10;
               
               return (
                 <g key={index}>
