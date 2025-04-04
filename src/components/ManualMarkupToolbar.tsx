@@ -35,7 +35,8 @@ const ManualMarkupToolbar = () => {
     setMarkupMode,
     clearManualMarkups,
     removeLastMarkup,
-    analysisResults
+    analysisResults,
+    manualMarkups
   } = useAnalyzer();
 
   const tools: { value: MarkupToolType; icon: React.ReactNode; label: string; description: string }[] = [
@@ -117,8 +118,8 @@ const ManualMarkupToolbar = () => {
       </div>
 
       {hasLimitedAutoAnalysis && (
-        <Alert className="mb-4 border-amber-500/50 bg-amber-500/10">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <Alert className="mb-4" variant="warning">
+          <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Análise automática limitada</AlertTitle>
           <AlertDescription>
             A análise automática encontrou dificuldades em identificar padrões nesta imagem. 
@@ -131,8 +132,14 @@ const ManualMarkupToolbar = () => {
         <>
           <div className="mb-4">
             <p className="text-sm text-muted-foreground mb-2">
-              Selecione a ferramenta e desenhe diretamente no gráfico para adicionar marcações manuais de alta precisão
+              <strong>Instruções:</strong> Selecione uma ferramenta abaixo, depois clique e arraste diretamente no gráfico para desenhar.
             </p>
+            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg mb-3 text-sm">
+              <p className="text-blue-800 dark:text-blue-300 flex items-center">
+                <Info className="h-4 w-4 mr-2" />
+                Para usar: 1) Ative o Modo Edição 2) Selecione uma ferramenta 3) Clique e arraste no gráfico
+              </p>
+            </div>
             <TooltipProvider>
               <ToggleGroup type="single" value={manualMarkupTool} onValueChange={(value) => value && setManualMarkupTool(value as MarkupToolType)}>
                 {tools.map((tool) => (
@@ -152,12 +159,13 @@ const ManualMarkupToolbar = () => {
             </TooltipProvider>
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <div className="flex space-x-2">
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={removeLastMarkup}
+                disabled={manualMarkups.length === 0}
               >
                 <Undo className="h-4 w-4 mr-1" />
                 Desfazer
@@ -166,14 +174,17 @@ const ManualMarkupToolbar = () => {
                 variant="outline" 
                 size="sm" 
                 onClick={clearManualMarkups}
+                disabled={manualMarkups.length === 0}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
                 Limpar
               </Button>
             </div>
-            <div className="text-xs text-amber-500 italic">
+            <div className="text-xs text-amber-500 italic flex items-center">
               <AlertTriangle className="h-3 w-3 inline-block mr-1" />
-              Dica: Use marcações precisas para corrigir desalinhamentos e melhorar a análise quando a qualidade da imagem for baixa
+              {manualMarkups.length === 0 ? 
+                "Comece desenhando diretamente no gráfico" : 
+                `${manualMarkups.length} marcação(ões) adicionada(s)`}
             </div>
           </div>
         </>
