@@ -18,8 +18,8 @@ const GraphAnalyzerWithMarkupToolbar = () => {
       {capturedImage && <ManualMarkupToolbar />}
       
       {capturedImage && !analysisResults && (
-        <Alert className="my-4 border-amber-500/50 bg-amber-500/10">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <Alert className="my-4" variant="warning">
+          <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Qualidade da imagem importante</AlertTitle>
           <AlertDescription>
             Para uma análise precisa, use imagens nítidas de gráficos com boa resolução. 

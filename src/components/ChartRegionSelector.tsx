@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer, Point, TechnicalElement } from '@/context/AnalyzerContext';
@@ -36,14 +37,14 @@ const ChartRegionSelector = () => {
   
   useEffect(() => {
     if (capturedImage) {
-      detectChartRegion(capturedImage).then((region) => {
-        if (region) {
+      detectChartRegion(capturedImage).then((regionResult) => {
+        if (regionResult.success && regionResult.data) {
           setSelectedRegion({
             type: 'rectangle',
-            x: region.x,
-            y: region.y,
-            width: region.width,
-            height: region.height
+            x: regionResult.data.x,
+            y: regionResult.data.y,
+            width: regionResult.data.width,
+            height: regionResult.data.height
           });
         }
       });
@@ -372,14 +373,14 @@ const ChartRegionSelector = () => {
 
   const resetSelection = async () => {
     if (capturedImage) {
-      const region = await detectChartRegion(capturedImage);
-      if (region) {
+      const regionResult = await detectChartRegion(capturedImage);
+      if (regionResult.success && regionResult.data) {
         setSelectedRegion({
           type: 'rectangle',
-          x: region.x,
-          y: region.y,
-          width: region.width,
-          height: region.height
+          x: regionResult.data.x,
+          y: regionResult.data.y,
+          width: regionResult.data.width,
+          height: regionResult.data.height
         });
       }
     }

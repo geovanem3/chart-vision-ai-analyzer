@@ -217,11 +217,14 @@ const ControlPanel = () => {
       </div>
       
       {imageQualityInfo.checked && (
-        <Alert className={`mb-4 ${imageQualityInfo.isGood ? 'border-green-500/50 bg-green-500/10' : 'border-amber-500/50 bg-amber-500/10'}`}>
+        <Alert
+          className={`mb-4 ${imageQualityInfo.isGood ? 'border-green-500/50 bg-green-500/10' : ''}`}
+          variant={imageQualityInfo.isGood ? "default" : "warning"}
+        >
           {imageQualityInfo.isGood ? (
             <Check className="h-4 w-4 text-green-500" />
           ) : (
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertTriangle className="h-4 w-4" />
           )}
           <AlertTitle>Qualidade da Imagem</AlertTitle>
           <AlertDescription>
