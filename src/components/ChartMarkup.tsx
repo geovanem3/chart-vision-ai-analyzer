@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TechnicalElement, Point } from '@/context/AnalyzerContext';
@@ -446,7 +445,13 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
     drawText(ctx, position, text, colorStr, 1);
   };
 
-  const drawText = (ctx: CanvasRenderingContext2D, position: Point, text: string, color: string, scale: number) => {
+  const drawText = (
+    ctx: CanvasRenderingContext2D, 
+    position: Point, 
+    text: string, 
+    color: string, 
+    scale: number
+  ) => {
     let fontSize = 12;
     switch (markupSize) {
       case 'small':
