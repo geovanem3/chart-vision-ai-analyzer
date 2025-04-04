@@ -427,10 +427,21 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       ctx.restore();
     }
     
-    // Make sure we pass a string color to drawText
-    const colorStr = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : 
-                   (ctx.strokeStyle instanceof CanvasGradient || ctx.strokeStyle instanceof CanvasPattern) ? 
-                   '#000000' : String(ctx.strokeStyle);
+    // Convert strokeStyle to a string for drawText
+    let colorStr = '#000000'; // Default fallback color
+    
+    if (typeof ctx.strokeStyle === 'string') {
+      colorStr = ctx.strokeStyle;
+    } else if (ctx.strokeStyle instanceof CanvasGradient || ctx.strokeStyle instanceof CanvasPattern) {
+      colorStr = '#000000'; // Fallback for gradient/pattern
+    } else {
+      // For any other objects that might be convertible to string
+      try {
+        colorStr = String(ctx.strokeStyle);
+      } catch (e) {
+        colorStr = '#000000'; // Final fallback if conversion fails
+      }
+    }
     
     drawText(ctx, position, text, colorStr, 1);
   };
