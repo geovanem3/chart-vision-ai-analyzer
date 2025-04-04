@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TechnicalElement, Point } from '@/context/AnalyzerContext';
@@ -247,7 +248,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
         labelPosition = { x: 10, y: 10 };
       }
       
-      // Convert strokeStyle to string to ensure we're passing a string to drawText
+      // Ensure we're passing a string color to drawText
       const colorString = typeof element.color === 'string' ? element.color : '#000000';
       drawText(ctx, labelPosition, element.label, colorString, scale);
     }
@@ -426,9 +427,12 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       ctx.restore();
     }
     
-    // Ensure we're passing a string to drawText by converting ctx.strokeStyle to string if needed
-    const strokeStyleString = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
-    drawText(ctx, position, text, strokeStyleString, 1);
+    // Make sure we pass a string color to drawText
+    const colorStr = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : 
+                   (ctx.strokeStyle instanceof CanvasGradient || ctx.strokeStyle instanceof CanvasPattern) ? 
+                   '#000000' : String(ctx.strokeStyle);
+    
+    drawText(ctx, position, text, colorStr, 1);
   };
 
   const drawText = (ctx: CanvasRenderingContext2D, position: Point, text: string, color: string, scale: number) => {
