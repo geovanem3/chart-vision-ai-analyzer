@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -7,6 +8,7 @@ import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetectio
 import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2, ZoomIn, ZoomOut } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const AnalysisResults = () => {
   const { 
@@ -20,6 +22,7 @@ const AnalysisResults = () => {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
@@ -122,31 +125,31 @@ const AnalysisResults = () => {
   const getActionBadge = (action?: 'compra' | 'venda' | 'neutro') => {
     switch(action) {
       case 'compra':
-        return <span className="ml-2 px-2 py-0.5 rounded-full bg-chart-up/20 text-chart-up text-xs font-medium">Compra</span>;
+        return <span className={`ml-2 px-2 py-0.5 rounded-full bg-chart-up/20 text-chart-up ${isMobile ? 'text-[10px]' : 'text-xs'} font-medium`}>Compra</span>;
       case 'venda':
-        return <span className="ml-2 px-2 py-0.5 rounded-full bg-chart-down/20 text-chart-down text-xs font-medium">Venda</span>;
+        return <span className={`ml-2 px-2 py-0.5 rounded-full bg-chart-down/20 text-chart-down ${isMobile ? 'text-[10px]' : 'text-xs'} font-medium`}>Venda</span>;
       default:
-        return <span className="ml-2 px-2 py-0.5 rounded-full bg-chart-neutral/20 text-chart-neutral text-xs font-medium">Neutro</span>;
+        return <span className={`ml-2 px-2 py-0.5 rounded-full bg-chart-neutral/20 text-chart-neutral ${isMobile ? 'text-[10px]' : 'text-xs'} font-medium`}>Neutro</span>;
     }
   };
 
   return (
-    <Card className="p-4 my-4 w-full max-w-3xl">
-      <div className="flex justify-between items-start mb-6">
+    <Card className={`${isMobile ? 'p-3 my-2' : 'p-4 my-4'} w-full max-w-3xl`}>
+      <div className="flex justify-between items-start mb-4">
         <div>
-          <h2 className="text-xl font-semibold">Resultados da Análise</h2>
-          <p className="text-sm text-muted-foreground">Analisado em {formattedDate}</p>
+          <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`}>Resultados da Análise</h2>
+          <p className="text-xs text-muted-foreground">Analisado em {formattedDate}</p>
         </div>
-        <div className="flex items-center px-3 py-1 rounded-full bg-secondary">
+        <div className="flex items-center px-2 py-1 rounded-full bg-secondary">
           {getSentimentIcon()}
-          <span className="ml-2 text-sm font-medium">
-            {patterns.length} padrões detectados
+          <span className={`ml-1 ${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>
+            {patterns.length} padrões
           </span>
         </div>
       </div>
       
       {analysisResults.imageUrl && (
-        <div className="relative w-full overflow-hidden rounded-lg mb-6">
+        <div className="relative w-full overflow-hidden rounded-lg mb-4">
           <img 
             ref={imageRef}
             src={analysisResults.imageUrl} 
@@ -155,7 +158,7 @@ const AnalysisResults = () => {
             onLoad={handleImageLoad}
           />
           
-          <div className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm rounded-lg p-2 shadow-md flex flex-col gap-3">
+          <div className={`absolute ${isMobile ? 'top-2 right-2' : 'top-4 right-4'} bg-background/80 backdrop-blur-sm rounded-lg p-2 shadow-md flex flex-col gap-2`}>
             <div className="flex items-center gap-2">
               <BarChart2 className="h-4 w-4 text-primary" />
               <Switch 
@@ -166,7 +169,7 @@ const AnalysisResults = () => {
             </div>
             
             {showTechnicalMarkup && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1">
                 <div className="text-xs font-medium text-center">Tamanho</div>
                 <div className="flex justify-between items-center gap-2">
                   <ZoomOut className="h-3 w-3 text-muted-foreground" />
@@ -202,44 +205,44 @@ const AnalysisResults = () => {
         </div>
       )}
       
-      <div className="gradient-border mb-6 p-4">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-primary mt-0.5" />
+      <div className={`gradient-border mb-4 ${isMobile ? 'p-3' : 'p-4'}`}>
+        <div className="flex items-start gap-2">
+          <Info className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary mt-0.5`} />
           <div>
             <h3 className="font-medium mb-1">Avaliação Geral</h3>
-            <p className="text-sm">{overallRecommendation}</p>
+            <p className={`${isMobile ? 'text-xs' : 'text-sm'}`}>{overallRecommendation}</p>
           </div>
         </div>
       </div>
       
-      <div className="space-y-6">
-        <h3 className="font-medium mb-4">Padrões Detectados</h3>
+      <div className="space-y-4">
+        <h3 className={`font-medium mb-3 ${isMobile ? 'text-sm' : ''}`}>Padrões Detectados</h3>
         
         {Object.entries(groupedPatterns).map(([category, patterns]) => (
-          <div key={category} className="mb-6">
-            <h4 className="text-sm font-medium mb-3 text-muted-foreground uppercase tracking-wide">{category}</h4>
-            <div className="space-y-4">
+          <div key={category} className={`mb-4 ${isMobile ? 'space-y-2' : 'mb-6'}`}>
+            <h4 className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2 text-muted-foreground uppercase tracking-wide`}>{category}</h4>
+            <div className={`${isMobile ? 'space-y-2' : 'space-y-4'}`}>
               {patterns.map((pattern: PatternResult, index: number) => (
-                <div key={index} className="bg-secondary/50 rounded-lg p-4">
+                <div key={index} className={`bg-secondary/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center">
-                      <h4 className="font-medium">{pattern.type}</h4>
+                      <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{pattern.type}</h4>
                       {pattern.action && getActionBadge(pattern.action)}
                     </div>
-                    <div className="text-sm">
+                    <div className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Confiança: {Math.round(pattern.confidence * 100)}%
                     </div>
                   </div>
                   
                   <Progress 
                     value={pattern.confidence * 100} 
-                    className={`h-1.5 mb-3 ${getConfidenceColor(pattern.confidence)}`} 
+                    className={`h-1.5 mb-2 ${getConfidenceColor(pattern.confidence)}`} 
                   />
                   
-                  <p className="text-sm mb-2">{pattern.description}</p>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} mb-2`}>{pattern.description}</p>
                   
                   {pattern.recommendation && (
-                    <div className="text-sm text-primary">
+                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-primary`}>
                       <span className="font-medium">Recomendação:</span> {pattern.recommendation}
                     </div>
                   )}
@@ -250,10 +253,10 @@ const AnalysisResults = () => {
         ))}
       </div>
       
-      <div className="mt-8 pt-4 border-t border-border text-sm text-muted-foreground">
+      <div className={`mt-6 pt-3 border-t border-border ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
         <p className="italic">
           Observação: A IA realiza análise apenas com base na imagem fornecida e não tem acesso a dados históricos completos. 
-          Confirmações adicionais são recomendadas antes de tomar decisões de investimento.
+          {!isMobile && " Confirmações adicionais são recomendadas antes de tomar decisões de investimento."}
         </p>
       </div>
     </Card>
