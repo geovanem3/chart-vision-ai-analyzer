@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TechnicalElement, Point } from '@/context/AnalyzerContext';
@@ -247,9 +248,12 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
         labelPosition = { x: 10, y: 10 };
       }
       
-      // Ensure we're passing a string color to drawText
-      const colorString = typeof element.color === 'string' ? element.color : '#000000';
-      drawText(ctx, labelPosition, element.label, colorString, scale);
+      // Converte a cor para string antes de passar para drawText
+      const elementColor = typeof element.color === 'string' 
+        ? element.color 
+        : '#000000'; // Cor padrão caso não seja uma string
+      
+      drawText(ctx, labelPosition, element.label, elementColor, scale);
     }
     
     ctx.restore();
@@ -306,7 +310,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       end.y - headLength * Math.sin(angle + Math.PI / 6)
     );
     ctx.closePath();
-    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fillStyle = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
     ctx.fill();
   };
 
@@ -353,21 +357,22 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       for (let i = 0; i < points.length; i++) {
         ctx.beginPath();
         ctx.arc(points[i].x, points[i].y, 3 * scale, 0, 2 * Math.PI);
-        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fillStyle = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
         ctx.fill();
         
         const waveNumber = (i % 5) + 1;
+        const textColor = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
         drawText(ctx, {
           x: points[i].x + 8 * scale,
           y: points[i].y - 8 * scale
-        }, waveNumber.toString(), ctx.strokeStyle, scale);
+        }, waveNumber.toString(), textColor, scale);
       }
     } else if (patternType === 'dowtheory') {
       if (points.length >= 2) {
         for (let i = 0; i < points.length; i++) {
           ctx.beginPath();
           ctx.arc(points[i].x, points[i].y, 4 * scale, 0, 2 * Math.PI);
-          ctx.fillStyle = ctx.strokeStyle;
+          ctx.fillStyle = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
           ctx.fill();
         }
       }
@@ -401,7 +406,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
           extendedY - arrowSize * Math.sin(angle + Math.PI / 6)
         );
         ctx.closePath();
-        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fillStyle = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#000000';
         ctx.fill();
       }
     }
@@ -426,19 +431,19 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({ imageWidth, imageHeight }) =>
       ctx.restore();
     }
     
-    // Convert strokeStyle to a string for drawText
-    let colorStr = '#000000'; // Default fallback color
+    // Converte strokeStyle para string
+    let colorStr = '#000000'; // Cor padrão
     
     if (typeof ctx.strokeStyle === 'string') {
       colorStr = ctx.strokeStyle;
     } else if (ctx.strokeStyle instanceof CanvasGradient || ctx.strokeStyle instanceof CanvasPattern) {
-      colorStr = '#000000'; // Fallback for gradient/pattern
+      colorStr = '#000000'; // Usa a cor padrão para gradiente/pattern
     } else {
-      // For any other objects that might be convertible to string
+      // Para outros objetos que podem ser convertidos para string
       try {
         colorStr = String(ctx.strokeStyle);
       } catch (e) {
-        colorStr = '#000000'; // Final fallback if conversion fails
+        colorStr = '#000000'; // Usa a cor padrão caso falhe a conversão
       }
     }
     
