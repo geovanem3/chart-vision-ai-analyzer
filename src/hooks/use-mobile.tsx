@@ -9,78 +9,132 @@ export const BREAKPOINTS = {
 }
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
+  const [isMobile, setIsMobile] = React.useState<boolean>(false)
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${BREAKPOINTS.MOBILE - 1}px)`)
-    const onChange = () => {
+    // Check immediately on mount
+    setIsMobile(window.innerWidth < BREAKPOINTS.MOBILE)
+    
+    const handleResize = () => {
       setIsMobile(window.innerWidth < BREAKPOINTS.MOBILE)
     }
-    mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < BREAKPOINTS.MOBILE)
-    return () => mql.removeEventListener("change", onChange)
+    
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  return !!isMobile
+  return isMobile
 }
 
 export function useIsTablet() {
-  const [isTablet, setIsTablet] = React.useState<boolean | undefined>(undefined)
+  const [isTablet, setIsTablet] = React.useState<boolean>(false)
 
   React.useEffect(() => {
-    const mql = window.matchMedia(
-      `(min-width: ${BREAKPOINTS.MOBILE}px) and (max-width: ${BREAKPOINTS.TABLET - 1}px)`
+    // Check immediately on mount
+    setIsTablet(
+      window.innerWidth >= BREAKPOINTS.MOBILE && 
+      window.innerWidth < BREAKPOINTS.TABLET
     )
-    const onChange = () => {
+    
+    const handleResize = () => {
       setIsTablet(
         window.innerWidth >= BREAKPOINTS.MOBILE && 
         window.innerWidth < BREAKPOINTS.TABLET
       )
     }
-    mql.addEventListener("change", onChange)
-    setIsTablet(
-      window.innerWidth >= BREAKPOINTS.MOBILE && 
-      window.innerWidth < BREAKPOINTS.TABLET
-    )
-    return () => mql.removeEventListener("change", onChange)
+    
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  return !!isTablet
+  return isTablet
 }
 
 export function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = React.useState<boolean | undefined>(undefined)
+  const [isDesktop, setIsDesktop] = React.useState<boolean>(false)
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(min-width: ${BREAKPOINTS.DESKTOP}px)`)
-    const onChange = () => {
+    // Check immediately on mount
+    setIsDesktop(window.innerWidth >= BREAKPOINTS.DESKTOP)
+    
+    const handleResize = () => {
       setIsDesktop(window.innerWidth >= BREAKPOINTS.DESKTOP)
     }
-    mql.addEventListener("change", onChange)
-    setIsDesktop(window.innerWidth >= BREAKPOINTS.DESKTOP)
-    return () => mql.removeEventListener("change", onChange)
+    
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  return !!isDesktop
+  return isDesktop
 }
 
 export function useViewportSize() {
   const [size, setSize] = React.useState<{ width: number; height: number }>({
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
   })
 
   React.useEffect(() => {
-    const onResize = () => {
+    const handleResize = () => {
       setSize({
         width: window.innerWidth,
         height: window.innerHeight,
       })
     }
     
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    // Check immediately on mount
+    handleResize()
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   return size
+}
+
+// New hook for detecting device pixel ratio (for better rendering on high-DPI screens)
+export function useDevicePixelRatio() {
+  const [dpr, setDpr] = React.useState<number>(
+    typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  )
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      `(resolution: ${window.devicePixelRatio}dppx)`
+    )
+
+    const updatePixelRatio = () => {
+      setDpr(window.devicePixelRatio || 1)
+    }
+
+    mediaQuery.addEventListener('change', updatePixelRatio)
+    return () => mediaQuery.removeEventListener('change', updatePixelRatio)
+  }, [])
+
+  return dpr
+}
+
+// New hook for detecting orientation
+export function useOrientation() {
+  const [orientation, setOrientation] = React.useState<'portrait' | 'landscape'>(
+    typeof window !== 'undefined' && window.innerHeight > window.innerWidth 
+      ? 'portrait' 
+      : 'landscape'
+  )
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setOrientation(
+        window.innerHeight > window.innerWidth ? 'portrait' : 'landscape'
+      )
+    }
+    
+    // Check immediately on mount
+    handleResize()
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  return orientation
 }
