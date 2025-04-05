@@ -1,13 +1,14 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer, Point, TechnicalElement } from '@/context/AnalyzerContext';
 import { Card } from '@/components/ui/card';
 import { detectChartRegion } from '@/utils/imageProcessing';
-import { Circle, Scan, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Circle, Scan, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, Target } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 const ChartRegionSelector = () => {
   const { 
@@ -32,6 +33,13 @@ const ChartRegionSelector = () => {
   const [pendingLabelPosition, setPendingLabelPosition] = useState<Point | null>(null);
   const [showPrecisionControls, setShowPrecisionControls] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [useManualCircle, setUseManualCircle] = useState(false);
+  const [manualCircle, setManualCircle] = useState({
+    centerX: 0,
+    centerY: 0,
+    radius: 50
+  });
+  const [isPlacingCircle, setIsPlacingCircle] = useState(false);
   
   const FINE_ADJUST_PX = 5;
   
@@ -46,6 +54,16 @@ const ChartRegionSelector = () => {
             width: regionResult.data.width,
             height: regionResult.data.height
           });
+          
+          const centerX = regionResult.data.x + regionResult.data.width / 2;
+          const centerY = regionResult.data.y + regionResult.data.height / 2;
+          const radius = Math.min(regionResult.data.width, regionResult.data.height) / 3;
+          
+          setManualCircle({
+            centerX: centerX,
+            centerY: centerY,
+            radius: radius
+          });
         }
       });
     }
@@ -59,6 +77,17 @@ const ChartRegionSelector = () => {
       });
     }
   };
+
+  useEffect(() => {
+    if (useManualCircle && regionType === 'circle') {
+      setSelectedRegion({
+        type: 'circle',
+        centerX: manualCircle.centerX,
+        centerY: manualCircle.centerY,
+        radius: manualCircle.radius
+      });
+    }
+  }, [useManualCircle, manualCircle, regionType, setSelectedRegion]);
 
   const createManualMarkup = () => {
     if (!isDragging) return;
@@ -198,6 +227,24 @@ const ChartRegionSelector = () => {
     const imageX = x * scaleX;
     const imageY = y * scaleY;
     
+    if (isPlacingCircle && regionType === 'circle') {
+      setManualCircle(prev => ({
+        ...prev,
+        centerX: imageX,
+        centerY: imageY
+      }));
+      
+      setSelectedRegion({
+        type: 'circle',
+        centerX: imageX,
+        centerY: imageY,
+        radius: manualCircle.radius
+      });
+      
+      setIsPlacingCircle(false);
+      return;
+    }
+    
     setStartPoint({ x: imageX, y: imageY });
     setCurrentPoint({ x: imageX, y: imageY });
     setIsDragging(true);
@@ -238,7 +285,7 @@ const ChartRegionSelector = () => {
               height
             });
           }
-        } else if (regionType === 'circle') {
+        } else if (regionType === 'circle' && !useManualCircle) {
           const deltaX = currentPoint.x - startPoint.x;
           const deltaY = currentPoint.y - startPoint.y;
           const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -246,6 +293,12 @@ const ChartRegionSelector = () => {
           if (radius > 20) {
             setSelectedRegion({
               type: 'circle',
+              centerX: startPoint.x,
+              centerY: startPoint.y,
+              radius
+            });
+            
+            setManualCircle({
               centerX: startPoint.x,
               centerY: startPoint.y,
               radius
@@ -319,10 +372,37 @@ const ChartRegionSelector = () => {
   const adjustRadius = (amount: number) => {
     if (!selectedRegion || selectedRegion.type !== 'circle') return;
     
+    const newRadius = Math.max(10, selectedRegion.radius + amount);
+    
     setSelectedRegion({
       ...selectedRegion,
-      radius: Math.max(10, selectedRegion.radius + amount)
+      radius: newRadius
     });
+    
+    setManualCircle(prev => ({
+      ...prev,
+      radius: newRadius
+    }));
+  };
+
+  const handleManualInput = (
+    field: 'centerX' | 'centerY' | 'radius', 
+    value: string
+  ) => {
+    const numValue = Number(value);
+    if (isNaN(numValue)) return;
+    
+    const newManualCircle = { ...manualCircle, [field]: numValue };
+    setManualCircle(newManualCircle);
+    
+    if (regionType === 'circle') {
+      setSelectedRegion({
+        type: 'circle',
+        centerX: newManualCircle.centerX,
+        centerY: newManualCircle.centerY,
+        radius: newManualCircle.radius
+      });
+    }
   };
 
   const moveRegion = (direction: 'left' | 'right' | 'up' | 'down') => {
@@ -381,6 +461,16 @@ const ChartRegionSelector = () => {
           y: regionResult.data.y,
           width: regionResult.data.width,
           height: regionResult.data.height
+        });
+        
+        const centerX = regionResult.data.x + regionResult.data.width / 2;
+        const centerY = regionResult.data.y + regionResult.data.height / 2;
+        const radius = Math.min(regionResult.data.width, regionResult.data.height) / 3;
+        
+        setManualCircle({
+          centerX: centerX,
+          centerY: centerY,
+          radius: radius
         });
       }
     }
@@ -582,7 +672,7 @@ const ChartRegionSelector = () => {
                   x={markup.position.x * scaleX}
                   y={markup.position.y * scaleY}
                   width={markup.width * scaleX}
-                  height={markup.height * scaleY}
+                  height={markup.height * scaleX}
                   stroke={markup.color}
                   strokeWidth={markup.thickness || 2}
                   fill="none"
@@ -680,6 +770,26 @@ const ChartRegionSelector = () => {
     );
   };
 
+  const renderManualCircle = () => {
+    if (!containerRef.current || !useManualCircle || regionType !== 'circle') return null;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const scaleX = rect.width / imageSize.width;
+    const scaleY = rect.height / imageSize.height;
+    
+    return (
+      <div
+        className="absolute border-2 border-primary bg-primary/20 rounded-full pointer-events-none"
+        style={{
+          left: `${(manualCircle.centerX - manualCircle.radius) * scaleX}px`,
+          top: `${(manualCircle.centerY - manualCircle.radius) * scaleY}px`,
+          width: `${manualCircle.radius * 2 * scaleX}px`,
+          height: `${manualCircle.radius * 2 * scaleY}px`,
+        }}
+      />
+    );
+  };
+
   if (!capturedImage) return null;
 
   return (
@@ -689,14 +799,27 @@ const ChartRegionSelector = () => {
           {isMarkupMode ? 'Adicionar marcações manuais' : 'Selecione a região do gráfico'}
         </h3>
         {!isMarkupMode && (
-          <ToggleGroup type="single" value={regionType} onValueChange={(value) => value && setRegionType(value as 'rectangle' | 'circle')}>
-            <ToggleGroupItem value="rectangle" aria-label="Seleção retangular">
-              <Scan className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="circle" aria-label="Seleção circular">
-              <Circle className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="flex items-center space-x-2">
+            <ToggleGroup type="single" value={regionType} onValueChange={(value) => {
+              if (value) {
+                setRegionType(value as 'rectangle' | 'circle');
+                if (value === 'circle' && selectedRegion && selectedRegion.type === 'circle') {
+                  setManualCircle({
+                    centerX: selectedRegion.centerX,
+                    centerY: selectedRegion.centerY,
+                    radius: selectedRegion.radius
+                  });
+                }
+              }
+            }}>
+              <ToggleGroupItem value="rectangle" aria-label="Seleção retangular">
+                <Scan className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="circle" aria-label="Seleção circular">
+                <Circle className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         )}
       </div>
       
@@ -711,9 +834,22 @@ const ChartRegionSelector = () => {
              manualMarkupTool === 'eliotwave' ? 'Ondas de Elliott' : 
              'Teoria de Dow'}`
           : regionType === 'circle' 
-            ? "Clique e arraste para selecionar a área circular específica do gráfico que deseja analisar." 
+            ? (useManualCircle 
+               ? "Use os controles abaixo para posicionar manualmente o círculo, ou clique no botão 'Posicionar' e depois na imagem." 
+               : "Clique e arraste para selecionar a área circular específica do gráfico que deseja analisar.")
             : "Clique e arraste para selecionar a área retangular específica do gráfico que deseja analisar."}
       </p>
+      
+      {regionType === 'circle' && (
+        <div className="mb-4 flex items-center space-x-2">
+          <Switch 
+            id="manual-circle" 
+            checked={useManualCircle}
+            onCheckedChange={setUseManualCircle}
+          />
+          <Label htmlFor="manual-circle">Posicionamento Manual do Círculo</Label>
+        </div>
+      )}
       
       <div 
         ref={containerRef}
@@ -732,12 +868,14 @@ const ChartRegionSelector = () => {
           onLoad={handleImageLoad}
         />
         
-        {selectedRegion && !isMarkupMode && (
+        {selectedRegion && !isMarkupMode && !useManualCircle && (
           <div 
             className="absolute border-2 border-primary/80 bg-primary/20 pointer-events-none"
             style={getSelectionStyles()}
           />
         )}
+        
+        {renderManualCircle()}
         
         {isDragging && (
           <div 
@@ -761,6 +899,100 @@ const ChartRegionSelector = () => {
           />
           <Button onClick={handleAddLabel} size="sm">Adicionar</Button>
           <Button variant="outline" size="sm" onClick={() => setShowLabelInput(false)}>Cancelar</Button>
+        </div>
+      )}
+      
+      {regionType === 'circle' && useManualCircle && (
+        <div className="mb-4 p-4 border rounded-md space-y-4">
+          <h4 className="text-sm font-medium">Posicionamento Manual do Círculo</h4>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="center-x">Centro X:</Label>
+              <Input
+                id="center-x"
+                type="number"
+                value={Math.round(manualCircle.centerX)}
+                onChange={(e) => handleManualInput('centerX', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="center-y">Centro Y:</Label>
+              <Input
+                id="center-y"
+                type="number"
+                value={Math.round(manualCircle.centerY)}
+                onChange={(e) => handleManualInput('centerY', e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="radius">Raio:</Label>
+            <div className="flex items-center space-x-4">
+              <Input
+                id="radius"
+                type="number"
+                value={Math.round(manualCircle.radius)}
+                onChange={(e) => handleManualInput('radius', e.target.value)}
+                className="w-24"
+              />
+              <Slider
+                value={[manualCircle.radius]}
+                onValueChange={(value) => handleManualInput('radius', value[0].toString())}
+                min={10}
+                max={Math.min(imageSize.width, imageSize.height) / 2}
+                step={1}
+                className="flex-1"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-between">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsPlacingCircle(true)}
+              className="flex items-center space-x-1"
+            >
+              <Target className="h-4 w-4 mr-1" />
+              Posicionar Centro
+            </Button>
+            
+            <div className="grid grid-cols-3 gap-2">
+              <div />
+              <Button size="sm" variant="outline" onClick={() => moveRegion('up')}>
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <div />
+              
+              <Button size="sm" variant="outline" onClick={() => moveRegion('left')}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="outline">
+                <Move className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => moveRegion('right')}>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              
+              <div />
+              <Button size="sm" variant="outline" onClick={() => moveRegion('down')}>
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <div />
+            </div>
+            
+            <div>
+              <Button size="sm" variant="outline" onClick={() => adjustRadius(-5)}>
+                -
+              </Button>
+              <span className="mx-2 text-sm">Raio</span>
+              <Button size="sm" variant="outline" onClick={() => adjustRadius(5)}>
+                +
+              </Button>
+            </div>
+          </div>
         </div>
       )}
       
@@ -792,63 +1024,69 @@ const ChartRegionSelector = () => {
               </div>
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium mb-2">Ajuste Fino da Posição</h4>
-              <div className="grid grid-cols-3 gap-2">
-                <div />
-                <Button size="sm" variant="outline" onClick={() => moveRegion('up')}>
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-                <div />
-                
-                <Button size="sm" variant="outline" onClick={() => moveRegion('left')}>
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div />
-                <Button size="sm" variant="outline" onClick={() => moveRegion('right')}>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                
-                <div />
-                <Button size="sm" variant="outline" onClick={() => moveRegion('down')}>
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-                <div />
-              </div>
-            </div>
-            
-            {selectedRegion?.type === 'rectangle' && (
-              <div>
-                <h4 className="text-sm font-medium mb-2">Ajuste de Tamanho</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('left', 5)}>
-                    <span className="mr-1">←</span> Reduzir Largura
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('right', 5)}>
-                    Aumentar Largura <span className="ml-1">→</span>
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('up', 5)}>
-                    <span className="mr-1">↑</span> Reduzir Altura
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('down', 5)}>
-                    Aumentar Altura <span className="ml-1">↓</span>
-                  </Button>
+            {!useManualCircle && (
+              <>
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Ajuste Fino da Posição</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div />
+                    <Button size="sm" variant="outline" onClick={() => moveRegion('up')}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <div />
+                    
+                    <Button size="sm" variant="outline" onClick={() => moveRegion('left')}>
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <Move className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => moveRegion('right')}>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                    
+                    <div />
+                    <Button size="sm" variant="outline" onClick={() => moveRegion('down')}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <div />
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {selectedRegion?.type === 'circle' && (
-              <div>
-                <h4 className="text-sm font-medium mb-2">Ajuste do Raio</h4>
-                <div className="flex space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => adjustRadius(-5)}>
-                    Reduzir Raio
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => adjustRadius(5)}>
-                    Aumentar Raio
-                  </Button>
-                </div>
-              </div>
+                
+                {selectedRegion?.type === 'rectangle' && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Ajuste de Tamanho</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('left', 5)}>
+                        <span className="mr-1">←</span> Reduzir Largura
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('right', 5)}>
+                        Aumentar Largura <span className="ml-1">→</span>
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('up', 5)}>
+                        <span className="mr-1">↑</span> Reduzir Altura
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => adjustSelectedRegion('down', 5)}>
+                        Aumentar Altura <span className="ml-1">↓</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedRegion?.type === 'circle' && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Ajuste do Raio</h4>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => adjustRadius(-5)}>
+                        Reduzir Raio
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => adjustRadius(5)}>
+                        Aumentar Raio
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
