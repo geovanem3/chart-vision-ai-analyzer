@@ -1,3 +1,4 @@
+
 // Add imports from AnalyzerContext
 import { PatternResult, TechnicalElement, Point, CandleData } from '@/context/AnalyzerContext';
 
@@ -103,70 +104,70 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 1500));
   
-  // Get initial patterns
-  const patterns = [
+  // Get initial patterns with explicitly typed actions
+  const patterns: PatternResult[] = [
     {
       type: 'Tendência de Alta',
       confidence: 0.82,
       description: 'Identificada uma tendência de alta com sucessivos topos e fundos ascendentes.',
       recommendation: 'Considere posições compradas com stop abaixo do último fundo relevante.',
-      action: 'compra'
+      action: 'compra' as const
     },
     {
       type: 'Suporte/Resistência',
       confidence: 0.90,
       description: 'Níveis de suporte e resistência bem definidos no gráfico. Preço próximo à resistência importante.',
       recommendation: 'Observe possíveis reversões nos níveis de suporte/resistência identificados.',
-      action: 'neutro'
+      action: 'neutro' as const
     },
     {
       type: 'Triângulo',
       confidence: 0.75,
       description: 'Formação de triângulo ascendente, indicando possível continuação da tendência de alta.',
       recommendation: 'Aguarde confirmação de rompimento da linha superior do triângulo para entrar comprado.',
-      action: 'compra'
+      action: 'compra' as const
     },
     {
       type: 'Padrão de Velas',
       confidence: 0.85,
       description: 'Identificado padrão de velas Doji seguido por candle de alta com fechamento forte.',
       recommendation: 'Sinal de reversão de baixa para alta. Considere entrada após confirmação no próximo candle.',
-      action: 'compra'
+      action: 'compra' as const
     },
     {
       type: 'Retração de Fibonacci',
       confidence: 0.78,
       description: 'Preço encontrando suporte no nível de 61.8% de Fibonacci da última pernada de alta.',
       recommendation: 'Possível área de reversão. Acompanhe a reação do preço neste nível.',
-      action: 'compra'
+      action: 'compra' as const
     },
     {
       type: 'Divergência',
       confidence: 0.72,
       description: 'Divergência positiva entre preço e indicador de momento, sugerindo possível esgotamento da tendência de baixa.',
       recommendation: 'Sinal de alerta para possível reversão. Aguarde confirmação por quebra de resistência.',
-      action: 'compra'
+      action: 'compra' as const
     },
     {
       type: 'OCO',
       confidence: 0.68,
       description: 'Formação OCO (Ombro-Cabeça-Ombro) em desenvolvimento, sugerindo possível reversão de tendência.',
       recommendation: 'Observe a quebra da linha de pescoço como confirmação do padrão para entrada.',
-      action: 'venda'
+      action: 'venda' as const
     },
     {
       type: 'Falso Rompimento',
       confidence: 0.65,
       description: 'Identificado possível falso rompimento de resistência com recuo imediato do preço.',
       recommendation: 'Cuidado com entradas baseadas neste rompimento. Aguarde nova confirmação.',
-      action: 'neutro'
+      action: 'neutro' as const
     },
     {
       type: 'Sobrecompra/Sobrevenda',
       confidence: 0.80,
       description: 'Indicadores sugerem condição de sobrecompra no gráfico atual.',
       recommendation: 'Considere cautela em novas posições compradas. Possível correção técnica à frente.',
-      action: 'neutro'
+      action: 'neutro' as const
     }
   ];
   
