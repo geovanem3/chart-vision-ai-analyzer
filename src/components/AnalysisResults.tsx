@@ -17,7 +17,9 @@ import {
   ZoomIn, 
   ZoomOut, 
   Clock,
-  AlertTriangle 
+  AlertTriangle,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
@@ -157,6 +159,37 @@ const AnalysisResults = () => {
   const overallRecommendation = analyzeResults(patterns, timeframe);
   const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
+  const getSignalAction = (): { action: 'compra' | 'venda' | 'neutro', confidence: number } => {
+    let buyCount = 0;
+    let sellCount = 0;
+    let neutralCount = 0;
+    let totalConfidence = 0;
+    
+    patterns.forEach(pattern => {
+      if (pattern.action === 'compra') {
+        buyCount += pattern.confidence;
+      } else if (pattern.action === 'venda') {
+        sellCount += pattern.confidence;
+      } else {
+        neutralCount += pattern.confidence;
+      }
+      totalConfidence += pattern.confidence;
+    });
+    
+    const buyWeight = buyCount / totalConfidence;
+    const sellWeight = sellCount / totalConfidence;
+    
+    if (buyWeight > 0.6) {
+      return { action: 'compra', confidence: buyWeight };
+    } else if (sellWeight > 0.6) {
+      return { action: 'venda', confidence: sellWeight };
+    } else {
+      return { action: 'neutro', confidence: Math.max(buyWeight, sellWeight) };
+    }
+  };
+
+  const signalAction = getSignalAction();
+
   const groupPatternsByCategory = (patterns: PatternResult[] = []) => {
     const categories: Record<string, PatternResult[]> = {
       'Tendência': [],
@@ -222,6 +255,39 @@ const AnalysisResults = () => {
     }
   };
 
+  const getSignalDisplay = () => {
+    const { action, confidence } = signalAction;
+    
+    let icon;
+    let bgClass;
+    let textClass;
+    let actionText;
+    
+    switch(action) {
+      case 'compra':
+        icon = <CheckCircle2 className="w-6 h-6" />;
+        bgClass = 'bg-chart-up/10';
+        textClass = 'text-chart-up';
+        actionText = 'COMPRA';
+        break;
+      case 'venda':
+        icon = <XCircle className="w-6 h-6" />;
+        bgClass = 'bg-chart-down/10';
+        textClass = 'text-chart-down';
+        actionText = 'VENDA';
+        break;
+      default:
+        icon = <AlertTriangle className="w-6 h-6" />;
+        bgClass = 'bg-chart-neutral/10';
+        textClass = 'text-chart-neutral';
+        actionText = 'NEUTRO';
+    }
+    
+    return { icon, bgClass, textClass, actionText, confidence };
+  };
+
+  const signalDisplay = getSignalDisplay();
+
   return (
     <Card className={`${isMobile ? 'p-3 my-2' : 'p-4 my-4'} w-full max-w-3xl`}>
       <div className="flex justify-between items-start mb-4">
@@ -255,6 +321,39 @@ const AnalysisResults = () => {
             </span>
           </div>
         </div>
+      </div>
+      
+      <div className={`mb-6 p-4 rounded-lg ${signalDisplay.bgClass} border border-${signalDisplay.textClass}/20`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`${signalDisplay.textClass}`}>
+              {signalDisplay.icon}
+            </div>
+            <div>
+              <h3 className={`text-lg font-bold ${signalDisplay.textClass}`}>
+                SINAL: {signalDisplay.actionText}
+              </h3>
+              <p className="text-sm">
+                Confiança: {Math.round(signalDisplay.confidence * 100)}%
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <Badge variant={signalAction.action === 'neutro' ? 'outline' : 'default'} 
+                  className={`${signalAction.action === 'compra' ? 'bg-chart-up' : 
+                               signalAction.action === 'venda' ? 'bg-chart-down' : ''} 
+                               text-background px-3 py-1`}>
+              <Clock className="h-3 w-3 mr-1" />
+              {timeframe}
+            </Badge>
+          </div>
+        </div>
+        <Progress 
+          value={signalDisplay.confidence * 100} 
+          className={`h-2 mt-3 ${signalAction.action === 'compra' ? 'bg-chart-up' : 
+                                  signalAction.action === 'venda' ? 'bg-chart-down' : 
+                                  'bg-chart-neutral'}`} 
+        />
       </div>
       
       {analysisResults.imageUrl && (
