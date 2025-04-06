@@ -1,11 +1,24 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { useAnalyzer, PatternResult } from '@/context/AnalyzerContext';
-import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetection';
-import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2, ZoomIn, ZoomOut, Clock } from 'lucide-react';
+import { 
+  analyzeResults, 
+  generateTechnicalMarkup, 
+  detectFalseSignals 
+} from '@/utils/patternDetection';
+import { 
+  Info, 
+  ArrowUp, 
+  ArrowDown, 
+  ArrowRight, 
+  BarChart2, 
+  ZoomIn, 
+  ZoomOut, 
+  Clock,
+  AlertTriangle 
+} from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -13,6 +26,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AnalysisResults = () => {
   const { 
@@ -30,6 +44,7 @@ const AnalysisResults = () => {
   const imageRef = useRef<HTMLImageElement>(null);
   const { t } = useLanguage();
   const isMobile = useIsMobile();
+  const [falseSignalWarnings, setFalseSignalWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
@@ -47,6 +62,13 @@ const AnalysisResults = () => {
     }
   }, [analysisResults, setAnalysisResults]);
 
+  useEffect(() => {
+    if (analysisResults?.patterns) {
+      const { warnings } = detectFalseSignals(analysisResults.patterns);
+      setFalseSignalWarnings(warnings);
+    }
+  }, [analysisResults?.patterns]);
+
   const handleImageLoad = () => {
     if (imageRef.current && analysisResults) {
       const width = imageRef.current.naturalWidth;
@@ -55,7 +77,11 @@ const AnalysisResults = () => {
       setImageSize({ width, height });
       
       if (!analysisResults.technicalElements) {
-        const elements = generateTechnicalMarkup(analysisResults.patterns, width, height);
+        const elements = generateTechnicalMarkup(
+          analysisResults.patterns, 
+          width, 
+          height
+        );
         
         setAnalysisResults({
           ...analysisResults,
@@ -72,7 +98,6 @@ const AnalysisResults = () => {
   const handleMarkupScaleChange = (value: number[]) => {
     setMarkupScale(value[0]);
     
-    // Regenerate technical markup with new scale
     if (analysisResults && imageSize.width > 0) {
       const elements = generateTechnicalMarkup(
         analysisResults.patterns, 
@@ -91,7 +116,6 @@ const AnalysisResults = () => {
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
     
-    // Re-analyze with the new timeframe if needed
     if (analysisResults) {
       const updatedPatterns = analysisResults.patterns.map(pattern => {
         return {
@@ -112,7 +136,6 @@ const AnalysisResults = () => {
   const resetMarkupScale = () => {
     setMarkupScale(1);
     
-    // Regenerate technical markup with reset scale
     if (analysisResults && imageSize.width > 0) {
       const elements = generateTechnicalMarkup(
         analysisResults.patterns, 
@@ -309,6 +332,19 @@ const AnalysisResults = () => {
               scale={markupScale}
             />
           )}
+        </div>
+      )}
+      
+      {falseSignalWarnings.length > 0 && (
+        <div className="mb-4">
+          {falseSignalWarnings.map((warning, index) => (
+            <Alert key={index} variant="destructive" className="mb-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {warning}
+              </AlertDescription>
+            </Alert>
+          ))}
         </div>
       )}
       

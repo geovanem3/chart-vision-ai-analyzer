@@ -58,7 +58,181 @@ const getTimeframeText = (timeframe: string): string => {
   }
 };
 
-// Adjusted to include scale parameter for proportional display
+export const validatePatterns = (patterns: PatternResult[]): PatternResult[] => {
+  // Find any support/resistance patterns
+  const supportResistancePattern = patterns.find(p => 
+    p.type === 'Suporte/Resistência' || 
+    p.type.toLowerCase().includes('suporte') || 
+    p.type.toLowerCase().includes('resistência')
+  );
+  
+  // If there are no support/resistance patterns, we can't validate
+  if (!supportResistancePattern) return patterns;
+  
+  // Create validation warnings for contradicting patterns
+  return patterns.map(pattern => {
+    // Check if this is a buy signal near resistance or sell signal near support
+    if (pattern.action === 'compra' && supportResistancePattern && 
+        supportResistancePattern.description?.toLowerCase().includes('resistência')) {
+      return {
+        ...pattern,
+        confidence: pattern.confidence * 0.7, // Reduce confidence
+        description: pattern.description + ' [ALERTA: Sinal próximo a uma resistência importante]',
+        recommendation: (pattern.recommendation || '') + 
+          ' Cuidado: Este sinal de compra está próximo a uma resistência, espere confirmação de rompimento antes de entrar.'
+      };
+    } else if (pattern.action === 'venda' && supportResistancePattern && 
+              supportResistancePattern.description?.toLowerCase().includes('suporte')) {
+      return {
+        ...pattern,
+        confidence: pattern.confidence * 0.7, // Reduce confidence
+        description: pattern.description + ' [ALERTA: Sinal próximo a um suporte importante]',
+        recommendation: (pattern.recommendation || '') + 
+          ' Cuidado: Este sinal de venda está próximo a um suporte, espere confirmação de rompimento antes de entrar.'
+      };
+    }
+    
+    return pattern;
+  });
+};
+
+export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]> => {
+  // In a real implementation, this would use computer vision or ML to detect patterns
+  // For now, we'll return a broader set of mock patterns to demonstrate all strategies
+  
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  // Get initial patterns
+  const patterns = [
+    {
+      type: 'Tendência de Alta',
+      confidence: 0.82,
+      description: 'Identificada uma tendência de alta com sucessivos topos e fundos ascendentes.',
+      recommendation: 'Considere posições compradas com stop abaixo do último fundo relevante.',
+      action: 'compra'
+    },
+    {
+      type: 'Suporte/Resistência',
+      confidence: 0.90,
+      description: 'Níveis de suporte e resistência bem definidos no gráfico. Preço próximo à resistência importante.',
+      recommendation: 'Observe possíveis reversões nos níveis de suporte/resistência identificados.',
+      action: 'neutro'
+    },
+    {
+      type: 'Triângulo',
+      confidence: 0.75,
+      description: 'Formação de triângulo ascendente, indicando possível continuação da tendência de alta.',
+      recommendation: 'Aguarde confirmação de rompimento da linha superior do triângulo para entrar comprado.',
+      action: 'compra'
+    },
+    {
+      type: 'Padrão de Velas',
+      confidence: 0.85,
+      description: 'Identificado padrão de velas Doji seguido por candle de alta com fechamento forte.',
+      recommendation: 'Sinal de reversão de baixa para alta. Considere entrada após confirmação no próximo candle.',
+      action: 'compra'
+    },
+    {
+      type: 'Retração de Fibonacci',
+      confidence: 0.78,
+      description: 'Preço encontrando suporte no nível de 61.8% de Fibonacci da última pernada de alta.',
+      recommendation: 'Possível área de reversão. Acompanhe a reação do preço neste nível.',
+      action: 'compra'
+    },
+    {
+      type: 'Divergência',
+      confidence: 0.72,
+      description: 'Divergência positiva entre preço e indicador de momento, sugerindo possível esgotamento da tendência de baixa.',
+      recommendation: 'Sinal de alerta para possível reversão. Aguarde confirmação por quebra de resistência.',
+      action: 'compra'
+    },
+    {
+      type: 'OCO',
+      confidence: 0.68,
+      description: 'Formação OCO (Ombro-Cabeça-Ombro) em desenvolvimento, sugerindo possível reversão de tendência.',
+      recommendation: 'Observe a quebra da linha de pescoço como confirmação do padrão para entrada.',
+      action: 'venda'
+    },
+    {
+      type: 'Falso Rompimento',
+      confidence: 0.65,
+      description: 'Identificado possível falso rompimento de resistência com recuo imediato do preço.',
+      recommendation: 'Cuidado com entradas baseadas neste rompimento. Aguarde nova confirmação.',
+      action: 'neutro'
+    },
+    {
+      type: 'Sobrecompra/Sobrevenda',
+      confidence: 0.80,
+      description: 'Indicadores sugerem condição de sobrecompra no gráfico atual.',
+      recommendation: 'Considere cautela em novas posições compradas. Possível correção técnica à frente.',
+      action: 'neutro'
+    }
+  ];
+  
+  // Validate patterns against support/resistance
+  return validatePatterns(patterns);
+};
+
+export const detectFalseSignals = (patterns: PatternResult[]): { 
+  hasFalseSignals: boolean, 
+  warnings: string[] 
+} => {
+  const warnings: string[] = [];
+  
+  // Check for buy signals near resistance
+  const resistancePatterns = patterns.filter(p => 
+    p.description?.toLowerCase().includes('resistência') || 
+    p.type === 'Suporte/Resistência'
+  );
+  
+  const buySignals = patterns.filter(p => p.action === 'compra');
+  
+  if (resistancePatterns.length > 0 && buySignals.length > 0) {
+    if (resistancePatterns[0].confidence > 0.7) {
+      warnings.push('⚠️ Alerta: Sinal de compra próximo a uma resistência importante. Aguarde confirmação de rompimento.');
+    }
+  }
+  
+  // Check for sell signals near support
+  const supportPatterns = patterns.filter(p => 
+    p.description?.toLowerCase().includes('suporte') ||
+    p.type === 'Suporte/Resistência'
+  );
+  
+  const sellSignals = patterns.filter(p => p.action === 'venda');
+  
+  if (supportPatterns.length > 0 && sellSignals.length > 0) {
+    if (supportPatterns[0].confidence > 0.7) {
+      warnings.push('⚠️ Alerta: Sinal de venda próximo a um suporte importante. Aguarde confirmação de rompimento.');
+    }
+  }
+  
+  // Check for contradicting patterns
+  const trendDirections = patterns
+    .filter(p => p.action !== 'neutro' && p.confidence > 0.7)
+    .map(p => p.action);
+  
+  if (trendDirections.includes('compra') && trendDirections.includes('venda')) {
+    warnings.push('⚠️ Alerta: Sinais contraditórios detectados. Aguarde confirmação antes de entrar em uma posição.');
+  }
+  
+  // Check for patterns indicating market indecision
+  const indecisionPatterns = patterns.filter(p => 
+    p.description?.toLowerCase().includes('doji') || 
+    p.description?.toLowerCase().includes('indecisão')
+  );
+  
+  if (indecisionPatterns.length > 0) {
+    warnings.push('⚠️ Alerta: Padrões de indecisão detectados. O mercado pode estar sem direção clara.');
+  }
+  
+  return {
+    hasFalseSignals: warnings.length > 0,
+    warnings
+  };
+};
+
 export const generateTechnicalMarkup = (
   patterns: PatternResult[], 
   width: number, 
@@ -703,67 +877,6 @@ export const generateTechnicalMarkup = (
   });
   
   return elements;
-};
-
-export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]> => {
-  // In a real implementation, this would use computer vision or ML to detect patterns
-  // For now, we'll return a broader set of mock patterns to demonstrate all strategies
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  // Return expanded set of mock patterns with more strategy variety
-  return [
-    {
-      type: 'Tendência de Alta',
-      confidence: 0.82,
-      description: 'Identificada uma tendência de alta com sucessivos topos e fundos ascendentes.',
-      recommendation: 'Considere posições compradas com stop abaixo do último fundo relevante.',
-      action: 'compra'
-    },
-    {
-      type: 'Suporte/Resistência',
-      confidence: 0.90,
-      description: 'Níveis de suporte e resistência bem definidos no gráfico.',
-      recommendation: 'Observe possíveis reversões nos níveis de suporte/resistência identificados.',
-      action: 'neutro'
-    },
-    {
-      type: 'Triângulo',
-      confidence: 0.75,
-      description: 'Formação de triângulo ascendente, indicando possível continuação da tendência de alta.',
-      recommendation: 'Aguarde confirmação de rompimento da linha superior do triângulo para entrar comprado.',
-      action: 'compra'
-    },
-    {
-      type: 'Padrão de Velas',
-      confidence: 0.85,
-      description: 'Identificado padrão de velas Doji seguido por candle de alta com fechamento forte.',
-      recommendation: 'Sinal de reversão de baixa para alta. Considere entrada após confirmação no próximo candle.',
-      action: 'compra'
-    },
-    {
-      type: 'Retração de Fibonacci',
-      confidence: 0.78,
-      description: 'Preço encontrando suporte no nível de 61.8% de Fibonacci da última pernada de alta.',
-      recommendation: 'Possível área de reversão. Acompanhe a reação do preço neste nível.',
-      action: 'compra'
-    },
-    {
-      type: 'Divergência',
-      confidence: 0.72,
-      description: 'Divergência positiva entre preço e indicador de momento, sugerindo possível esgotamento da tendência de baixa.',
-      recommendation: 'Sinal de alerta para possível reversão. Aguarde confirmação por quebra de resistência.',
-      action: 'compra'
-    },
-    {
-      type: 'OCO',
-      confidence: 0.68,
-      description: 'Formação OCO (Ombro-Cabeça-Ombro) em desenvolvimento, sugerindo possível reversão de tendência.',
-      recommendation: 'Observe a quebra da linha de pescoço como confirmação do padrão para entrada.',
-      action: 'venda'
-    }
-  ];
 };
 
 export const detectCandles = async (
