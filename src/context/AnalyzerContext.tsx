@@ -73,6 +73,8 @@ export type MarkupSize = 'small' | 'medium' | 'large';
 
 export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';
 
+export type TimeframeType = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
+
 type AnalyzerContextType = {
   capturedImage: string | null;
   setCapturedImage: (image: string | null) => void;
@@ -99,6 +101,8 @@ type AnalyzerContextType = {
   removeLastMarkup: () => void;
   isMarkupMode: boolean;
   setMarkupMode: (enabled: boolean) => void;
+  timeframe: TimeframeType;
+  setTimeframe: (timeframe: TimeframeType) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -115,6 +119,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [manualMarkupTool, setManualMarkupTool] = useState<MarkupToolType>('line');
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
   const [isMarkupMode, setMarkupMode] = useState(false);
+  const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -163,6 +168,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         removeLastMarkup,
         isMarkupMode,
         setMarkupMode,
+        timeframe,
+        setTimeframe,
       }}
     >
       {children}

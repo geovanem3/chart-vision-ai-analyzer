@@ -6,15 +6,24 @@ import ControlPanel from './ControlPanel';
 import AnalysisResults from './AnalysisResults';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ZoomIn, BarChart2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useIsMobile, useViewportSize } from '@/hooks/use-mobile';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { checkImageQuality } from '@/utils/imageProcessing';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const GraphAnalyzer = () => {
-  const { capturedImage, analysisResults, resetAnalysis, selectedRegion, setSelectedRegion } = useAnalyzer();
+  const { 
+    capturedImage, 
+    analysisResults, 
+    resetAnalysis, 
+    selectedRegion, 
+    setSelectedRegion,
+    timeframe,
+    setTimeframe
+  } = useAnalyzer();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("region");
   const [imageQuality, setImageQuality] = useState<{
@@ -37,6 +46,10 @@ const GraphAnalyzer = () => {
       setImageQuality(null);
     }
   }, [capturedImage, analysisResults]);
+
+  const handleTimeframeChange = (value: string) => {
+    setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
+  };
 
   return (
     <div className={`w-full ${isMobile ? 'px-2' : 'max-w-4xl'} mx-auto`}>
@@ -67,23 +80,43 @@ const GraphAnalyzer = () => {
               </h2>
             </div>
             
-            {!analysisResults && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-1"
-                onClick={() => {
-                  if (activeTab === "region") {
-                    setActiveTab("controls");
-                  } else {
-                    // Navigate to analysis
-                  }
-                }}
-              >
-                {activeTab === "region" ? "Próximo" : "Analisar"}
-                <ChevronRight className="h-3 w-3" />
-              </Button>
-            )}
+            {!analysisResults ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-secondary/60 rounded-md px-2 py-1">
+                  <Clock className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                  <Select value={timeframe} onValueChange={handleTimeframeChange}>
+                    <SelectTrigger className="h-6 w-12 text-xs border-0 p-0 pl-1 bg-transparent">
+                      <SelectValue placeholder="1m" />
+                    </SelectTrigger>
+                    <SelectContent side="bottom">
+                      <SelectItem value="1m">1m</SelectItem>
+                      <SelectItem value="5m">5m</SelectItem>
+                      <SelectItem value="15m">15m</SelectItem>
+                      <SelectItem value="30m">30m</SelectItem>
+                      <SelectItem value="1h">1h</SelectItem>
+                      <SelectItem value="4h">4h</SelectItem>
+                      <SelectItem value="1d">1d</SelectItem>
+                      <SelectItem value="1w">1w</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1"
+                  onClick={() => {
+                    if (activeTab === "region") {
+                      setActiveTab("controls");
+                    } else {
+                      // Navigate to analysis
+                    }
+                  }}
+                >
+                  {activeTab === "region" ? "Próximo" : "Analisar"}
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : null}
           </div>
           
           {!analysisResults ? (

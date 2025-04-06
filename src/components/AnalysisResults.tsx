@@ -5,10 +5,14 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { useAnalyzer, PatternResult } from '@/context/AnalyzerContext';
 import { analyzeResults, generateTechnicalMarkup } from '@/utils/patternDetection';
-import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Info, ArrowUp, ArrowDown, ArrowRight, BarChart2, ZoomIn, ZoomOut, Clock } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const AnalysisResults = () => {
   const { 
@@ -17,9 +21,12 @@ const AnalysisResults = () => {
     showTechnicalMarkup, 
     setShowTechnicalMarkup,
     markupSize,
-    setMarkupSize
+    setMarkupSize,
+    timeframe,
+    setTimeframe
   } = useAnalyzer();
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const [markupScale, setMarkupScale] = useState(1);
   const imageRef = useRef<HTMLImageElement>(null);
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -62,10 +69,69 @@ const AnalysisResults = () => {
     setMarkupSize(size);
   };
 
+  const handleMarkupScaleChange = (value: number[]) => {
+    setMarkupScale(value[0]);
+    
+    // Regenerate technical markup with new scale
+    if (analysisResults && imageSize.width > 0) {
+      const elements = generateTechnicalMarkup(
+        analysisResults.patterns, 
+        imageSize.width, 
+        imageSize.height, 
+        value[0]
+      );
+      
+      setAnalysisResults({
+        ...analysisResults,
+        technicalElements: elements
+      });
+    }
+  };
+
+  const handleTimeframeChange = (value: string) => {
+    setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
+    
+    // Re-analyze with the new timeframe if needed
+    if (analysisResults) {
+      const updatedPatterns = analysisResults.patterns.map(pattern => {
+        return {
+          ...pattern,
+          recommendation: value === '1m' 
+            ? pattern.recommendation?.replace(/\d+(?=\s*(?:minutos|horas|dias))/g, '1').replace(/horas|dias/g, 'minutos')
+            : pattern.recommendation
+        };
+      });
+      
+      setAnalysisResults({
+        ...analysisResults,
+        patterns: updatedPatterns
+      });
+    }
+  };
+
+  const resetMarkupScale = () => {
+    setMarkupScale(1);
+    
+    // Regenerate technical markup with reset scale
+    if (analysisResults && imageSize.width > 0) {
+      const elements = generateTechnicalMarkup(
+        analysisResults.patterns, 
+        imageSize.width, 
+        imageSize.height, 
+        1
+      );
+      
+      setAnalysisResults({
+        ...analysisResults,
+        technicalElements: elements
+      });
+    }
+  };
+
   if (!analysisResults) return null;
 
   const { patterns, timestamp } = analysisResults;
-  const overallRecommendation = analyzeResults(patterns);
+  const overallRecommendation = analyzeResults(patterns, timeframe);
   const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
   const groupPatternsByCategory = (patterns: PatternResult[] = []) => {
@@ -140,11 +206,31 @@ const AnalysisResults = () => {
           <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`}>Resultados da Análise</h2>
           <p className="text-xs text-muted-foreground">Analisado em {formattedDate}</p>
         </div>
-        <div className="flex items-center px-2 py-1 rounded-full bg-secondary">
-          {getSentimentIcon()}
-          <span className={`ml-1 ${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>
-            {patterns.length} padrões
-          </span>
+        <div className="flex items-center">
+          <div className="flex items-center px-2 py-1 mr-2 rounded-full bg-secondary">
+            <Clock className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+            <Select value={timeframe} onValueChange={handleTimeframeChange}>
+              <SelectTrigger className="h-6 w-16 text-xs border-0 p-0 pl-1 bg-transparent">
+                <SelectValue placeholder="1m" />
+              </SelectTrigger>
+              <SelectContent side="bottom">
+                <SelectItem value="1m">1m</SelectItem>
+                <SelectItem value="5m">5m</SelectItem>
+                <SelectItem value="15m">15m</SelectItem>
+                <SelectItem value="30m">30m</SelectItem>
+                <SelectItem value="1h">1h</SelectItem>
+                <SelectItem value="4h">4h</SelectItem>
+                <SelectItem value="1d">1d</SelectItem>
+                <SelectItem value="1w">1w</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center px-2 py-1 rounded-full bg-secondary">
+            {getSentimentIcon()}
+            <span className={`ml-1 ${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>
+              {patterns.length} padrões
+            </span>
+          </div>
         </div>
       </div>
       
@@ -169,7 +255,7 @@ const AnalysisResults = () => {
             </div>
             
             {showTechnicalMarkup && (
-              <div className="flex flex-col gap-1">
+              <>
                 <div className="text-xs font-medium text-center">Tamanho</div>
                 <div className="flex justify-between items-center gap-2">
                   <ZoomOut className="h-3 w-3 text-muted-foreground" />
@@ -192,7 +278,27 @@ const AnalysisResults = () => {
                   </div>
                   <ZoomIn className="h-3 w-3 text-muted-foreground" />
                 </div>
-              </div>
+                
+                <div className="text-xs font-medium text-center mt-1">Proporção</div>
+                <div className="px-1 w-full">
+                  <Slider
+                    value={[markupScale]}
+                    min={0.2}
+                    max={2}
+                    step={0.1}
+                    onValueChange={handleMarkupScaleChange}
+                    className="w-full"
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs h-6 mt-1" 
+                  onClick={resetMarkupScale}
+                >
+                  Redefinir
+                </Button>
+              </>
             )}
           </div>
           
@@ -200,6 +306,7 @@ const AnalysisResults = () => {
             <ChartMarkup 
               imageWidth={imageSize.width} 
               imageHeight={imageSize.height} 
+              scale={markupScale}
             />
           )}
         </div>
@@ -209,7 +316,13 @@ const AnalysisResults = () => {
         <div className="flex items-start gap-2">
           <Info className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary mt-0.5`} />
           <div>
-            <h3 className="font-medium mb-1">Avaliação Geral</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium mb-1">Avaliação Geral</h3>
+              <Badge variant="outline" className="text-xs h-5">
+                <Clock className="h-3 w-3 mr-1" />
+                {timeframe}
+              </Badge>
+            </div>
             <p className={`${isMobile ? 'text-xs' : 'text-sm'}`}>{overallRecommendation}</p>
           </div>
         </div>
@@ -258,6 +371,11 @@ const AnalysisResults = () => {
           Observação: A IA realiza análise apenas com base na imagem fornecida e não tem acesso a dados históricos completos. 
           {!isMobile && " Confirmações adicionais são recomendadas antes de tomar decisões de investimento."}
         </p>
+        {timeframe === '1m' && (
+          <p className="italic mt-1 text-amber-500">
+            Análise em timeframe de 1 minuto: Recomendado apenas para operações de curto prazo (scalping).
+          </p>
+        )}
       </div>
     </Card>
   );
