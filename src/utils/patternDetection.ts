@@ -1,4 +1,6 @@
-// Keep any imports at the top
+
+// Add imports from AnalyzerContext
+import { PatternResult, TechnicalElement, Point, CandleData } from '@/context/AnalyzerContext';
 
 export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1m'): string => {
   if (!patterns || patterns.length === 0) {
