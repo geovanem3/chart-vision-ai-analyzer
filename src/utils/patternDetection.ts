@@ -1,4 +1,3 @@
-
 // Add imports from AnalyzerContext
 import { PatternResult, TechnicalElement, Point, CandleData } from '@/context/AnalyzerContext';
 
@@ -74,7 +73,7 @@ export const generateTechnicalMarkup = (
   
   // Adjust pattern generation based on the scale factor
   
-  // For each pattern type, generate appropriate technical elements
+  // Process all pattern types in the received patterns array
   patterns.forEach(pattern => {
     switch (pattern.type) {
       case 'Tendência de Alta':
@@ -455,6 +454,241 @@ export const generateTechnicalMarkup = (
         });
         break;
         
+      case 'Retração de Fibonacci':
+        // Fibonacci retracement levels (new pattern)
+        const fibStart = { x: width * 0.1, y: height * 0.7 };
+        const fibEnd = { x: width * 0.9, y: height * 0.3 };
+        
+        // Fibonacci levels: 0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%
+        const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+        const fibColors = [
+          'rgba(33, 150, 243, 0.8)',
+          'rgba(156, 39, 176, 0.8)',
+          'rgba(255, 152, 0, 0.8)',
+          'rgba(233, 30, 99, 0.8)',
+          'rgba(76, 175, 80, 0.8)',
+          'rgba(0, 188, 212, 0.8)',
+          'rgba(33, 150, 243, 0.8)'
+        ];
+        
+        // Draw the main trend line
+        elements.push({
+          type: 'line',
+          points: [fibStart, fibEnd],
+          color: 'rgba(33, 150, 243, 0.6)',
+          thickness: 2 * scale
+        });
+        
+        // Draw retracement levels
+        fibLevels.forEach((level, i) => {
+          const y = fibStart.y - (fibStart.y - fibEnd.y) * level;
+          
+          elements.push({
+            type: 'line',
+            points: [
+              { x: width * 0.1, y },
+              { x: width * 0.9, y }
+            ],
+            color: fibColors[i],
+            thickness: 1.5 * scale,
+            dashArray: level === 0 || level === 1 ? undefined : [5, 3]
+          });
+          
+          // Add label for each level
+          elements.push({
+            type: 'label',
+            position: { x: width * 0.92, y: y - 10 },
+            text: `${(level * 100).toFixed(1)}%`,
+            color: fibColors[i],
+            backgroundColor: 'rgba(255, 255, 255, 0.7)'
+          });
+        });
+        
+        elements.push({
+          type: 'label',
+          position: { x: width * 0.5, y: height * 0.15 },
+          text: 'Retração de Fibonacci',
+          color: 'rgba(33, 150, 243, 1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+      
+      case 'Padrão de Velas':
+        // Candlestick patterns (new pattern)
+        const candleX = width * 0.5;
+        const candleY = height * 0.5;
+        const candleWidth = width * 0.05;
+        const candleHeight = height * 0.15;
+        
+        // Draw example candlestick pattern
+        if (pattern.description?.includes('Doji')) {
+          // Doji pattern
+          elements.push({
+            type: 'line',
+            points: [
+              { x: candleX, y: candleY - candleHeight/2 },
+              { x: candleX, y: candleY + candleHeight/2 }
+            ],
+            color: 'rgba(33, 150, 243, 0.8)',
+            thickness: 2 * scale
+          });
+          elements.push({
+            type: 'line',
+            points: [
+              { x: candleX - candleWidth/4, y: candleY },
+              { x: candleX + candleWidth/4, y: candleY }
+            ],
+            color: 'rgba(33, 150, 243, 0.8)',
+            thickness: 2 * scale
+          });
+        } else if (pattern.description?.includes('martelo') || pattern.description?.includes('Martelo')) {
+          // Hammer
+          elements.push({
+            type: 'line',
+            points: [
+              { x: candleX, y: candleY - candleHeight/6 },
+              { x: candleX, y: candleY + candleHeight/2 }
+            ],
+            color: 'rgba(76, 175, 80, 0.8)',
+            thickness: 2 * scale
+          });
+          elements.push({
+            type: 'rectangle',
+            position: { x: candleX - candleWidth/2, y: candleY - candleHeight/6 },
+            width: candleWidth,
+            height: candleHeight/6,
+            color: 'rgba(76, 175, 80, 0.8)'
+          });
+        } else if (pattern.description?.includes('engolfo') || pattern.description?.includes('Engolfo')) {
+          // Engulfing pattern
+          elements.push({
+            type: 'rectangle',
+            position: { x: candleX - candleWidth, y: candleY - candleHeight/4 },
+            width: candleWidth/2,
+            height: candleHeight/2,
+            color: 'rgba(244, 67, 54, 0.8)'
+          });
+          elements.push({
+            type: 'rectangle',
+            position: { x: candleX - candleWidth/2, y: candleY - candleHeight/3 },
+            width: candleWidth,
+            height: candleHeight/1.5,
+            color: 'rgba(76, 175, 80, 0.8)'
+          });
+        } else {
+          // Generic candle pattern
+          elements.push({
+            type: 'rectangle',
+            position: { x: candleX - candleWidth/2, y: candleY - candleHeight/3 },
+            width: candleWidth,
+            height: candleHeight/1.5,
+            color: pattern.action === 'compra' ? 'rgba(76, 175, 80, 0.8)' : 'rgba(244, 67, 54, 0.8)'
+          });
+        }
+        
+        elements.push({
+          type: 'label',
+          position: { x: candleX, y: candleY - candleHeight/2 - 20 },
+          text: 'Padrão de Velas',
+          color: 'rgba(0, 0, 0, 0.8)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+         
+      case 'Divergência':
+        // Divergence pattern (new pattern)
+        const pricePoints = [
+          { x: width * 0.1, y: height * 0.5 },
+          { x: width * 0.3, y: height * 0.4 },
+          { x: width * 0.5, y: height * 0.3 },
+          { x: width * 0.7, y: height * 0.4 },
+          { x: width * 0.9, y: height * 0.2 }
+        ];
+        
+        const indicatorPoints = [
+          { x: width * 0.1, y: height * 0.6 },
+          { x: width * 0.3, y: height * 0.5 },
+          { x: width * 0.5, y: height * 0.7 },
+          { x: width * 0.7, y: height * 0.6 },
+          { x: width * 0.9, y: height * 0.8 }
+        ];
+        
+        // Draw price line
+        elements.push({
+          type: 'line',
+          points: pricePoints,
+          color: 'rgba(33, 150, 243, 0.8)',
+          thickness: 2 * scale
+        });
+        
+        // Draw indicator line
+        elements.push({
+          type: 'line',
+          points: indicatorPoints,
+          color: 'rgba(156, 39, 176, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        // Draw connection lines between significant points
+        elements.push({
+          type: 'line',
+          points: [pricePoints[2], pricePoints[4]],
+          color: 'rgba(233, 30, 99, 0.8)',
+          thickness: 1.5 * scale
+        });
+        
+        elements.push({
+          type: 'line',
+          points: [indicatorPoints[2], indicatorPoints[4]],
+          color: 'rgba(233, 30, 99, 0.8)',
+          thickness: 1.5 * scale
+        });
+        
+        elements.push({
+          type: 'label',
+          position: { x: width * 0.5, y: height * 0.15 },
+          text: 'Divergência',
+          color: 'rgba(233, 30, 99, 1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+      
+      case 'Triângulo Simétrico':
+        // Symmetric triangle (new pattern)
+        const trianglePoints1 = [
+          { x: width * 0.1, y: height * 0.3 },
+          { x: width * 0.9, y: height * 0.45 }
+        ];
+        
+        const trianglePoints2 = [
+          { x: width * 0.1, y: height * 0.7 },
+          { x: width * 0.9, y: height * 0.45 }
+        ];
+        
+        elements.push({
+          type: 'line',
+          points: trianglePoints1,
+          color: 'rgba(33, 150, 243, 0.8)',
+          thickness: 2 * scale
+        });
+        
+        elements.push({
+          type: 'line',
+          points: trianglePoints2,
+          color: 'rgba(33, 150, 243, 0.8)',
+          thickness: 2 * scale
+        });
+        
+        elements.push({
+          type: 'label',
+          position: { x: width * 0.5, y: height * 0.2 },
+          text: 'Triângulo Simétrico',
+          color: 'rgba(33, 150, 243, 1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+        
       default:
         // For unrecognized patterns, add a simple label
         elements.push({
@@ -473,33 +707,61 @@ export const generateTechnicalMarkup = (
 
 export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]> => {
   // In a real implementation, this would use computer vision or ML to detect patterns
-  // For now, we'll return mock data
+  // For now, we'll return a broader set of mock patterns to demonstrate all strategies
   
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 1500));
   
-  // Return mock patterns
+  // Return expanded set of mock patterns with more strategy variety
   return [
     {
       type: 'Tendência de Alta',
-      confidence: 0.85,
+      confidence: 0.82,
       description: 'Identificada uma tendência de alta com sucessivos topos e fundos ascendentes.',
       recommendation: 'Considere posições compradas com stop abaixo do último fundo relevante.',
       action: 'compra'
     },
     {
       type: 'Suporte/Resistência',
-      confidence: 0.92,
+      confidence: 0.90,
       description: 'Níveis de suporte e resistência bem definidos no gráfico.',
       recommendation: 'Observe possíveis reversões nos níveis de suporte/resistência identificados.',
       action: 'neutro'
     },
     {
       type: 'Triângulo',
-      confidence: 0.78,
+      confidence: 0.75,
       description: 'Formação de triângulo ascendente, indicando possível continuação da tendência de alta.',
       recommendation: 'Aguarde confirmação de rompimento da linha superior do triângulo para entrar comprado.',
       action: 'compra'
+    },
+    {
+      type: 'Padrão de Velas',
+      confidence: 0.85,
+      description: 'Identificado padrão de velas Doji seguido por candle de alta com fechamento forte.',
+      recommendation: 'Sinal de reversão de baixa para alta. Considere entrada após confirmação no próximo candle.',
+      action: 'compra'
+    },
+    {
+      type: 'Retração de Fibonacci',
+      confidence: 0.78,
+      description: 'Preço encontrando suporte no nível de 61.8% de Fibonacci da última pernada de alta.',
+      recommendation: 'Possível área de reversão. Acompanhe a reação do preço neste nível.',
+      action: 'compra'
+    },
+    {
+      type: 'Divergência',
+      confidence: 0.72,
+      description: 'Divergência positiva entre preço e indicador de momento, sugerindo possível esgotamento da tendência de baixa.',
+      recommendation: 'Sinal de alerta para possível reversão. Aguarde confirmação por quebra de resistência.',
+      action: 'compra'
+    },
+    {
+      type: 'OCO',
+      confidence: 0.68,
+      description: 'Formação OCO (Ombro-Cabeça-Ombro) em desenvolvimento, sugerindo possível reversão de tendência.',
+      recommendation: 'Observe a quebra da linha de pescoço como confirmação do padrão para entrada.',
+      action: 'venda'
     }
   ];
 };
@@ -510,11 +772,54 @@ export const detectCandles = async (
   chartHeight: number
 ): Promise<CandleData[]> => {
   // In a real implementation, this would use computer vision to detect candles
-  // For now, we'll return mock data
+  // For now, we'll return mock data with improved detail
   
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Return example candles for demonstration
-  return [];
+  // Create a realistic array of candle data based on chart dimensions
+  const candles: CandleData[] = [];
+  const candleWidth = chartWidth * 0.02;
+  const candleSpacing = chartWidth * 0.03;
+  const candleCount = Math.floor(chartWidth / candleSpacing) - 1;
+  
+  // Base Y position and range for realistic candle display
+  const baseY = chartHeight * 0.6;
+  const priceRange = chartHeight * 0.4;
+  
+  // Generate mock candles
+  for (let i = 0; i < candleCount; i++) {
+    const x = candleSpacing * (i + 1);
+    
+    // Create some realistic price patterns
+    let open, high, low, close;
+    const trend = Math.sin(i * 0.3) + Math.random() * 0.5;
+    
+    if (trend > 0) {
+      // Bullish candle
+      open = baseY + Math.random() * priceRange * 0.5;
+      close = open - Math.random() * priceRange * 0.3;
+      high = close - Math.random() * priceRange * 0.2;
+      low = open + Math.random() * priceRange * 0.2;
+    } else {
+      // Bearish candle
+      open = baseY + Math.random() * priceRange * 0.5;
+      close = open + Math.random() * priceRange * 0.3;
+      high = open - Math.random() * priceRange * 0.2;
+      low = close + Math.random() * priceRange * 0.2;
+    }
+    
+    candles.push({
+      open,
+      high,
+      low,
+      close,
+      color: close < open ? 'verde' : 'vermelho',
+      position: { x, y: (open + close) / 2 },
+      width: candleWidth,
+      height: Math.abs(close - open)
+    });
+  }
+  
+  return candles;
 };
