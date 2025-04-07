@@ -703,7 +703,7 @@ const AnalysisResults = () => {
             <div className="mb-4 p-4 rounded-lg border-2 border-primary/30 bg-primary/5">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
-                  <h4 className={`${isMobile ? 'text-sm' : ''} font-medium">{dominantPattern.type}</h4>
+                  <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{dominantPattern.type}</h4>
                   {dominantPattern.action && getActionBadge(dominantPattern.action)}
                 </div>
                 {dominantPattern.action && getActionBadge(dominantPattern.action)}
