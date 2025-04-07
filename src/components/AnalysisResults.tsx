@@ -3,11 +3,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { useAnalyzer, PatternResult } from '@/context/AnalyzerContext';
+import { useAnalyzer, PatternResult, ScalpingSignal } from '@/context/AnalyzerContext';
 import { 
   analyzeResults, 
   generateTechnicalMarkup, 
-  detectFalseSignals 
+  detectFalseSignals,
+  generateScalpingSignals
 } from '@/utils/patternDetection';
 import { 
   Info, 
@@ -30,7 +31,8 @@ import {
   ChevronUp,
   Eye,
   List,
-  Layers
+  Layers,
+  Zap
 } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
@@ -39,7 +41,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,7 +60,9 @@ const AnalysisResults = () => {
     markupSize,
     setMarkupSize,
     timeframe,
-    setTimeframe
+    setTimeframe,
+    optimizeForScalping,
+    setOptimizeForScalping
   } = useAnalyzer();
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [markupScale, setMarkupScale] = useState(1);
@@ -74,6 +78,35 @@ const AnalysisResults = () => {
   const [imageExpanded, setImageExpanded] = useState(true);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [patternListExpanded, setPatternListExpanded] = useState(false);
+  const [scalpingSignals, setScalpingSignals] = useState<ScalpingSignal[]>([]);
+  const [showScalpingPanel, setShowScalpingPanel] = useState(true);
+
+  // Process scalping signals when analysis results or timeframe changes
+  useEffect(() => {
+    if (analysisResults?.patterns && timeframe === '1m') {
+      const signals = generateScalpingSignals(analysisResults.patterns);
+      setScalpingSignals(signals);
+      
+      // Update analysis results with scalping signals
+      setAnalysisResults({
+        ...analysisResults,
+        scalpingSignals: signals
+      });
+      
+      // Enable scalping optimization automatically for 1m timeframe
+      setOptimizeForScalping(true);
+      
+      if (signals.length > 0) {
+        toast({
+          title: "Sinais de Scalping Detectados",
+          description: `${signals.length} sinais encontrados para operações de curto prazo`,
+        });
+      }
+    } else {
+      setScalpingSignals([]);
+      setOptimizeForScalping(false);
+    }
+  }, [analysisResults?.patterns, timeframe, setAnalysisResults, setOptimizeForScalping]);
 
   useEffect(() => {
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
@@ -100,10 +133,23 @@ const AnalysisResults = () => {
         pattern => pattern.confidence >= confidenceThreshold
       );
       
-      setFilteredPatterns(filtered);
+      // For 1m timeframe, prioritize scalping signals
+      if (timeframe === '1m') {
+        const scalpingPatterns = filtered.filter(p => p.isScalpingSignal);
+        setFilteredPatterns(scalpingPatterns.length > 0 ? scalpingPatterns : filtered);
+      } else {
+        setFilteredPatterns(filtered);
+      }
       
       const sortedPatterns = [...filtered].sort((a, b) => b.confidence - a.confidence);
-      setDominantPattern(sortedPatterns.length > 0 ? sortedPatterns[0] : null);
+      
+      // For 1m timeframe, prefer scalping signals as dominant
+      if (timeframe === '1m') {
+        const scalpingDominant = sortedPatterns.find(p => p.isScalpingSignal);
+        setDominantPattern(scalpingDominant || (sortedPatterns.length > 0 ? sortedPatterns[0] : null));
+      } else {
+        setDominantPattern(sortedPatterns.length > 0 ? sortedPatterns[0] : null);
+      }
       
       if (timeframe === '1m') {
         toast({
@@ -208,6 +254,17 @@ const AnalysisResults = () => {
     }
   };
 
+  const toggleOptimizeForScalping = () => {
+    setOptimizeForScalping(!optimizeForScalping);
+    
+    if (!optimizeForScalping) {
+      toast({
+        title: "Modo Scalping Ativado",
+        description: "Análise otimizada para operações de curto prazo"
+      });
+    }
+  };
+
   if (!analysisResults) return null;
 
   const { patterns, timestamp } = analysisResults;
@@ -215,6 +272,24 @@ const AnalysisResults = () => {
   const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
   const getSignalAction = (): { action: 'compra' | 'venda' | 'neutro', confidence: number, entryPoint: string, stopLoss: string, takeProfit: string } => {
+    // If we have scalping signals and 1m timeframe, use them for signal action
+    if (scalpingSignals.length > 0 && timeframe === '1m') {
+      const entrySignals = scalpingSignals.filter(s => s.type === 'entrada');
+      
+      if (entrySignals.length > 0) {
+        const primarySignal = entrySignals[0];
+        
+        return {
+          action: primarySignal.action,
+          confidence: primarySignal.confidence,
+          entryPoint: primarySignal.price,
+          stopLoss: primarySignal.stopLoss || "Não definido",
+          takeProfit: primarySignal.target || "Não definido"
+        };
+      }
+    }
+    
+    // Fall back to standard pattern analysis if no scalping signals
     const patternsToAnalyze = showAllPatterns ? patterns : filteredPatterns;
     let buyCount = 0;
     let sellCount = 0;
@@ -245,27 +320,41 @@ const AnalysisResults = () => {
     const buyWeight = buyCount / totalConfidence;
     const sellWeight = sellCount / totalConfidence;
     
-    const entryPoint = dominantPattern ? `Próximo à ${dominantPattern.action === 'compra' ? 'quebra de resistência' : dominantPattern.action === 'venda' ? 'quebra de suporte' : 'confirmação do padrão'}` : "Aguardar confirmação";
+    // For 1m timeframe, use more specific entry points
+    const entryPoint = dominantPattern ? 
+      (timeframe === '1m' && dominantPattern.entryPrice ? 
+        dominantPattern.entryPrice : 
+        `Próximo à ${dominantPattern.action === 'compra' ? 'quebra de resistência' : dominantPattern.action === 'venda' ? 'quebra de suporte' : 'confirmação do padrão'}`) : 
+      "Aguardar confirmação";
     
+    // For 1m timeframe, use more specific stop loss
     const stopLoss = dominantPattern ? 
-      (dominantPattern.action === 'compra' ? 
-        'Abaixo do último suporte' : 
-        dominantPattern.action === 'venda' ? 
-          'Acima da última resistência' : 
-          'Não recomendado no momento') : 
+      (timeframe === '1m' && dominantPattern.stopLoss ?
+        dominantPattern.stopLoss :
+        (dominantPattern.action === 'compra' ? 
+          'Abaixo do último suporte' : 
+          dominantPattern.action === 'venda' ? 
+            'Acima da última resistência' : 
+            'Não recomendado no momento')) : 
       "Não definido";
     
+    // For 1m timeframe, use more specific take profit
     const takeProfit = dominantPattern ?
-      (dominantPattern.action === 'compra' ?
-        'Próxima resistência importante (2:1 ou 3:1)' :
-        dominantPattern.action === 'venda' ?
-          'Próximo suporte importante (2:1 ou 3:1)' :
-          'Não recomendado no momento') :
+      (timeframe === '1m' && dominantPattern.takeProfit ?
+        dominantPattern.takeProfit :
+        (dominantPattern.action === 'compra' ?
+          'Próxima resistência importante (2:1 ou 3:1)' :
+          dominantPattern.action === 'venda' ?
+            'Próximo suporte importante (2:1 ou 3:1)' :
+            'Não recomendado no momento')) :
       "Não definido";
     
-    if (buyWeight > 0.65) {
+    // Lower threshold for 1m timeframe
+    const actionThreshold = timeframe === '1m' ? 0.55 : 0.65;
+    
+    if (buyWeight > actionThreshold) {
       return { action: 'compra', confidence: buyWeight, entryPoint, stopLoss, takeProfit };
-    } else if (sellWeight > 0.65) {
+    } else if (sellWeight > actionThreshold) {
       return { action: 'venda', confidence: sellWeight, entryPoint, stopLoss, takeProfit };
     } else {
       return { action: 'neutro', confidence: Math.max(buyWeight, sellWeight), entryPoint: "Aguardar confirmação", stopLoss: "Não definido", takeProfit: "Não definido" };
@@ -282,11 +371,14 @@ const AnalysisResults = () => {
       'Teoria de Dow': [],
       'Ondas de Elliott': [],
       'Linha de Tendência': [],
+      'Scalping': [], // New category for scalping patterns
       'Outros': []
     };
     
     patterns.forEach(pattern => {
-      if (pattern.type.includes('Tendência')) {
+      if (pattern.isScalpingSignal) {
+        categories['Scalping'].push(pattern);
+      } else if (pattern.type.includes('Tendência')) {
         categories['Tendência'].push(pattern);
       } else if (['Triângulo', 'OCO', 'Cunha', 'Bandeira', 'Topo/Fundo Duplo'].includes(pattern.type)) {
         categories['Formação de Preço'].push(pattern);
@@ -379,13 +471,28 @@ const AnalysisResults = () => {
   const patternCount = patternsToShow.length;
 
   const getScalpingEntryPoints = (): { price: string, time: string, confidence: number, description: string } | null => {
+    // If we have scalping signals, use the first entry signal
+    if (scalpingSignals.length > 0) {
+      const entrySignal = scalpingSignals.find(s => s.type === 'entrada');
+      
+      if (entrySignal) {
+        return {
+          price: entrySignal.price,
+          time: "Próximos 1-3 candles",
+          confidence: entrySignal.confidence,
+          description: entrySignal.description
+        };
+      }
+    }
+    
     if (!dominantPattern || timeframe !== '1m') return null;
     
-    const entryPrice = dominantPattern.type.includes('Suporte') ? 
-      "Rompimento acima da média móvel" : 
-      dominantPattern.type.includes('Resistência') ? 
-        "Pullback na zona de suporte" : 
-        "Confirmação do padrão atual";
+    const entryPrice = dominantPattern.entryPrice || 
+      (dominantPattern.type.includes('Suporte') ? 
+        "Rompimento acima da média móvel" : 
+        dominantPattern.type.includes('Resistência') ? 
+          "Pullback na zona de suporte" : 
+          "Confirmação do padrão atual");
     
     const entryTime = "Próximos 1-3 candles";
     const description = dominantPattern.action === 'compra' ? 
@@ -403,19 +510,34 @@ const AnalysisResults = () => {
   };
 
   const getPriceProjection = (): { target: string, stopLoss: string, riskReward: string } | null => {
+    // If we have scalping signals, use them for price projections
+    if (scalpingSignals.length > 0) {
+      const entrySignal = scalpingSignals.find(s => s.type === 'entrada');
+      
+      if (entrySignal) {
+        return {
+          target: entrySignal.target || "Próximo nível de resistência/suporte",
+          stopLoss: entrySignal.stopLoss || "0.5-1% contra o movimento",
+          riskReward: "2:1 a 3:1 (recomendado para scalping)"
+        };
+      }
+    }
+    
     if (!dominantPattern) return null;
     
-    const target = dominantPattern.action === 'compra' ? 
-      "Próxima resistência ou +2% do preço atual" : 
-      dominantPattern.action === 'venda' ? 
-        "Próximo suporte ou -2% do preço atual" : 
-        "Aguarde sinal direcional claro";
+    const target = dominantPattern.takeProfit || 
+      (dominantPattern.action === 'compra' ? 
+        "Próxima resistência ou +2% do preço atual" : 
+        dominantPattern.action === 'venda' ? 
+          "Próximo suporte ou -2% do preço atual" : 
+          "Aguarde sinal direcional claro");
     
-    const stopLoss = dominantPattern.action === 'compra' ? 
-      "0.5% abaixo do ponto de entrada ou abaixo do último fundo" : 
-      dominantPattern.action === 'venda' ? 
-        "0.5% acima do ponto de entrada ou acima do último topo" : 
-        "Aguarde sinal direcional claro";
+    const stopLoss = dominantPattern.stopLoss || 
+      (dominantPattern.action === 'compra' ? 
+        "0.5% abaixo do ponto de entrada ou abaixo do último fundo" : 
+        dominantPattern.action === 'venda' ? 
+          "0.5% acima do ponto de entrada ou acima do último topo" : 
+          "Aguarde sinal direcional claro");
     
     const riskReward = "2:1 a 3:1 (recomendado para scalping)";
     
@@ -459,6 +581,21 @@ const AnalysisResults = () => {
           </div>
         </div>
       </div>
+      
+      {/* Scalping Mode Toggle for 1m */}
+      {timeframe === '1m' && (
+        <div className="mb-4 flex items-center justify-between p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-amber-500" />
+            <span className="text-sm font-medium">Modo Scalping</span>
+          </div>
+          <Switch 
+            checked={optimizeForScalping} 
+            onCheckedChange={toggleOptimizeForScalping}
+            className="data-[state=checked]:bg-amber-500"
+          />
+        </div>
+      )}
       
       {dominantPattern && (
         <div className={`mb-6 p-4 rounded-lg border ${signalDisplay.bgClass} border-${signalDisplay.textClass}/20`}>
@@ -524,50 +661,68 @@ const AnalysisResults = () => {
                 </div>
               </div>
               
-              {timeframe === '1m' && scalpingEntry && (
-                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Timer className="h-4 w-4 text-primary" />
-                    <h4 className="font-medium">Entrada Scalping (1 minuto)</h4>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="font-medium">Entrada:</span> {scalpingEntry.price}
+              {/* Enhanced Scalping Panel */}
+              {timeframe === '1m' && scalpingEntry && optimizeForScalping && (
+                <Collapsible
+                  open={showScalpingPanel}
+                  onOpenChange={setShowScalpingPanel}
+                  className="mt-4"
+                >
+                  <CollapsibleTrigger asChild>
+                    <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 flex items-center justify-between cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        <h4 className="font-medium">Operação de Scalping (1 minuto)</h4>
                       </div>
-                      <div className="text-sm">
-                        <span className="font-medium">Timing:</span> {scalpingEntry.time}
-                      </div>
-                      <div className="text-sm">
-                        <span className="font-medium">Confiança:</span> {Math.round(scalpingEntry.confidence * 100)}%
-                      </div>
+                      {showScalpingPanel ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Confirmação Recomendada:</span>
-                      <p className="mt-1 text-muted-foreground">{scalpingEntry.description}</p>
-                    </div>
-                  </div>
-                  
-                  {priceProjection && (
-                    <div className="mt-3 pt-3 border-t border-primary/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="h-4 w-4 text-primary" />
-                        <h4 className="font-medium">Projeção de Preço</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
                         <div className="text-sm">
-                          <span className="font-medium">Alvo:</span> {priceProjection.target}
+                          <span className="font-medium">Entrada:</span> {scalpingEntry.price}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">Stop Loss:</span> {priceProjection.stopLoss}
+                          <span className="font-medium">Timing:</span> {scalpingEntry.time}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">Risco/Recompensa:</span> {priceProjection.riskReward}
+                          <span className="font-medium">Confiança:</span> {Math.round(scalpingEntry.confidence * 100)}%
+                        </div>
+                        <div className="mt-3">
+                          <Badge className="bg-green-500">
+                            {signalAction.action === 'compra' ? 'COMPRAR' : 
+                             signalAction.action === 'venda' ? 'VENDER' : 'NEUTRO'}
+                          </Badge>
                         </div>
                       </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Confirmação Recomendada:</span>
+                        <p className="mt-1 text-muted-foreground">{scalpingEntry.description}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
+                    
+                    {priceProjection && (
+                      <div className="mt-3 pt-3 border-t border-primary/10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <TrendingUp className="h-4 w-4 text-primary" />
+                          <h4 className="font-medium">Projeção de Preço</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="text-sm">
+                            <span className="font-medium">Alvo:</span> {priceProjection.target}
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-medium">Stop Loss:</span> {priceProjection.stopLoss}
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-medium">Risco/Recompensa:</span> {priceProjection.riskReward}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </div>
           )}
@@ -846,6 +1001,27 @@ const AnalysisResults = () => {
                                 {pattern.recommendation && (
                                   <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-primary`}>
                                     <span className="font-medium">Recomendação:</span> {pattern.recommendation}
+                                  </div>
+                                )}
+                                
+                                {/* Add specific entry/exit details for scalping patterns */}
+                                {pattern.isScalpingSignal && timeframe === '1m' && (
+                                  <div className="mt-2 pt-2 border-t border-primary/10 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                    {pattern.entryPrice && (
+                                      <div>
+                                        <span className="font-medium">Entrada:</span> {pattern.entryPrice}
+                                      </div>
+                                    )}
+                                    {pattern.stopLoss && (
+                                      <div>
+                                        <span className="font-medium">Stop:</span> {pattern.stopLoss}
+                                      </div>
+                                    )}
+                                    {pattern.takeProfit && (
+                                      <div>
+                                        <span className="font-medium">Alvo:</span> {pattern.takeProfit}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>

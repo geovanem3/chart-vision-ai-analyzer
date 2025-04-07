@@ -1,5 +1,6 @@
+
 // Add imports from AnalyzerContext
-import { PatternResult, TechnicalElement, Point, CandleData } from '@/context/AnalyzerContext';
+import { PatternResult, TechnicalElement, Point, CandleData, ScalpingSignal } from '@/context/AnalyzerContext';
 
 export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1m'): string => {
   if (!patterns || patterns.length === 0) {
@@ -33,13 +34,13 @@ export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1
   
   // Recomendações específicas para scalping em 1 minuto
   if (timeframe === '1m') {
-    if (bullishWeight > 0.6) {
+    if (bullishWeight > 0.5) {  // Reduced threshold for 1m timeframe
       return `Oportunidade de scalping de COMPRA no ${timeframeText}: Aguarde confirmação de quebra de resistência com volume. Busque entrada precisa com stops ajustados de 0.5-1% e alvo de 2-3% ou na próxima resistência. Monitore constantemente.`;
-    } else if (bearishWeight > 0.6) {
+    } else if (bearishWeight > 0.5) {  // Reduced threshold for 1m timeframe
       return `Oportunidade de scalping de VENDA no ${timeframeText}: Aguarde confirmação de quebra de suporte com volume. Busque entrada precisa com stops ajustados de 0.5-1% e alvo de 2-3% ou no próximo suporte. Monitore constantemente.`;
-    } else if (bullishWeight > bearishWeight && bullishWeight > 0.4) {
+    } else if (bullishWeight > bearishWeight && bullishWeight > 0.3) {  // Reduced threshold for 1m timeframe
       return `Viés de alta com oportunidade potencial no ${timeframeText}: Prepare-se para possível entrada de compra, mas aguarde confirmação de candle de alta com volume aumentado. Sinais ainda mistos.`;
-    } else if (bearishWeight > bullishWeight && bearishWeight > 0.4) {
+    } else if (bearishWeight > bullishWeight && bearishWeight > 0.3) {  // Reduced threshold for 1m timeframe
       return `Viés de baixa com oportunidade potencial no ${timeframeText}: Prepare-se para possível entrada de venda, mas aguarde confirmação de candle de baixa com volume aumentado. Sinais ainda mistos.`;
     } else {
       return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping neste momento. Aguarde formação de um padrão direcional mais definido. Oportunidade potencial em consolidação.`;
@@ -112,6 +113,103 @@ export const validatePatterns = (patterns: PatternResult[]): PatternResult[] => 
   });
 };
 
+// New function to generate scalping signals specifically for 1m timeframe
+export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSignal[] => {
+  if (!patterns || patterns.length === 0) return [];
+  
+  const signals: ScalpingSignal[] = [];
+  
+  // Find dominant patterns with high confidence
+  const highConfidencePatterns = patterns
+    .filter(p => p.confidence > 0.65 && p.action !== 'neutro')
+    .sort((a, b) => b.confidence - a.confidence);
+  
+  // Volume patterns (important for scalping)
+  const volumePatterns = patterns.filter(
+    p => p.description?.toLowerCase().includes('volume') || 
+    p.type.toLowerCase().includes('volume')
+  );
+  
+  // Support/resistance patterns
+  const supportResistance = patterns.filter(
+    p => p.type === 'Suporte/Resistência' || 
+    p.type.toLowerCase().includes('suporte') || 
+    p.type.toLowerCase().includes('resistência')
+  );
+  
+  // Momentum patterns
+  const momentumPatterns = patterns.filter(
+    p => p.description?.toLowerCase().includes('momentum') ||
+    p.type.toLowerCase().includes('divergência')
+  );
+  
+  // Generate scalping signals based on pattern combinations
+  if (highConfidencePatterns.length > 0) {
+    const dominantPattern = highConfidencePatterns[0];
+    const hasVolumeConfirmation = volumePatterns.length > 0;
+    const hasSupportResistance = supportResistance.length > 0;
+    
+    // Only generate entry signal if we have enough confirmation
+    if ((hasVolumeConfirmation || hasSupportResistance || momentumPatterns.length > 0)) {
+      signals.push({
+        type: 'entrada',
+        action: dominantPattern.action as 'compra' | 'venda',
+        price: dominantPattern.action === 'compra' 
+          ? 'Rompimento acima da média móvel ou resistência' 
+          : 'Rompimento abaixo da média móvel ou suporte',
+        confidence: dominantPattern.confidence * (hasVolumeConfirmation ? 1.2 : 1),
+        timeframe: '1m',
+        description: `${dominantPattern.type}: ${dominantPattern.description}`,
+        target: dominantPattern.action === 'compra'
+          ? 'Próxima resistência ou +2-3% do preço atual'
+          : 'Próximo suporte ou -2-3% do preço atual',
+        stopLoss: dominantPattern.action === 'compra'
+          ? '0.5-1% abaixo do ponto de entrada'
+          : '0.5-1% acima do ponto de entrada'
+      });
+      
+      // Add exit signal for risk management
+      signals.push({
+        type: 'saída',
+        action: dominantPattern.action as 'compra' | 'venda',
+        price: 'Take profit ou stop loss',
+        confidence: dominantPattern.confidence * 0.9,
+        timeframe: '1m',
+        description: `Encerre a posição de scalping em ${dominantPattern.action === 'compra' ? 'compra' : 'venda'} no alcance do objetivo ou na ativação do stop loss. Não permaneça em posição por mais de 3-5 candles.`
+      });
+    }
+  }
+  
+  // Add signals based on specific reversal patterns for scalping
+  const reversalPatterns = patterns.filter(
+    p => p.type.toLowerCase().includes('reversão') || 
+    p.description?.toLowerCase().includes('doji') ||
+    p.description?.toLowerCase().includes('martelo') ||
+    p.description?.toLowerCase().includes('engolfo')
+  );
+  
+  reversalPatterns.forEach(pattern => {
+    if (pattern.confidence > 0.7) {
+      signals.push({
+        type: 'entrada',
+        action: pattern.action as 'compra' | 'venda',
+        price: 'Confirmação após padrão de reversão',
+        confidence: pattern.confidence,
+        timeframe: '1m',
+        description: `Padrão de reversão: ${pattern.description}`,
+        target: pattern.action === 'compra'
+          ? 'Próxima resistência ou +1.5-2% do preço atual'
+          : 'Próximo suporte ou -1.5-2% do preço atual',
+        stopLoss: pattern.action === 'compra'
+          ? '0.5% abaixo do ponto de entrada ou abaixo da mínima do candle'
+          : '0.5% acima do ponto de entrada ou acima da máxima do candle'
+      });
+    }
+  });
+  
+  return signals;
+};
+
 export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]> => {
   // In a real implementation, this would use computer vision or ML to detect patterns
   // For now, we'll return a broader set of mock patterns to demonstrate all strategies
@@ -126,7 +224,11 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       confidence: 0.82,
       description: 'Identificada uma tendência de alta com sucessivos topos e fundos ascendentes.',
       recommendation: 'Considere posições compradas com stop abaixo do último fundo relevante.',
-      action: 'compra' as const
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Rompimento de resistência',
+      stopLoss: '0.5% abaixo do ponto de entrada',
+      takeProfit: '+2% do preço de entrada'
     },
     {
       type: 'Suporte/Resistência',
@@ -140,35 +242,52 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       confidence: 0.75,
       description: 'Formação de triângulo ascendente, indicando possível continuação da tendência de alta.',
       recommendation: 'Aguarde confirmação de rompimento da linha superior do triângulo para entrar comprado.',
-      action: 'compra' as const
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Quebra da linha superior',
+      stopLoss: 'Abaixo da linha inferior do triângulo',
+      takeProfit: 'Projeção do triângulo (altura da formação)'
     },
     {
       type: 'Padrão de Velas',
       confidence: 0.85,
       description: 'Identificado padrão de velas Doji seguido por candle de alta com fechamento forte.',
       recommendation: 'Sinal de reversão de baixa para alta. Considere entrada após confirmação no próximo candle.',
-      action: 'compra' as const
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Acima do máximo do candle de confirmação',
+      stopLoss: 'Abaixo do mínimo do padrão Doji',
+      takeProfit: '2:1 (risco/retorno)'
     },
     {
       type: 'Retração de Fibonacci',
       confidence: 0.78,
       description: 'Preço encontrando suporte no nível de 61.8% de Fibonacci da última pernada de alta.',
       recommendation: 'Possível área de reversão. Acompanhe a reação do preço neste nível.',
-      action: 'compra' as const
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Confirmação de suporte em 61.8%',
+      stopLoss: 'Abaixo do nível 78.6%',
+      takeProfit: 'Próximo nível de retração (38.2%)'
     },
     {
       type: 'Divergência',
       confidence: 0.72,
       description: 'Divergência positiva entre preço e indicador de momento, sugerindo possível esgotamento da tendência de baixa.',
       recommendation: 'Sinal de alerta para possível reversão. Aguarde confirmação por quebra de resistência.',
-      action: 'compra' as const
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após candle de confirmação com volume',
+      stopLoss: 'Abaixo do último mínimo',
+      takeProfit: 'Projeção baseada no movimento anterior'
     },
     {
       type: 'OCO',
       confidence: 0.68,
       description: 'Formação OCO (Ombro-Cabeça-Ombro) em desenvolvimento, sugerindo possível reversão de tendência.',
       recommendation: 'Observe a quebra da linha de pescoço como confirmação do padrão para entrada.',
-      action: 'venda' as const
+      action: 'venda' as const,
+      isScalpingSignal: false
     },
     {
       type: 'Falso Rompimento',
@@ -183,6 +302,40 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       description: 'Indicadores sugerem condição de sobrecompra no gráfico atual.',
       recommendation: 'Considere cautela em novas posições compradas. Possível correção técnica à frente.',
       action: 'neutro' as const
+    },
+    // Novos padrões específicos para scalping em M1
+    {
+      type: 'Momentum de Scalping',
+      confidence: 0.85,
+      description: 'Forte movimento de momentum com aumento de volume nos últimos candles.',
+      recommendation: 'Oportunidade de scalping na direção do momentum. Entre após pequena retração.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após retração de 38.2% do movimento recente',
+      stopLoss: '0.5% abaixo do ponto de entrada',
+      takeProfit: 'Próxima resistência ou 2% de ganho'
+    },
+    {
+      type: 'Padrão de Velas M1',
+      confidence: 0.79,
+      description: 'Sequência de três candles de alta consecutivos com aumento de volume.',
+      recommendation: 'Forte sinal de continuação. Entre no pullback ou na quebra do máximo.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Pullback ou quebra de máxima',
+      stopLoss: 'Abaixo do mínimo do último candle',
+      takeProfit: '2:1 ou 3:1 (risco/retorno)'
+    },
+    {
+      type: 'Microrupturas',
+      confidence: 0.72,
+      description: 'Micro-rupturas de níveis de resistência de curto prazo com volume crescente.',
+      recommendation: 'Ideal para operações rápidas de scalping. Entre na confirmação com stop ajustado.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Confirmação de fechamento acima da resistência',
+      stopLoss: '0.3-0.5% abaixo do ponto de entrada',
+      takeProfit: '1-1.5% acima do ponto de entrada'
     }
   ];
   

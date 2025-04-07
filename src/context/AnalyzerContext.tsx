@@ -7,6 +7,10 @@ export type PatternResult = {
   description: string;
   recommendation?: string;
   action?: 'compra' | 'venda' | 'neutro';
+  isScalpingSignal?: boolean; // Added for m1 timeframe signals
+  entryPrice?: string;
+  stopLoss?: string;
+  takeProfit?: string;
 };
 
 export type Point = {
@@ -48,6 +52,18 @@ export type AnalysisResult = {
   technicalElements?: TechnicalElement[];
   candles?: CandleData[];
   manualRegion?: boolean;
+  scalpingSignals?: ScalpingSignal[]; // Added for scalping signals
+};
+
+export type ScalpingSignal = {
+  type: 'entrada' | 'saída';
+  action: 'compra' | 'venda';
+  price: string;
+  confidence: number;
+  timeframe: string;
+  description: string;
+  target?: string;
+  stopLoss?: string;
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -103,6 +119,8 @@ type AnalyzerContextType = {
   setMarkupMode: (enabled: boolean) => void;
   timeframe: TimeframeType;
   setTimeframe: (timeframe: TimeframeType) => void;
+  optimizeForScalping: boolean; // Added for scalping optimization
+  setOptimizeForScalping: (optimize: boolean) => void; // Added for scalping optimization
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -120,6 +138,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
   const [isMarkupMode, setMarkupMode] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
+  const [optimizeForScalping, setOptimizeForScalping] = useState(false);
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -170,6 +189,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarkupMode,
         timeframe,
         setTimeframe,
+        optimizeForScalping,
+        setOptimizeForScalping,
       }}
     >
       {children}

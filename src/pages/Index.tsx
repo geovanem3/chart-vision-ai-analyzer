@@ -4,14 +4,14 @@ import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
-import { BarChart2, Eye, Scan, ZoomIn, AlertTriangle, ImageOff } from 'lucide-react';
+import { BarChart2, Eye, Scan, ZoomIn, AlertTriangle, ImageOff, Zap, Timer } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Wrapper component to access context
 const GraphAnalyzerWithMarkupToolbar = () => {
-  const { capturedImage, analysisResults } = useAnalyzer();
+  const { capturedImage, analysisResults, timeframe } = useAnalyzer();
   const isMobile = useIsMobile();
   
   return (
@@ -26,6 +26,17 @@ const GraphAnalyzerWithMarkupToolbar = () => {
           <AlertDescription className="text-sm">
             Para uma análise precisa, use imagens nítidas de gráficos com boa resolução. 
             {!isMobile && " Se a análise automática falhar, utilize as ferramentas de marcação manual para ajustar as áreas críticas do gráfico."}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {timeframe === '1m' && capturedImage && (
+        <Alert className="my-3" variant="default">
+          <Zap className="h-4 w-4 text-amber-500" />
+          <AlertTitle>Modo Scalping Ativo</AlertTitle>
+          <AlertDescription className="text-sm">
+            Análise otimizada para operações de curtíssimo prazo em timeframe de 1 minuto.
+            Entradas e saídas precisas com alvos de 2-3%.
           </AlertDescription>
         </Alert>
       )}
@@ -95,11 +106,11 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-amber-500/10 rounded-full p-3 mb-2">
-                      <AlertTriangle className="h-6 w-6 text-amber-500" />
+                      <Zap className="h-6 w-6 text-amber-500" />
                     </div>
-                    <p className="text-sm font-medium">Análise Crítica</p>
+                    <p className="text-sm font-medium">Scalping 1 Minuto</p>
                     <p className="text-xs text-muted-foreground">
-                      Avaliação minuciosa com níveis de confiança e alertas de possíveis divergências
+                      Análise especializada para operações de curto prazo com sinais precisos
                     </p>
                   </div>
                   
@@ -140,9 +151,9 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-amber-500/10 rounded-full p-2 mb-1">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      <Zap className="h-4 w-4 text-amber-500" />
                     </div>
-                    <p className="text-xs font-medium">Análise Crítica</p>
+                    <p className="text-xs font-medium">Scalping 1m</p>
                   </div>
                 </div>
               )}
