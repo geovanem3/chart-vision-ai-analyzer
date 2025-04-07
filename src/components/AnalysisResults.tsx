@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -19,7 +20,8 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Filter
 } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
@@ -29,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from "@/hooks/use-toast";
 
 const AnalysisResults = () => {
   const { 
@@ -47,6 +50,9 @@ const AnalysisResults = () => {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   const [falseSignalWarnings, setFalseSignalWarnings] = useState<string[]>([]);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.5); // Padrão: mostrar padrões com 50%+ de confiança
+  const [filteredPatterns, setFilteredPatterns] = useState<PatternResult[]>([]);
+  const [showAllPatterns, setShowAllPatterns] = useState(false);
 
   useEffect(() => {
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
@@ -68,8 +74,15 @@ const AnalysisResults = () => {
     if (analysisResults?.patterns) {
       const { warnings } = detectFalseSignals(analysisResults.patterns);
       setFalseSignalWarnings(warnings);
+      
+      // Filtrar padrões com base no limite de confiança
+      const filtered = analysisResults.patterns.filter(
+        pattern => pattern.confidence >= confidenceThreshold
+      );
+      
+      setFilteredPatterns(filtered);
     }
-  }, [analysisResults?.patterns]);
+  }, [analysisResults?.patterns, confidenceThreshold]);
 
   const handleImageLoad = () => {
     if (imageRef.current && analysisResults) {
@@ -115,6 +128,18 @@ const AnalysisResults = () => {
     }
   };
 
+  const handleConfidenceThresholdChange = (value: number[]) => {
+    setConfidenceThreshold(value[0]);
+    toast({
+      title: "Filtro atualizado",
+      description: `Mostrando padrões com confiança ≥ ${Math.round(value[0] * 100)}%`,
+    });
+  };
+
+  const toggleShowAllPatterns = () => {
+    setShowAllPatterns(!showAllPatterns);
+  };
+
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
     
@@ -156,16 +181,22 @@ const AnalysisResults = () => {
   if (!analysisResults) return null;
 
   const { patterns, timestamp } = analysisResults;
-  const overallRecommendation = analyzeResults(patterns, timeframe);
+  const overallRecommendation = analyzeResults(showAllPatterns ? patterns : filteredPatterns, timeframe);
   const formattedDate = new Date(timestamp).toLocaleString('pt-BR');
 
   const getSignalAction = (): { action: 'compra' | 'venda' | 'neutro', confidence: number } => {
+    const patternsToAnalyze = showAllPatterns ? patterns : filteredPatterns;
     let buyCount = 0;
     let sellCount = 0;
     let neutralCount = 0;
     let totalConfidence = 0;
     
-    patterns.forEach(pattern => {
+    // Se não temos padrões suficientes após filtragem, resultado é neutro
+    if (patternsToAnalyze.length === 0) {
+      return { action: 'neutro', confidence: 0.5 };
+    }
+    
+    patternsToAnalyze.forEach(pattern => {
       if (pattern.action === 'compra') {
         buyCount += pattern.confidence;
       } else if (pattern.action === 'venda') {
@@ -179,9 +210,10 @@ const AnalysisResults = () => {
     const buyWeight = buyCount / totalConfidence;
     const sellWeight = sellCount / totalConfidence;
     
-    if (buyWeight > 0.6) {
+    // Ajustado para precisar de confiança maior para dar um sinal claro
+    if (buyWeight > 0.65) {
       return { action: 'compra', confidence: buyWeight };
-    } else if (sellWeight > 0.6) {
+    } else if (sellWeight > 0.65) {
       return { action: 'venda', confidence: sellWeight };
     } else {
       return { action: 'neutro', confidence: Math.max(buyWeight, sellWeight) };
@@ -224,7 +256,7 @@ const AnalysisResults = () => {
       .reduce<Record<string, PatternResult[]>>((obj, [key, value]) => ({ ...obj, [key]: value }), {});
   };
 
-  const groupedPatterns = groupPatternsByCategory(patterns);
+  const groupedPatterns = groupPatternsByCategory(showAllPatterns ? patterns : filteredPatterns);
 
   const getSentimentIcon = () => {
     const recommendation = overallRecommendation.toLowerCase();
@@ -262,6 +294,7 @@ const AnalysisResults = () => {
     let bgClass;
     let textClass;
     let actionText;
+    let entryRecommendation;
     
     switch(action) {
       case 'compra':
@@ -269,24 +302,29 @@ const AnalysisResults = () => {
         bgClass = 'bg-chart-up/10';
         textClass = 'text-chart-up';
         actionText = 'COMPRA';
+        entryRecommendation = `Entrada em ${timeframe} com alvo de lucro de 2:1`;
         break;
       case 'venda':
         icon = <XCircle className="w-6 h-6" />;
         bgClass = 'bg-chart-down/10';
         textClass = 'text-chart-down';
         actionText = 'VENDA';
+        entryRecommendation = `Entrada em ${timeframe} com alvo de lucro de 2:1`;
         break;
       default:
         icon = <AlertTriangle className="w-6 h-6" />;
         bgClass = 'bg-chart-neutral/10';
         textClass = 'text-chart-neutral';
         actionText = 'NEUTRO';
+        entryRecommendation = `Aguarde por sinais mais claros`;
     }
     
-    return { icon, bgClass, textClass, actionText, confidence };
+    return { icon, bgClass, textClass, actionText, confidence, entryRecommendation };
   };
 
   const signalDisplay = getSignalDisplay();
+  const patternsToShow = showAllPatterns ? patterns : filteredPatterns;
+  const patternCount = patternsToShow.length;
 
   return (
     <Card className={`${isMobile ? 'p-3 my-2' : 'p-4 my-4'} w-full max-w-3xl`}>
@@ -317,7 +355,7 @@ const AnalysisResults = () => {
           <div className="flex items-center px-2 py-1 rounded-full bg-secondary">
             {getSentimentIcon()}
             <span className={`ml-1 ${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>
-              {patterns.length} padrões
+              {patternCount} {patternCount === 1 ? 'padrão' : 'padrões'}
             </span>
           </div>
         </div>
@@ -348,12 +386,17 @@ const AnalysisResults = () => {
             </Badge>
           </div>
         </div>
+        
         <Progress 
           value={signalDisplay.confidence * 100} 
           className={`h-2 mt-3 ${signalAction.action === 'compra' ? 'bg-chart-up' : 
                                   signalAction.action === 'venda' ? 'bg-chart-down' : 
                                   'bg-chart-neutral'}`} 
         />
+        
+        <div className="mt-3 p-2 bg-black/10 rounded text-sm">
+          <strong>Recomendação:</strong> {signalDisplay.entryRecommendation}
+        </div>
       </div>
       
       {analysisResults.imageUrl && (
@@ -447,6 +490,43 @@ const AnalysisResults = () => {
         </div>
       )}
       
+      <div className="mb-4 p-4 rounded-lg bg-secondary/50">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1">
+            <Filter className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium">Filtro de Confiança</h3>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={toggleShowAllPatterns}
+          >
+            {showAllPatterns ? "Mostrar Filtrados" : "Mostrar Todos"}
+          </Button>
+        </div>
+        <div className="px-2">
+          <Slider
+            value={[confidenceThreshold]}
+            min={0.3}
+            max={0.9}
+            step={0.05}
+            onValueChange={handleConfidenceThresholdChange}
+          />
+        </div>
+        <div className="flex justify-between text-xs mt-1 px-1">
+          <span>Baixa (30%)</span>
+          <span>Média (60%)</span>
+          <span>Alta (90%)</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          {showAllPatterns 
+            ? "Mostrando todos os padrões (sem filtro)"
+            : `Mostrando apenas padrões com confiança ≥ ${Math.round(confidenceThreshold * 100)}%`
+          }
+        </p>
+      </div>
+      
       <div className={`gradient-border mb-4 ${isMobile ? 'p-3' : 'p-4'}`}>
         <div className="flex items-start gap-2">
           <Info className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary mt-0.5`} />
@@ -463,43 +543,56 @@ const AnalysisResults = () => {
         </div>
       </div>
       
-      <div className="space-y-4">
-        <h3 className={`font-medium mb-3 ${isMobile ? 'text-sm' : ''}`}>Padrões Detectados</h3>
-        
-        {Object.entries(groupedPatterns).map(([category, patterns]) => (
-          <div key={category} className={`mb-4 ${isMobile ? 'space-y-2' : 'mb-6'}`}>
-            <h4 className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2 text-muted-foreground uppercase tracking-wide`}>{category}</h4>
-            <div className={`${isMobile ? 'space-y-2' : 'space-y-4'}`}>
-              {patterns.map((pattern: PatternResult, index: number) => (
-                <div key={index} className={`bg-secondary/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center">
-                      <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{pattern.type}</h4>
-                      {pattern.action && getActionBadge(pattern.action)}
+      {patternCount > 0 ? (
+        <div className="space-y-4">
+          <h3 className={`font-medium mb-3 ${isMobile ? 'text-sm' : ''}`}>
+            Padrões {showAllPatterns ? "Detectados" : "Relevantes"}
+          </h3>
+          
+          {Object.entries(groupedPatterns).map(([category, patterns]) => (
+            <div key={category} className={`mb-4 ${isMobile ? 'space-y-2' : 'mb-6'}`}>
+              <h4 className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2 text-muted-foreground uppercase tracking-wide`}>{category}</h4>
+              <div className={`${isMobile ? 'space-y-2' : 'space-y-4'}`}>
+                {patterns.map((pattern: PatternResult, index: number) => (
+                  <div key={index} className={`bg-secondary/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{pattern.type}</h4>
+                        {pattern.action && getActionBadge(pattern.action)}
+                      </div>
+                      <div className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
+                        Confiança: {Math.round(pattern.confidence * 100)}%
+                      </div>
                     </div>
-                    <div className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Confiança: {Math.round(pattern.confidence * 100)}%
-                    </div>
+                    
+                    <Progress 
+                      value={pattern.confidence * 100} 
+                      className={`h-1.5 mb-2 ${getConfidenceColor(pattern.confidence)}`} 
+                    />
+                    
+                    <p className={`${isMobile ? 'text-xs' : 'text-sm'} mb-2`}>{pattern.description}</p>
+                    
+                    {pattern.recommendation && (
+                      <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-primary`}>
+                        <span className="font-medium">Recomendação:</span> {pattern.recommendation}
+                      </div>
+                    )}
                   </div>
-                  
-                  <Progress 
-                    value={pattern.confidence * 100} 
-                    className={`h-1.5 mb-2 ${getConfidenceColor(pattern.confidence)}`} 
-                  />
-                  
-                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} mb-2`}>{pattern.description}</p>
-                  
-                  {pattern.recommendation && (
-                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-primary`}>
-                      <span className="font-medium">Recomendação:</span> {pattern.recommendation}
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="my-8 text-center p-6 bg-secondary/30 rounded-lg">
+          <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2 opacity-80" />
+          <h3 className="text-lg font-medium mb-1">Nenhum padrão relevante</h3>
+          <p className="text-sm text-muted-foreground">
+            Nenhum padrão com confiança suficiente foi detectado.
+            Tente ajustar o limite de confiança ou clique em "Mostrar Todos" para ver todos os padrões.
+          </p>
+        </div>
+      )}
       
       <div className={`mt-6 pt-3 border-t border-border ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
         <p className="italic">
