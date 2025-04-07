@@ -406,6 +406,9 @@ const AnalysisResults = () => {
     return { target, stopLoss, riskReward };
   };
 
+  const scalpingEntry = getScalpingEntryPoints();
+  const priceProjection = getPriceProjection();
+
   return (
     <Card className={`${isMobile ? 'p-3 my-2' : 'p-4 my-4'} w-full max-w-3xl`}>
       <div className="flex justify-between items-start mb-4">
@@ -700,7 +703,7 @@ const AnalysisResults = () => {
             <div className="mb-4 p-4 rounded-lg border-2 border-primary/30 bg-primary/5">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
-                  <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{dominantPattern.type}</h4>
+                  <h4 className={`${isMobile ? 'text-sm' : ''} font-medium">{dominantPattern.type}</h4>
                   {dominantPattern.action && getActionBadge(dominantPattern.action)}
                 </div>
                 {dominantPattern.action && getActionBadge(dominantPattern.action)}
