@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -24,7 +25,12 @@ import {
   Target,
   Timer,
   TrendingUp,
-  LineChart
+  LineChart,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  List,
+  Layers
 } from 'lucide-react';
 import ChartMarkup from './ChartMarkup';
 import { useLanguage } from '@/context/LanguageContext';
@@ -36,6 +42,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const AnalysisResults = () => {
   const { 
@@ -58,6 +70,10 @@ const AnalysisResults = () => {
   const [filteredPatterns, setFilteredPatterns] = useState<PatternResult[]>([]);
   const [showAllPatterns, setShowAllPatterns] = useState(false);
   const [dominantPattern, setDominantPattern] = useState<PatternResult | null>(null);
+  const [activeTab, setActiveTab] = useState("resumo");
+  const [imageExpanded, setImageExpanded] = useState(true);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [patternListExpanded, setPatternListExpanded] = useState(false);
 
   useEffect(() => {
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
@@ -478,312 +494,382 @@ const AnalysisResults = () => {
                                   signalAction.action === 'venda' ? 'bg-chart-down/80' : 
                                   'bg-chart-neutral/80'}`} 
           />
-          
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div className="p-2 bg-black/10 rounded text-sm">
-              <div className="font-semibold mb-1">Ponto de Entrada</div>
-              <div>{signalDisplay.entryPoint}</div>
-            </div>
-            
-            <div className="p-2 bg-black/10 rounded text-sm">
-              <div className="font-semibold mb-1">Stop Loss</div>
-              <div>{signalDisplay.stopLoss}</div>
-            </div>
-            
-            <div className="p-2 bg-black/10 rounded text-sm">
-              <div className="font-semibold mb-1">Take Profit</div>
-              <div>{signalDisplay.takeProfit}</div>
-            </div>
-          </div>
-          
-          {timeframe === '1m' && scalpingEntry && (
-            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Timer className="h-4 w-4 text-primary" />
-                <h4 className="font-medium">Entrada Scalping (1 minuto)</h4>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">Entrada:</span> {scalpingEntry.price}
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">Timing:</span> {scalpingEntry.time}
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">Confiança:</span> {Math.round(scalpingEntry.confidence * 100)}%
-                  </div>
+        </div>
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full mb-4 grid grid-cols-3">
+          <TabsTrigger value="resumo" className="text-sm">Resumo</TabsTrigger>
+          <TabsTrigger value="grafico" className="text-sm">Gráfico</TabsTrigger>
+          <TabsTrigger value="detalhes" className="text-sm">Detalhes</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="resumo" className="space-y-4">
+          {dominantPattern && (
+            <div className="p-2 bg-black/5 rounded">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="p-2 bg-black/10 rounded text-sm">
+                  <div className="font-semibold mb-1">Ponto de Entrada</div>
+                  <div>{signalDisplay.entryPoint}</div>
                 </div>
-                <div className="text-sm">
-                  <span className="font-medium">Confirmação Recomendada:</span>
-                  <p className="mt-1 text-muted-foreground">{scalpingEntry.description}</p>
+                
+                <div className="p-2 bg-black/10 rounded text-sm">
+                  <div className="font-semibold mb-1">Stop Loss</div>
+                  <div>{signalDisplay.stopLoss}</div>
+                </div>
+                
+                <div className="p-2 bg-black/10 rounded text-sm">
+                  <div className="font-semibold mb-1">Take Profit</div>
+                  <div>{signalDisplay.takeProfit}</div>
                 </div>
               </div>
               
-              {priceProjection && (
-                <div className="mt-3 pt-3 border-t border-primary/10">
+              {timeframe === '1m' && scalpingEntry && (
+                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <h4 className="font-medium">Projeção de Preço</h4>
+                    <Timer className="h-4 w-4 text-primary" />
+                    <h4 className="font-medium">Entrada Scalping (1 minuto)</h4>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Alvo:</span> {priceProjection.target}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <div className="text-sm">
+                        <span className="font-medium">Entrada:</span> {scalpingEntry.price}
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Timing:</span> {scalpingEntry.time}
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Confiança:</span> {Math.round(scalpingEntry.confidence * 100)}%
+                      </div>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Stop Loss:</span> {priceProjection.stopLoss}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Risco/Recompensa:</span> {priceProjection.riskReward}
+                      <span className="font-medium">Confirmação Recomendada:</span>
+                      <p className="mt-1 text-muted-foreground">{scalpingEntry.description}</p>
                     </div>
                   </div>
+                  
+                  {priceProjection && (
+                    <div className="mt-3 pt-3 border-t border-primary/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        <h4 className="font-medium">Projeção de Preço</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="text-sm">
+                          <span className="font-medium">Alvo:</span> {priceProjection.target}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">Stop Loss:</span> {priceProjection.stopLoss}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">Risco/Recompensa:</span> {priceProjection.riskReward}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
           
-          <div className="mt-3 p-2 bg-black/10 rounded text-sm">
-            <div className="font-medium mb-1">Descrição do Padrão:</div>
-            <p>{dominantPattern.description}</p>
-          </div>
-        </div>
-      )}
-      
-      {analysisResults.imageUrl && (
-        <div className="relative w-full overflow-hidden rounded-lg mb-4">
-          <img 
-            ref={imageRef}
-            src={analysisResults.imageUrl} 
-            alt="Gráfico Analisado" 
-            className="w-full object-contain" 
-            onLoad={handleImageLoad}
-          />
-          
-          <div className={`absolute ${isMobile ? 'top-2 right-2' : 'top-4 right-4'} bg-background/80 backdrop-blur-sm rounded-lg p-2 shadow-md flex flex-col gap-2`}>
-            <div className="flex items-center gap-2">
-              <BarChart2 className="h-4 w-4 text-primary" />
-              <Switch 
-                checked={showTechnicalMarkup} 
-                onCheckedChange={setShowTechnicalMarkup}
-                aria-label="Alternar marcação técnica"
-              />
-            </div>
-            
-            {showTechnicalMarkup && (
-              <>
-                <div className="text-xs font-medium text-center">Tamanho</div>
-                <div className="flex justify-between items-center gap-2">
-                  <ZoomOut className="h-3 w-3 text-muted-foreground" />
-                  <div className="flex gap-1">
-                    <button 
-                      onClick={() => handleSizeChange('small')}
-                      className={`w-2 h-2 rounded-full ${markupSize === 'small' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                      aria-label="Marcações pequenas"
-                    />
-                    <button 
-                      onClick={() => handleSizeChange('medium')}
-                      className={`w-2 h-2 rounded-full ${markupSize === 'medium' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                      aria-label="Marcações médias"
-                    />
-                    <button 
-                      onClick={() => handleSizeChange('large')}
-                      className={`w-2 h-2 rounded-full ${markupSize === 'large' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                      aria-label="Marcações grandes"
-                    />
-                  </div>
-                  <ZoomIn className="h-3 w-3 text-muted-foreground" />
+          <div className={`gradient-border p-3`}>
+            <div className="flex items-start gap-2">
+              <Info className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary mt-0.5`} />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium mb-1">Avaliação Geral</h3>
+                  <Badge variant="outline" className="text-xs h-5">
+                    <Clock className="h-3 w-3 mr-1" />
+                    {timeframe}
+                  </Badge>
                 </div>
-                
-                <div className="text-xs font-medium text-center mt-1">Proporção</div>
-                <div className="px-1 w-full">
-                  <Slider
-                    value={[markupScale]}
-                    min={0.2}
-                    max={2}
-                    step={0.1}
-                    onValueChange={handleMarkupScaleChange}
-                    className="w-full"
-                  />
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-xs h-6 mt-1" 
-                  onClick={resetMarkupScale}
-                >
-                  Redefinir
-                </Button>
-              </>
-            )}
-          </div>
-          
-          {imageSize.width > 0 && (
-            <ChartMarkup 
-              imageWidth={imageSize.width} 
-              imageHeight={imageSize.height} 
-              scale={markupScale}
-            />
-          )}
-        </div>
-      )}
-      
-      {falseSignalWarnings.length > 0 && (
-        <div className="mb-4">
-          {falseSignalWarnings.map((warning, index) => (
-            <Alert key={index} variant="destructive" className="mb-2">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                {warning}
-              </AlertDescription>
-            </Alert>
-          ))}
-        </div>
-      )}
-      
-      <div className="mb-4 p-4 rounded-lg bg-secondary/50">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1">
-            <Filter className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium">Filtro de Confiança</h3>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-7 text-xs"
-            onClick={toggleShowAllPatterns}
-          >
-            {showAllPatterns ? "Mostrar Filtrados" : "Mostrar Todos"}
-          </Button>
-        </div>
-        <div className="px-2">
-          <Slider
-            value={[confidenceThreshold]}
-            min={0.3}
-            max={0.9}
-            step={0.05}
-            onValueChange={handleConfidenceThresholdChange}
-          />
-        </div>
-        <div className="flex justify-between text-xs mt-1 px-1">
-          <span>Baixa (30%)</span>
-          <span>Média (60%)</span>
-          <span>Alta (90%)</span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          {showAllPatterns 
-            ? "Mostrando todos os padrões (sem filtro)"
-            : `Mostrando apenas padrões com confiança ≥ ${Math.round(confidenceThreshold * 100)}%`
-          }
-        </p>
-      </div>
-      
-      <div className={`gradient-border mb-4 ${isMobile ? 'p-3' : 'p-4'}`}>
-        <div className="flex items-start gap-2">
-          <Info className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary mt-0.5`} />
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium mb-1">Avaliação Geral</h3>
-              <Badge variant="outline" className="text-xs h-5">
-                <Clock className="h-3 w-3 mr-1" />
-                {timeframe}
-              </Badge>
-            </div>
-            <p className={`${isMobile ? 'text-xs' : 'text-sm'}`}>{overallRecommendation}</p>
-          </div>
-        </div>
-      </div>
-      
-      {patternCount > 0 ? (
-        <div className="space-y-4">
-          <h3 className={`font-medium mb-3 ${isMobile ? 'text-sm' : ''}`}>
-            Padrões {showAllPatterns ? "Detectados" : "Relevantes"}
-          </h3>
-          
-          {dominantPattern && (
-            <div className="mb-4 p-4 rounded-lg border-2 border-primary/30 bg-primary/5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center">
-                  <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{dominantPattern.type}</h4>
-                  {dominantPattern.action && getActionBadge(dominantPattern.action)}
-                </div>
-                {dominantPattern.action && getActionBadge(dominantPattern.action)}
-              </div>
-              
-              <Separator className="my-2" />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h5 className="text-sm font-medium mb-1">{dominantPattern.type}</h5>
-                  <Progress 
-                    value={dominantPattern.confidence * 100} 
-                    className={`h-2 mb-2 ${getConfidenceColor(dominantPattern.confidence)}`} 
-                  />
-                  <p className="text-sm">Confiança: {Math.round(dominantPattern.confidence * 100)}%</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm">{dominantPattern.description}</p>
-                  {dominantPattern.recommendation && (
-                    <p className="text-sm text-primary mt-2">
-                      <span className="font-medium">Recomendação:</span> {dominantPattern.recommendation}
-                    </p>
-                  )}
-                </div>
+                <p className={`${isMobile ? 'text-xs' : 'text-sm'}`}>{overallRecommendation}</p>
               </div>
             </div>
-          )}
+          </div>
           
-          <div className="mt-4">
-            <h4 className="text-sm font-medium mb-2 text-muted-foreground uppercase tracking-wide">
-              Padrões Secundários
-            </h4>
-            <div className="space-y-4">
-              {Object.entries(groupedPatterns).map(([category, patterns]) => (
-                <div key={category} className={`mb-4 ${isMobile ? 'space-y-2' : 'mb-6'}`}>
-                  <h4 className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2 text-muted-foreground uppercase tracking-wide`}>{category}</h4>
-                  <div className={`${isMobile ? 'space-y-2' : 'space-y-4'}`}>
-                    {patterns.map((pattern: PatternResult, index: number) => (
-                      <div key={index} className={`bg-secondary/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center">
-                            <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{pattern.type}</h4>
-                            {pattern.action && getActionBadge(pattern.action)}
-                          </div>
-                          <div className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
-                            Confiança: {Math.round(pattern.confidence * 100)}%
-                          </div>
-                        </div>
-                        
-                        <Progress 
-                          value={pattern.confidence * 100} 
-                          className={`h-1.5 mb-2 ${getConfidenceColor(pattern.confidence)}`} 
-                        />
-                        
-                        <p className={`${isMobile ? 'text-xs' : 'text-sm'} mb-2`}>{pattern.description}</p>
-                        
-                        {pattern.recommendation && (
-                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-primary`}>
-                            <span className="font-medium">Recomendação:</span> {pattern.recommendation}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          {falseSignalWarnings.length > 0 && (
+            <div>
+              {falseSignalWarnings.map((warning, index) => (
+                <Alert key={index} variant="destructive" className="mb-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    {warning}
+                  </AlertDescription>
+                </Alert>
               ))}
             </div>
+          )}
+          
+          {dominantPattern && (
+            <div className="mt-3 p-2 bg-black/10 rounded text-sm">
+              <div className="font-medium mb-1">Descrição do Padrão Principal:</div>
+              <p>{dominantPattern.description}</p>
+              {dominantPattern.recommendation && (
+                <p className="text-primary mt-2 font-medium">{dominantPattern.recommendation}</p>
+              )}
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="grafico">
+          <Collapsible
+            open={imageExpanded}
+            onOpenChange={setImageExpanded}
+            className="w-full"
+          >
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center justify-between w-full mb-2">
+                <div className="flex items-center">
+                  <Eye className="h-4 w-4 mr-2" />
+                  <span>Visualização do Gráfico</span>
+                </div>
+                {imageExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {analysisResults.imageUrl && (
+                <div className="relative w-full overflow-hidden rounded-lg mb-4">
+                  <img 
+                    ref={imageRef}
+                    src={analysisResults.imageUrl} 
+                    alt="Gráfico Analisado" 
+                    className="w-full object-contain" 
+                    onLoad={handleImageLoad}
+                  />
+                  
+                  <div className={`absolute ${isMobile ? 'top-2 right-2' : 'top-4 right-4'} bg-background/80 backdrop-blur-sm rounded-lg p-2 shadow-md flex flex-col gap-2`}>
+                    <div className="flex items-center gap-2">
+                      <BarChart2 className="h-4 w-4 text-primary" />
+                      <Switch 
+                        checked={showTechnicalMarkup} 
+                        onCheckedChange={setShowTechnicalMarkup}
+                        aria-label="Alternar marcação técnica"
+                      />
+                    </div>
+                    
+                    {showTechnicalMarkup && (
+                      <>
+                        <div className="text-xs font-medium text-center">Tamanho</div>
+                        <div className="flex justify-between items-center gap-2">
+                          <ZoomOut className="h-3 w-3 text-muted-foreground" />
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => handleSizeChange('small')}
+                              className={`w-2 h-2 rounded-full ${markupSize === 'small' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                              aria-label="Marcações pequenas"
+                            />
+                            <button 
+                              onClick={() => handleSizeChange('medium')}
+                              className={`w-2 h-2 rounded-full ${markupSize === 'medium' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                              aria-label="Marcações médias"
+                            />
+                            <button 
+                              onClick={() => handleSizeChange('large')}
+                              className={`w-2 h-2 rounded-full ${markupSize === 'large' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                              aria-label="Marcações grandes"
+                            />
+                          </div>
+                          <ZoomIn className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        
+                        <div className="text-xs font-medium text-center mt-1">Proporção</div>
+                        <div className="px-1 w-full">
+                          <Slider
+                            value={[markupScale]}
+                            min={0.2}
+                            max={2}
+                            step={0.1}
+                            onValueChange={handleMarkupScaleChange}
+                            className="w-full"
+                          />
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs h-6 mt-1" 
+                          onClick={resetMarkupScale}
+                        >
+                          Redefinir
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  
+                  {imageSize.width > 0 && (
+                    <ChartMarkup 
+                      imageWidth={imageSize.width} 
+                      imageHeight={imageSize.height} 
+                      scale={markupScale}
+                    />
+                  )}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+          
+          <div className="mb-4 p-4 rounded-lg bg-secondary/50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1">
+                <Filter className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-medium">Filtro de Confiança</h3>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-xs"
+                onClick={toggleShowAllPatterns}
+              >
+                {showAllPatterns ? "Mostrar Filtrados" : "Mostrar Todos"}
+              </Button>
+            </div>
+            <div className="px-2">
+              <Slider
+                value={[confidenceThreshold]}
+                min={0.3}
+                max={0.9}
+                step={0.05}
+                onValueChange={handleConfidenceThresholdChange}
+              />
+            </div>
+            <div className="flex justify-between text-xs mt-1 px-1">
+              <span>Baixa (30%)</span>
+              <span>Média (60%)</span>
+              <span>Alta (90%)</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {showAllPatterns 
+                ? "Mostrando todos os padrões (sem filtro)"
+                : `Mostrando apenas padrões com confiança ≥ ${Math.round(confidenceThreshold * 100)}%`
+              }
+            </p>
           </div>
-        </div>
-      ) : (
-        <div className="my-8 text-center p-6 bg-secondary/30 rounded-lg">
-          <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2 opacity-80" />
-          <h3 className="text-lg font-medium mb-1">Nenhum padrão relevante</h3>
-          <p className="text-sm text-muted-foreground">
-            Nenhum padrão com confiança suficiente foi detectado.
-            Tente ajustar o limite de confiança ou clique em "Mostrar Todos" para ver todos os padrões.
-          </p>
-        </div>
-      )}
+        </TabsContent>
+        
+        <TabsContent value="detalhes">
+          <Collapsible
+            open={detailsExpanded}
+            onOpenChange={setDetailsExpanded}
+            className="w-full mb-4"
+          >
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center justify-between w-full mb-2">
+                <div className="flex items-center">
+                  <Layers className="h-4 w-4 mr-2" />
+                  <span>Detalhes do Padrão Principal</span>
+                </div>
+                {detailsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {dominantPattern && (
+                <div className="mb-4 p-4 rounded-lg border-2 border-primary/30 bg-primary/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{dominantPattern.type}</h4>
+                      {dominantPattern.action && getActionBadge(dominantPattern.action)}
+                    </div>
+                    {dominantPattern.action && getActionBadge(dominantPattern.action)}
+                  </div>
+                  
+                  <Separator className="my-2" />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h5 className="text-sm font-medium mb-1">{dominantPattern.type}</h5>
+                      <Progress 
+                        value={dominantPattern.confidence * 100} 
+                        className={`h-2 mb-2 ${getConfidenceColor(dominantPattern.confidence)}`} 
+                      />
+                      <p className="text-sm">Confiança: {Math.round(dominantPattern.confidence * 100)}%</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm">{dominantPattern.description}</p>
+                      {dominantPattern.recommendation && (
+                        <p className="text-sm text-primary mt-2">
+                          <span className="font-medium">Recomendação:</span> {dominantPattern.recommendation}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+          
+          <Collapsible
+            open={patternListExpanded}
+            onOpenChange={setPatternListExpanded}
+            className="w-full"
+          >
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center justify-between w-full mb-2">
+                <div className="flex items-center">
+                  <List className="h-4 w-4 mr-2" />
+                  <span>Lista de Padrões Secundários</span>
+                </div>
+                {patternListExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {patternCount > 0 ? (
+                <div className="space-y-4">
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium mb-2 text-muted-foreground uppercase tracking-wide">
+                      Padrões Secundários
+                    </h4>
+                    <div className="space-y-4">
+                      {Object.entries(groupedPatterns).map(([category, patterns]) => (
+                        <div key={category} className={`mb-4 ${isMobile ? 'space-y-2' : 'mb-6'}`}>
+                          <h4 className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-2 text-muted-foreground uppercase tracking-wide`}>{category}</h4>
+                          <div className={`${isMobile ? 'space-y-2' : 'space-y-4'}`}>
+                            {patterns.map((pattern: PatternResult, index: number) => (
+                              <div key={index} className={`bg-secondary/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
+                                <div className="flex justify-between items-center mb-2">
+                                  <div className="flex items-center">
+                                    <h4 className={`${isMobile ? 'text-sm' : ''} font-medium`}>{pattern.type}</h4>
+                                    {pattern.action && getActionBadge(pattern.action)}
+                                  </div>
+                                  <div className={`${isMobile ? 'text-xs' : 'text-sm'}`}>
+                                    Confiança: {Math.round(pattern.confidence * 100)}%
+                                  </div>
+                                </div>
+                                
+                                <Progress 
+                                  value={pattern.confidence * 100} 
+                                  className={`h-1.5 mb-2 ${getConfidenceColor(pattern.confidence)}`} 
+                                />
+                                
+                                <p className={`${isMobile ? 'text-xs' : 'text-sm'} mb-2`}>{pattern.description}</p>
+                                
+                                {pattern.recommendation && (
+                                  <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-primary`}>
+                                    <span className="font-medium">Recomendação:</span> {pattern.recommendation}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="my-8 text-center p-6 bg-secondary/30 rounded-lg">
+                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2 opacity-80" />
+                  <h3 className="text-lg font-medium mb-1">Nenhum padrão relevante</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum padrão com confiança suficiente foi detectado.
+                    Tente ajustar o limite de confiança ou clique em "Mostrar Todos" para ver todos os padrões.
+                  </p>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        </TabsContent>
+      </Tabs>
       
       <div className={`mt-6 pt-3 border-t border-border ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
         <p className="italic">
