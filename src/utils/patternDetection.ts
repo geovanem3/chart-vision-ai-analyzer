@@ -1,4 +1,3 @@
-
 // Add imports from AnalyzerContext
 import { PatternResult, TechnicalElement, Point, CandleData } from '@/context/AnalyzerContext';
 
@@ -32,6 +31,22 @@ export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1
   // Generate time-specific advice
   const timeframeText = getTimeframeText(timeframe);
   
+  // Recomendações específicas para scalping em 1 minuto
+  if (timeframe === '1m') {
+    if (bullishWeight > 0.6) {
+      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Aguarde confirmação de quebra de resistência com volume. Busque entrada precisa com stops ajustados de 0.5-1% e alvo de 2-3% ou na próxima resistência. Monitore constantemente.`;
+    } else if (bearishWeight > 0.6) {
+      return `Oportunidade de scalping de VENDA no ${timeframeText}: Aguarde confirmação de quebra de suporte com volume. Busque entrada precisa com stops ajustados de 0.5-1% e alvo de 2-3% ou no próximo suporte. Monitore constantemente.`;
+    } else if (bullishWeight > bearishWeight && bullishWeight > 0.4) {
+      return `Viés de alta com oportunidade potencial no ${timeframeText}: Prepare-se para possível entrada de compra, mas aguarde confirmação de candle de alta com volume aumentado. Sinais ainda mistos.`;
+    } else if (bearishWeight > bullishWeight && bearishWeight > 0.4) {
+      return `Viés de baixa com oportunidade potencial no ${timeframeText}: Prepare-se para possível entrada de venda, mas aguarde confirmação de candle de baixa com volume aumentado. Sinais ainda mistos.`;
+    } else {
+      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping neste momento. Aguarde formação de um padrão direcional mais definido. Oportunidade potencial em consolidação.`;
+    }
+  }
+  
+  // Recomendações para outros timeframes (original)
   if (bullishWeight > 0.6) {
     return `Tendência de alta no ${timeframeText}: Os padrões identificados sugerem uma forte probabilidade de movimento ascendente. Considere posições compradas com stops abaixo dos níveis de suporte identificados.`;
   } else if (bearishWeight > 0.6) {
@@ -226,6 +241,35 @@ export const detectFalseSignals = (patterns: PatternResult[]): {
   
   if (indecisionPatterns.length > 0) {
     warnings.push('⚠️ Alerta: Padrões de indecisão detectados. O mercado pode estar sem direção clara.');
+  }
+  
+  // Adicionar alertas específicos para scalping (timeframe de 1 minuto)
+  const scalpingPatterns = patterns.filter(p => 
+    p.type.toLowerCase().includes('vela') || 
+    p.type.toLowerCase().includes('candle') ||
+    p.type.toLowerCase().includes('doji')
+  );
+  
+  if (scalpingPatterns.length > 0) {
+    const hasConfirmation = patterns.some(p => 
+      p.description?.toLowerCase().includes('volume') || 
+      p.description?.toLowerCase().includes('momentum')
+    );
+    
+    if (!hasConfirmation) {
+      warnings.push('⚠️ Alerta para Scalping: Padrões de velas detectados sem confirmação clara de volume ou momentum. Recomenda-se cautela adicional.');
+    }
+  }
+  
+  // Verificar divergência preço-momentum (importante para scalping)
+  const divergencePatterns = patterns.filter(p => 
+    p.type.toLowerCase().includes('divergência') || 
+    p.description?.toLowerCase().includes('divergência')
+  );
+  
+  if (divergencePatterns.length > 0) {
+    const divergenceType = divergencePatterns[0].action === 'compra' ? 'positiva' : 'negativa';
+    warnings.push(`🔔 Divergência ${divergenceType} detectada. Este é um sinal importante para possível reversão em scalping.`);
   }
   
   return {
