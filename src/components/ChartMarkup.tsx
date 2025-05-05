@@ -37,6 +37,11 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
     ...(analysisResults.technicalElements || []),
     ...manualMarkups
   ];
+
+  // Debug - log candle data if present
+  if (analysisResults.candles && analysisResults.candles.length > 0) {
+    console.log('Detected candles:', analysisResults.candles.length, analysisResults.candles[0]);
+  }
   
   // Apply proportional scaling to coordinates
   const scalePoint = (point: Point): Point => {
@@ -48,6 +53,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
 
   // Debug log to ensure elements are being properly passed
   console.log('Rendering chart markup with elements:', allElements);
+  console.log('Market context:', analysisResults.marketContext);
   
   return (
     <svg 
@@ -55,6 +61,22 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
       viewBox={`0 0 ${imageWidth} ${imageHeight}`}
       preserveAspectRatio="none"
     >
+      {/* Render detected candles if available */}
+      {analysisResults.candles && analysisResults.candles.map((candle, idx) => (
+        <g key={`candle-${idx}`}>
+          <rect
+            x={candle.position.x - (candle.width / 2)}
+            y={candle.position.y - (candle.height / 2)}
+            width={candle.width}
+            height={candle.height}
+            fill={candle.color === 'verde' ? 'rgba(0, 128, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)'}
+            stroke={candle.color === 'verde' ? 'green' : 'red'}
+            strokeWidth={1 * scale}
+          />
+        </g>
+      ))}
+
+      {/* Render all technical elements */}
       {allElements.map((element, index) => {
         // Apply scaling to element dimensions
         const scaledThickness = ((element.thickness || 2) * sizeMultiplier * scale);
@@ -121,7 +143,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 stroke={element.color}
                 strokeWidth={scaledThickness}
                 strokeDasharray={element.dashArray?.join(' ')}
-                fill="none"
+                fill={element.backgroundColor || "none"}
+                fillOpacity={element.backgroundColor ? 0.2 : 0}
               />
             );
           case 'circle':
@@ -137,7 +160,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 stroke={element.color}
                 strokeWidth={scaledThickness}
                 strokeDasharray={element.dashArray?.join(' ')}
-                fill="none"
+                fill={element.backgroundColor || "none"}
+                fillOpacity={element.backgroundColor ? 0.2 : 0}
               />
             );
           case 'label':
@@ -185,7 +209,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                     points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
                     stroke={element.color}
                     strokeWidth={scaledThickness}
-                    fill="none"
+                    fill={element.backgroundColor || "none"}
+                    fillOpacity={element.backgroundColor ? 0.2 : 0}
                     strokeDasharray={element.dashArray?.join(' ')}
                   />
                 );
@@ -226,7 +251,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                       stroke={element.color}
                       strokeWidth={scaledThickness}
                       strokeDasharray={element.dashArray?.join(' ')}
-                      fill="none"
+                      fill={element.backgroundColor || "none"}
+                      fillOpacity={element.backgroundColor ? 0.2 : 0}
                     />
                     <text
                       x={element.points[Math.floor(element.points.length / 2)].x}
@@ -289,6 +315,43 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
             return null;
         }
       })}
+
+      {/* Render market context information if available */}
+      {analysisResults.marketContext && (
+        <g className="market-context-overlay">
+          {/* Market phase indicator */}
+          <text
+            x={10}
+            y={30}
+            fill={
+              analysisResults.marketContext.phase === 'tendência_alta' ? 'green' :
+              analysisResults.marketContext.phase === 'tendência_baixa' ? 'red' : 
+              'orange'
+            }
+            fontSize={16 * sizeMultiplier * scale}
+            fontWeight="bold"
+          >
+            Fase: {analysisResults.marketContext.phase.replace('_', ' ')}
+          </text>
+          
+          {/* Key levels if available */}
+          {analysisResults.marketContext.keyLevels && 
+            analysisResults.marketContext.keyLevels.map((level, i) => (
+              <line
+                key={`level-${i}`}
+                x1={0}
+                y1={level.price}
+                x2={imageWidth}
+                y2={level.price}
+                stroke={level.type === 'suporte' ? 'green' : 'red'}
+                strokeWidth={level.strength === 'forte' ? 2 : 1}
+                strokeDasharray={level.strength === 'forte' ? 'none' : '5,5'}
+                opacity={0.7}
+              />
+            ))
+          }
+        </g>
+      )}
     </svg>
   );
 };

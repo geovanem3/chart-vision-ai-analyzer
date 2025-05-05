@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type PatternResult = {
@@ -23,6 +24,7 @@ export type TechnicalElement = {
   thickness?: number;
   dashArray?: number[];
   label?: string;
+  backgroundColor?: string;
 } & (
   | { type: 'line', points: Point[] }
   | { type: 'arrow', start: Point, end: Point }
@@ -93,6 +95,7 @@ export type AnalysisResult = {
   volumeData?: VolumeData; // Enhanced volume analysis
   volatilityData?: VolatilityData; // Enhanced volatility analysis
   marketContext?: MarketContext; // Enhanced market context understanding
+  warnings?: string[]; // Warnings about potential false signals
 };
 
 // New type for technical indicators for enhanced M1 strategy
@@ -191,6 +194,8 @@ type AnalyzerContextType = {
   setMarketContextEnabled: (enabled: boolean) => void; // New setter
   marketAnalysisDepth: MarketAnalysisDepth;
   setMarketAnalysisDepth: (depth: MarketAnalysisDepth) => void;
+  enableCandleDetection: boolean; // Nova propriedade para detecção de candles
+  setEnableCandleDetection: (enabled: boolean) => void; // Novo setter
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -214,6 +219,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [considerVolatility, setConsiderVolatility] = useState(true); // New state for volatility analysis
   const [marketContextEnabled, setMarketContextEnabled] = useState(true); // New state for market context
   const [marketAnalysisDepth, setMarketAnalysisDepth] = useState<MarketAnalysisDepth>('comprehensive'); // New state for market analysis depth
+  const [enableCandleDetection, setEnableCandleDetection] = useState(true); // Novo estado para detecção de candles
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -276,6 +282,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarketContextEnabled,
         marketAnalysisDepth,
         setMarketAnalysisDepth,
+        enableCandleDetection,
+        setEnableCandleDetection,
       }}
     >
       {children}

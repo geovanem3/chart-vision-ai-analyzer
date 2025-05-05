@@ -1,8 +1,9 @@
+
 /**
  * Image processing utilities for chart analysis
  */
 
-import { SelectedRegion } from '@/context/AnalyzerContext';
+import { SelectedRegion, CandleData, TechnicalElement } from '@/context/AnalyzerContext';
 
 // Process the captured image to enhance chart features
 export const processImage = async (imageUrl: string): Promise<{success: boolean; data: string; error?: string}> => {
@@ -328,8 +329,9 @@ export const cropToRegion = async (
 export const extractChartElements = async (
   processedImageUrl: string
 ): Promise<{
-  candles: { x: number, y: number, width: number, height: number, color: 'verde' | 'vermelho', confidence: number }[];
+  candles: CandleData[];
   lines: { startX: number, startY: number, endX: number, endY: number, confidence: number }[];
+  technicalElements: TechnicalElement[];
 }> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -340,7 +342,7 @@ export const extractChartElements = async (
       
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        resolve({ candles: [], lines: [] });
+        resolve({ candles: [], lines: [], technicalElements: [] });
         return;
       }
       
@@ -348,45 +350,46 @@ export const extractChartElements = async (
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       
-      // Estruturas para armazenar elementos detectados
-      const candles: { 
-        x: number, 
-        y: number, 
-        width: number, 
-        height: number, 
-        color: 'verde' | 'vermelho',
-        confidence: number
-      }[] = [];
-      
-      const lines: { 
-        startX: number, 
-        startY: number, 
-        endX: number, 
-        endY: number,
-        confidence: number
-      }[] = [];
-      
       // Implementar algoritmo avançado de detecção de candles usando segmentação
       const candleSegments = segmentCandlePatterns(data, canvas.width, canvas.height);
       
       // Processar os segmentos detectados para identificar candles
+      const detectedCandles: CandleData[] = [];
       for (const segment of candleSegments) {
         // Analisar características do segmento para determinar se é um candle
         const candleData = analyzeCandleSegment(segment, data, canvas.width, canvas.height);
         
         if (candleData) {
-          candles.push(candleData);
+          // Converter para o formato CandleData
+          detectedCandles.push({
+            open: 0, // estes valores serão estimados posteriormente
+            high: 0,
+            low: 0,
+            close: 0,
+            color: candleData.color,
+            position: { x: candleData.x + candleData.width/2, y: candleData.y + candleData.height/2 },
+            width: candleData.width,
+            height: candleData.height
+          });
         }
       }
       
+      console.log(`Candles detectados: ${detectedCandles.length}`);
+      
+      // Estimar valores OHLC com base na posição e tamanho dos candles
+      estimateOHLCValues(detectedCandles);
+      
       // Detectar linhas de suporte/resistência usando análise de histograma aprimorada
       const detectedLines = detectSupportResistanceLines(data, canvas.width, canvas.height);
-      lines.push(...detectedLines);
+      
+      // Criar elementos técnicos a partir dos candles e linhas detectados
+      const technicalElements = generateTechnicalElementsFromDetection(detectedCandles, detectedLines, canvas.width, canvas.height);
       
       // Retornar candles e linhas detectados
       resolve({
-        candles: candles.slice(0, 50), // Limitar a 50 candles para performance
-        lines: lines.slice(0, 10) // Limitar a 10 linhas para não sobrecarregar
+        candles: detectedCandles.slice(0, 100), // Limitar a 100 candles para performance
+        lines: detectedLines.slice(0, 10), // Limitar a 10 linhas para não sobrecarregar
+        technicalElements: technicalElements
       });
     };
     img.src = processedImageUrl;
@@ -557,6 +560,57 @@ export const checkImageQuality = async (imageUrl: string): Promise<{
   });
 };
 
+// Estimar valores OHLC com base na posição e tamanho dos candles
+const estimateOHLCValues = (candles: CandleData[]): void => {
+  // Ordenar candles horizontalmente (presumindo que o eixo x representa o tempo)
+  candles.sort((a, b) => a.position.x - b.position.x);
+  
+  // Encontrar o range vertical para normalização
+  let minY = Number.MAX_VALUE;
+  let maxY = Number.MIN_VALUE;
+  
+  for (const candle of candles) {
+    const top = candle.position.y - candle.height / 2;
+    const bottom = candle.position.y + candle.height / 2;
+    
+    minY = Math.min(minY, top);
+    maxY = Math.max(maxY, bottom);
+  }
+  
+  const range = maxY - minY;
+  
+  // Valor base arbitrário para os preços
+  const basePrice = 100;
+  const priceRange = 20;
+  
+  // Calcular valores OHLC para cada candle
+  for (const candle of candles) {
+    const top = candle.position.y - candle.height / 2;
+    const bottom = candle.position.y + candle.height / 2;
+    
+    // Normalizar para o range de preço
+    const normalizedTop = 1 - (top - minY) / range;
+    const normalizedBottom = 1 - (bottom - minY) / range;
+    
+    // Converter para valores de preço
+    const highPrice = basePrice + normalizedTop * priceRange;
+    const lowPrice = basePrice + normalizedBottom * priceRange;
+    
+    // Para candles verdes, o fechamento é mais alto que a abertura
+    // Para candles vermelhos, a abertura é mais alta que o fechamento
+    if (candle.color === 'verde') {
+      candle.open = lowPrice;
+      candle.close = highPrice;
+    } else {
+      candle.open = highPrice;
+      candle.close = lowPrice;
+    }
+    
+    candle.high = Math.max(candle.open, candle.close);
+    candle.low = Math.min(candle.open, candle.close);
+  }
+};
+
 // Função para melhorar a detecção de bordas nos candles
 const enhanceEdges = (data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray => {
   const output = new Uint8ClampedArray(data.length);
@@ -649,13 +703,22 @@ const segmentCandlePatterns = (
       const g = data[i + 1];
       const b = data[i + 2];
       
-      // Marcar pixels verdes
-      if (g > 1.3 * r && g > 1.3 * b && g > 80) {
+      // Marcar pixels verdes - limiar mais sensível para melhor detecção
+      if (g > 1.2 * r && g > 1.2 * b && g > 70) {
         colorMap[y * width + x] = 1; // 1 = verde
       }
-      // Marcar pixels vermelhos
-      else if (r > 1.3 * g && r > 1.3 * b && r > 80) {
+      // Marcar pixels vermelhos - limiar mais sensível para melhor detecção
+      else if (r > 1.2 * g && r > 1.2 * b && r > 70) {
         colorMap[y * width + x] = 2; // 2 = vermelho
+      }
+      // Também detectar candles pretos e brancos (valores extremos de luminância)
+      else {
+        const luminance = (r + g + b) / 3;
+        if (luminance < 30) { // Candles pretos/escuros
+          colorMap[y * width + x] = 3; // 3 = preto
+        } else if (luminance > 220) { // Candles brancos/claros
+          colorMap[y * width + x] = 4; // 4 = branco
+        }
       }
     }
   }
@@ -691,9 +754,10 @@ const segmentCandlePatterns = (
         minY = Math.min(minY, cy);
         maxY = Math.max(maxY, cy);
         
-        // Verificar pixels vizinhos (4-conectividade)
+        // Verificar pixels vizinhos (8-conectividade para melhor detecção)
         const neighbors = [
-          [cx-1, cy], [cx+1, cy], [cx, cy-1], [cx, cy+1]
+          [cx-1, cy], [cx+1, cy], [cx, cy-1], [cx, cy+1],
+          [cx-1, cy-1], [cx+1, cy-1], [cx-1, cy+1], [cx+1, cy+1]
         ];
         
         for (const [nx, ny] of neighbors) {
@@ -708,8 +772,8 @@ const segmentCandlePatterns = (
         }
       }
       
-      // Filtrar segmentos muito pequenos (ruído)
-      if (area >= 5 && (maxX - minX) > 0 && (maxY - minY) > 0) {
+      // Filtrar segmentos muito pequenos (ruído) ou muito grandes (não candles)
+      if (area >= 5 && area <= 2000 && (maxX - minX) > 0 && (maxY - minY) > 0) {
         segments.push({
           x1: minX,
           y1: minY,
@@ -735,14 +799,18 @@ const analyzeCandleSegment = (
   const segWidth = x2 - x1 + 1;
   const segHeight = y2 - y1 + 1;
   
+  // Aprimorado: permitir diferentes proporções para tipos diferentes de candles
+  // Candles de corpo longo podem ter proporções diferentes de dojis
+  const ratioOfHeightToWidth = segHeight / segWidth;
+  
   // Verificar se o segmento tem proporções típicas de um candle
-  // (geralmente mais alto que largo)
-  if (segHeight < segWidth) {
+  // Candles normalmente são mais altos que largos, mas permitimos mais variação
+  if (ratioOfHeightToWidth < 0.8) {
     return null; // Provavelmente não é um candle
   }
   
   // Analisar cores dentro do segmento
-  let redCount = 0, greenCount = 0;
+  let redCount = 0, greenCount = 0, blackCount = 0, whiteCount = 0;
   
   for (let y = y1; y <= y2; y++) {
     for (let x = x1; x <= x2; x++) {
@@ -751,20 +819,32 @@ const analyzeCandleSegment = (
       const g = data[i + 1];
       const b = data[i + 2];
       
-      if (g > 1.3 * r && g > 1.3 * b && g > 80) {
+      if (g > 1.2 * r && g > 1.2 * b && g > 70) {
         greenCount++;
       }
-      else if (r > 1.3 * g && r > 1.3 * b && r > 80) {
+      else if (r > 1.2 * g && r > 1.2 * b && r > 70) {
         redCount++;
+      }
+      else {
+        const luminance = (r + g + b) / 3;
+        if (luminance < 30) {
+          blackCount++;
+        } else if (luminance > 220) {
+          whiteCount++;
+        }
       }
     }
   }
   
   // Determinar a cor predominante
-  const totalColorPixels = redCount + greenCount;
+  const totalColorPixels = redCount + greenCount + blackCount + whiteCount;
   if (totalColorPixels < 5) {
     return null; // Não há pixels coloridos suficientes
   }
+  
+  // Tratar candles pretos como vermelhos e brancos como verdes para simplificar
+  if (blackCount > redCount) redCount += blackCount;
+  if (whiteCount > greenCount) greenCount += whiteCount;
   
   const color: 'verde' | 'vermelho' = greenCount > redCount ? 'verde' : 'vermelho';
   
@@ -774,7 +854,7 @@ const analyzeCandleSegment = (
   const confidence = Math.min(100, Math.round(colorRatio * densityRatio * 100));
   
   // Filtrar candles com baixa confiança
-  if (confidence < 25) {
+  if (confidence < 20) {
     return null;
   }
   
@@ -875,4 +955,145 @@ const detectSupportResistanceLines = (
   }
   
   return lines;
+};
+
+// Gerar elementos técnicos a partir da detecção
+const generateTechnicalElementsFromDetection = (
+  candles: CandleData[],
+  lines: { startX: number, startY: number, endX: number, endY: number, confidence: number }[],
+  width: number,
+  height: number
+): TechnicalElement[] => {
+  const technicalElements: TechnicalElement[] = [];
+  
+  // Converter linhas de suporte/resistência detectadas
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isSupport = i % 2 === 0; // Alternar entre suporte e resistência para fins visuais
+    
+    technicalElements.push({
+      type: 'line',
+      points: [
+        { x: line.startX, y: line.startY },
+        { x: line.endX, y: line.endY }
+      ],
+      color: isSupport ? '#22c55e' : '#ef4444', // Verde para suporte, vermelho para resistência
+      thickness: line.confidence > 70 ? 2 : 1,
+      dashArray: line.confidence > 70 ? undefined : [5, 5]
+    });
+    
+    // Adicionar rótulo para linhas com alta confiança
+    if (line.confidence > 75) {
+      technicalElements.push({
+        type: 'label',
+        position: { x: 10, y: line.startY - 5 },
+        text: isSupport ? 'Suporte' : 'Resistência',
+        color: isSupport ? '#22c55e' : '#ef4444',
+        backgroundColor: '#1e293b'
+      });
+    }
+  }
+  
+  // Detectar tendências de preço usando os candles
+  if (candles.length > 5) {
+    // Ordenar candles por posição x (tempo)
+    const sortedCandles = [...candles].sort((a, b) => a.position.x - b.position.x);
+    
+    // Extrair preços de fechamento para análise de tendência
+    const prices = sortedCandles.map(c => c.close);
+    
+    // Detectar tendência linear
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    const n = prices.length;
+    
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += prices[i];
+      sumXY += i * prices[i];
+      sumX2 += i * i;
+    }
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    
+    // Se a inclinação for significativa, adicionar linha de tendência
+    if (Math.abs(slope) > 0.1) {
+      const isBullish = slope > 0;
+      const startCandle = sortedCandles[0];
+      const endCandle = sortedCandles[sortedCandles.length - 1];
+      const startY = startCandle.position.y;
+      const endY = endCandle.position.y - (slope * (endCandle.position.x - startCandle.position.x));
+      
+      technicalElements.push({
+        type: 'line',
+        points: [
+          { x: startCandle.position.x, y: startY },
+          { x: endCandle.position.x, y: endY }
+        ],
+        color: isBullish ? '#22c55e' : '#ef4444',
+        thickness: 2,
+        dashArray: [5, 3]
+      });
+      
+      // Adicionar rótulo indicando a tendência
+      technicalElements.push({
+        type: 'label',
+        position: { x: endCandle.position.x - 100, y: endY - 20 },
+        text: isBullish ? 'Tendência de Alta' : 'Tendência de Baixa',
+        color: isBullish ? '#22c55e' : '#ef4444',
+        backgroundColor: '#1e293b'
+      });
+    }
+    
+    // Tentar identificar padrões de candles
+    // Verificar padrões de reversão como "Martelo" ou "Doji"
+    for (let i = 1; i < sortedCandles.length - 1; i++) {
+      const prevCandle = sortedCandles[i-1];
+      const currCandle = sortedCandles[i];
+      const nextCandle = sortedCandles[i+1];
+      
+      const candleSize = Math.abs(currCandle.close - currCandle.open);
+      const upperShadow = currCandle.high - Math.max(currCandle.open, currCandle.close);
+      const lowerShadow = Math.min(currCandle.open, currCandle.close) - currCandle.low;
+      
+      // Identificar possível martelo (sombra inferior longa)
+      if (lowerShadow > 2 * candleSize && upperShadow < 0.5 * candleSize) {
+        technicalElements.push({
+          type: 'circle',
+          center: { x: currCandle.position.x, y: currCandle.position.y },
+          radius: 15,
+          color: '#3b82f6',
+          thickness: 2
+        });
+        
+        technicalElements.push({
+          type: 'label',
+          position: { x: currCandle.position.x - 30, y: currCandle.position.y - 30 },
+          text: 'Martelo',
+          color: '#3b82f6',
+          backgroundColor: '#1e293b'
+        });
+      }
+      
+      // Identificar possível doji (abertura próxima do fechamento)
+      if (candleSize < 0.1 * (upperShadow + lowerShadow) && (upperShadow + lowerShadow) > 0) {
+        technicalElements.push({
+          type: 'circle',
+          center: { x: currCandle.position.x, y: currCandle.position.y },
+          radius: 15,
+          color: '#f59e0b',
+          thickness: 2
+        });
+        
+        technicalElements.push({
+          type: 'label',
+          position: { x: currCandle.position.x - 20, y: currCandle.position.y - 30 },
+          text: 'Doji',
+          color: '#f59e0b',
+          backgroundColor: '#1e293b'
+        });
+      }
+    }
+  }
+  
+  return technicalElements;
 };
