@@ -1,4 +1,3 @@
-
 // Add imports from AnalyzerContext
 import { PatternResult, TechnicalElement, Point, CandleData, ScalpingSignal } from '@/context/AnalyzerContext';
 
@@ -32,18 +31,18 @@ export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1
   // Generate time-specific advice
   const timeframeText = getTimeframeText(timeframe);
   
-  // Recomendações específicas para scalping em 1 minuto
+  // Enhanced recommendations for scalping in 1m timeframe
   if (timeframe === '1m') {
-    if (bullishWeight > 0.5) {  // Reduced threshold for 1m timeframe
-      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Aguarde confirmação de quebra de resistência com volume. Busque entrada precisa com stops ajustados de 0.5-1% e alvo de 2-3% ou na próxima resistência. Monitore constantemente.`;
-    } else if (bearishWeight > 0.5) {  // Reduced threshold for 1m timeframe
-      return `Oportunidade de scalping de VENDA no ${timeframeText}: Aguarde confirmação de quebra de suporte com volume. Busque entrada precisa com stops ajustados de 0.5-1% e alvo de 2-3% ou no próximo suporte. Monitore constantemente.`;
-    } else if (bullishWeight > bearishWeight && bullishWeight > 0.3) {  // Reduced threshold for 1m timeframe
-      return `Viés de alta com oportunidade potencial no ${timeframeText}: Prepare-se para possível entrada de compra, mas aguarde confirmação de candle de alta com volume aumentado. Sinais ainda mistos.`;
-    } else if (bearishWeight > bullishWeight && bearishWeight > 0.3) {  // Reduced threshold for 1m timeframe
-      return `Viés de baixa com oportunidade potencial no ${timeframeText}: Prepare-se para possível entrada de venda, mas aguarde confirmação de candle de baixa com volume aumentado. Sinais ainda mistos.`;
+    if (bullishWeight > 0.5) {
+      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Entre apenas se houver confirmação de volume e após o fechamento do candle acima da EMA9. Use um stop ajustado abaixo do último suporte ou 0.5% abaixo do preço de entrada. Alvos de 2-3% ou na próxima resistência. Monitore o RSI e o fluxo de ordens para confirmar a pressão compradora.`;
+    } else if (bearishWeight > 0.5) {
+      return `Oportunidade de scalping de VENDA no ${timeframeText}: Entre apenas se houver confirmação de volume e após o fechamento do candle abaixo da EMA9. Use um stop ajustado acima da última resistência ou 0.5% acima do preço de entrada. Alvos de 2-3% ou no próximo suporte. Monitore o RSI e o fluxo de ordens para confirmar a pressão vendedora.`;
+    } else if (bullishWeight > bearishWeight && bullishWeight > 0.3) {
+      return `Viés de alta com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por cima da EMA21 com volume crescente. Confirme com RSI acima de 50 e teste de suporte anterior. Considere entradas apenas com alinhamento do timeframe superior (5m).`;
+    } else if (bearishWeight > bullishWeight && bearishWeight > 0.3) {
+      return `Viés de baixa com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por baixo da EMA21 com volume crescente. Confirme com RSI abaixo de 50 e teste de resistência anterior. Considere entradas apenas com alinhamento do timeframe superior (5m).`;
     } else {
-      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping neste momento. Aguarde formação de um padrão direcional mais definido. Oportunidade potencial em consolidação.`;
+      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping. Aguarde formação de um padrão direcional com confirmação de duas médias móveis (EMA9 e EMA21) e divergência de RSI ou movimento significativo no fluxo de ordens.`;
     }
   }
   
@@ -113,7 +112,7 @@ export const validatePatterns = (patterns: PatternResult[]): PatternResult[] => 
   });
 };
 
-// New function to generate scalping signals specifically for 1m timeframe
+// Enhanced function for scalping signals with more technical indicators
 export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSignal[] => {
   if (!patterns || patterns.length === 0) return [];
   
@@ -143,69 +142,143 @@ export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSign
     p.type.toLowerCase().includes('divergência')
   );
   
-  // Generate scalping signals based on pattern combinations
+  // Moving average patterns (new for enhanced M1 strategy)
+  const maPatterns = patterns.filter(
+    p => p.description?.toLowerCase().includes('média móvel') ||
+    p.description?.toLowerCase().includes('ema') ||
+    p.description?.toLowerCase().includes('sma') ||
+    p.type.toLowerCase().includes('cruzamento')
+  );
+  
+  // RSI patterns (new for enhanced M1 strategy)
+  const rsiPatterns = patterns.filter(
+    p => p.description?.toLowerCase().includes('rsi') ||
+    p.description?.toLowerCase().includes('índice de força relativa')
+  );
+  
+  // Generate scalping signals based on pattern combinations with enhanced criteria
   if (highConfidencePatterns.length > 0) {
     const dominantPattern = highConfidencePatterns[0];
     const hasVolumeConfirmation = volumePatterns.length > 0;
     const hasSupportResistance = supportResistance.length > 0;
+    const hasMASignal = maPatterns.length > 0;
+    const hasRSISignal = rsiPatterns.length > 0;
     
-    // Only generate entry signal if we have enough confirmation
-    if ((hasVolumeConfirmation || hasSupportResistance || momentumPatterns.length > 0)) {
+    // Enhanced signal combination rules for more reliable M1 entries
+    if ((hasVolumeConfirmation && (hasSupportResistance || hasMASignal)) || 
+        (hasMASignal && hasRSISignal) || 
+        (momentumPatterns.length > 0 && hasVolumeConfirmation)) {
+      
+      // Create more specific entry conditions
+      const entryCondition = dominantPattern.action === 'compra'
+        ? `${hasMASignal ? 'Cruzamento da EMA9 acima da EMA21' : 'Rompimento de resistência'} com ${hasVolumeConfirmation ? 'aumento de volume' : 'teste de suporte'}`
+        : `${hasMASignal ? 'Cruzamento da EMA9 abaixo da EMA21' : 'Rompimento de suporte'} com ${hasVolumeConfirmation ? 'aumento de volume' : 'teste de resistência'}`;
+      
+      // Additional confirmations based on available indicators
+      let confirmations = [];
+      if (hasRSISignal) {
+        confirmations.push(dominantPattern.action === 'compra' ? 'RSI acima de 50 e subindo' : 'RSI abaixo de 50 e caindo');
+      }
+      if (hasVolumeConfirmation) {
+        confirmations.push('Volume acima da média');
+      }
+      if (hasSupportResistance) {
+        confirmations.push(dominantPattern.action === 'compra' ? 'Após teste de suporte' : 'Após teste de resistência');
+      }
+
       signals.push({
         type: 'entrada',
         action: dominantPattern.action as 'compra' | 'venda',
-        price: dominantPattern.action === 'compra' 
-          ? 'Rompimento acima da média móvel ou resistência' 
-          : 'Rompimento abaixo da média móvel ou suporte',
-        confidence: dominantPattern.confidence * (hasVolumeConfirmation ? 1.2 : 1),
+        price: entryCondition,
+        confidence: dominantPattern.confidence * (hasVolumeConfirmation ? 1.2 : 1) * (hasMASignal ? 1.1 : 1),
         timeframe: '1m',
-        description: `${dominantPattern.type}: ${dominantPattern.description}`,
+        description: `${dominantPattern.type}: ${dominantPattern.description} ${confirmations.length > 0 ? '| Confirmações: ' + confirmations.join(', ') : ''}`,
         target: dominantPattern.action === 'compra'
           ? 'Próxima resistência ou +2-3% do preço atual'
           : 'Próximo suporte ou -2-3% do preço atual',
         stopLoss: dominantPattern.action === 'compra'
-          ? '0.5-1% abaixo do ponto de entrada'
-          : '0.5-1% acima do ponto de entrada'
+          ? '0.5% abaixo do ponto de entrada ou abaixo do último suporte'
+          : '0.5% acima do ponto de entrada ou acima da última resistência'
       });
       
-      // Add exit signal for risk management
+      // Add exit signal with more specific risk management rules
       signals.push({
         type: 'saída',
         action: dominantPattern.action as 'compra' | 'venda',
         price: 'Take profit ou stop loss',
         confidence: dominantPattern.confidence * 0.9,
         timeframe: '1m',
-        description: `Encerre a posição de scalping em ${dominantPattern.action === 'compra' ? 'compra' : 'venda'} no alcance do objetivo ou na ativação do stop loss. Não permaneça em posição por mais de 3-5 candles.`
+        description: `Encerre a posição quando: 1) O preço atingir o alvo de ${dominantPattern.action === 'compra' ? '+2-3%' : '-2-3%'}, 2) O stop loss for ativado, 3) Houver reversão de EMA9/EMA21, ou 4) Após 3-5 candles sem progresso em direção ao alvo.`
       });
     }
   }
   
-  // Add signals based on specific reversal patterns for scalping
-  const reversalPatterns = patterns.filter(
-    p => p.type.toLowerCase().includes('reversão') || 
-    p.description?.toLowerCase().includes('doji') ||
-    p.description?.toLowerCase().includes('martelo') ||
-    p.description?.toLowerCase().includes('engolfo')
-  );
-  
-  reversalPatterns.forEach(pattern => {
-    if (pattern.confidence > 0.7) {
+  // Add signals for moving average crossovers (important for M1)
+  if (maPatterns.length > 0) {
+    const maPattern = maPatterns[0];
+    if (maPattern.confidence > 0.6) {
       signals.push({
         type: 'entrada',
-        action: pattern.action as 'compra' | 'venda',
-        price: 'Confirmação após padrão de reversão',
-        confidence: pattern.confidence,
+        action: maPattern.action as 'compra' | 'venda',
+        price: maPattern.action === 'compra' 
+          ? 'Após cruzamento da EMA9 por cima da EMA21' 
+          : 'Após cruzamento da EMA9 por baixo da EMA21',
+        confidence: maPattern.confidence,
         timeframe: '1m',
-        description: `Padrão de reversão: ${pattern.description}`,
-        target: pattern.action === 'compra'
+        description: `Cruzamento de Médias Móveis: ${maPattern.description}`,
+        target: maPattern.action === 'compra'
           ? 'Próxima resistência ou +1.5-2% do preço atual'
           : 'Próximo suporte ou -1.5-2% do preço atual',
-        stopLoss: pattern.action === 'compra'
-          ? '0.5% abaixo do ponto de entrada ou abaixo da mínima do candle'
-          : '0.5% acima do ponto de entrada ou acima da máxima do candle'
+        stopLoss: maPattern.action === 'compra'
+          ? '0.5% abaixo do ponto de entrada ou abaixo da EMA21'
+          : '0.5% acima do ponto de entrada ou acima da EMA21'
       });
     }
-  });
+  }
+  
+  // Add signals for RSI divergences (excellent for M1 reversals)
+  if (rsiPatterns.length > 0) {
+    const rsiPattern = rsiPatterns[0];
+    if (rsiPattern.confidence > 0.7) {
+      signals.push({
+        type: 'entrada',
+        action: rsiPattern.action as 'compra' | 'venda',
+        price: rsiPattern.action === 'compra' 
+          ? 'Após confirmação de divergência positiva no RSI' 
+          : 'Após confirmação de divergência negativa no RSI',
+        confidence: rsiPattern.confidence,
+        timeframe: '1m',
+        description: `Divergência RSI: ${rsiPattern.description}`,
+        target: rsiPattern.action === 'compra'
+          ? 'Próxima resistência ou +2% do preço atual'
+          : 'Próximo suporte ou -2% do preço atual',
+        stopLoss: rsiPattern.action === 'compra'
+          ? '0.5% abaixo do ponto de entrada ou abaixo do último mínimo'
+          : '0.5% acima do ponto de entrada ou acima do último máximo'
+      });
+    }
+  }
+  
+  // Add signals based on volume profile (important for M1)
+  if (volumePatterns.length > 0) {
+    const volumePattern = volumePatterns[0];
+    if (volumePattern.confidence > 0.7 && volumePattern.action !== 'neutro') {
+      signals.push({
+        type: 'entrada',
+        action: volumePattern.action as 'compra' | 'venda',
+        price: 'Após surto de volume com confirmação de preço',
+        confidence: volumePattern.confidence,
+        timeframe: '1m',
+        description: `Sinal de Volume: ${volumePattern.description}`,
+        target: volumePattern.action === 'compra'
+          ? 'Próxima resistência ou +1.5-2% do preço atual'
+          : 'Próximo suporte ou -1.5-2% do preço atual',
+        stopLoss: volumePattern.action === 'compra'
+          ? '0.5% abaixo do ponto de entrada'
+          : '0.5% acima do ponto de entrada'
+      });
+    }
+  }
   
   return signals;
 };
@@ -336,6 +409,83 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       entryPrice: 'Confirmação de fechamento acima da resistência',
       stopLoss: '0.3-0.5% abaixo do ponto de entrada',
       takeProfit: '1-1.5% acima do ponto de entrada'
+    },
+    {
+      type: 'Cruzamento de Médias Móveis',
+      confidence: 0.88,
+      description: 'Cruzamento da EMA9 por cima da EMA21 com aumento gradual de volume.',
+      recommendation: 'Sinal de alta confiabilidade para scalping. Entre após confirmação com volume.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após fechamento de candle acima da EMA9',
+      stopLoss: 'Abaixo da EMA21 ou 0.5% do preço de entrada',
+      takeProfit: 'Próxima resistência ou +2% do preço de entrada'
+    },
+    {
+      type: 'Cruzamento de Médias Móveis',
+      confidence: 0.84,
+      description: 'Cruzamento da EMA9 por baixo da EMA21 com aumento de volume e candle de alta impressão.',
+      recommendation: 'Sinal de baixa confiabilidade para scalping. Entre após confirmação com candle fechando abaixo da EMA9.',
+      action: 'venda' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após fechamento de candle abaixo da EMA9',
+      stopLoss: 'Acima da EMA21 ou 0.5% do preço de entrada',
+      takeProfit: 'Próximo suporte ou -2% do preço de entrada'
+    },
+    {
+      type: 'RSI',
+      confidence: 0.80,
+      description: 'RSI saindo da zona de sobrevenda (abaixo de 30) com divergência positiva em relação ao preço.',
+      recommendation: 'Excelente sinal para reversão de baixa para alta. Entre após confirmação de candle de alta.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Quando RSI cruzar acima de 30 com candle de alta',
+      stopLoss: '0.5% abaixo do ponto de entrada ou mínima recente',
+      takeProfit: '+2.5% do preço de entrada'
+    },
+    {
+      type: 'RSI',
+      confidence: 0.78,
+      description: 'RSI saindo da zona de sobrecompra (acima de 70) com divergência negativa em relação ao preço.',
+      recommendation: 'Bom sinal para reversão de alta para baixa. Entre após confirmação de candle de baixa.',
+      action: 'venda' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Quando RSI cruzar abaixo de 70 com candle de baixa',
+      stopLoss: '0.5% acima do ponto de entrada ou máxima recente',
+      takeProfit: '-2.5% do preço de entrada'
+    },
+    {
+      type: 'Volume Profile',
+      confidence: 0.85,
+      description: 'Surto de volume em nível de suporte com velas de alta (compradores entrando).',
+      recommendation: 'Forte sinal para reversão de baixa. Entre após confirmação de volume e preço.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após candle de confirmação com fechamento forte',
+      stopLoss: 'Abaixo do suporte ou 0.5% do preço de entrada',
+      takeProfit: '+2% do preço de entrada'
+    },
+    {
+      type: 'Price Action M1',
+      confidence: 0.82,
+      description: 'Formação de pinça (pin bar) após movimento forte de baixa, indicando possível reversão.',
+      recommendation: 'Sinal de reversão de baixa para alta com boa confiabilidade em M1.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Acima do máximo da vela pinça',
+      stopLoss: 'Abaixo do mínimo da vela pinça',
+      takeProfit: 'Próxima resistência ou +2% do preço de entrada'
+    },
+    {
+      type: 'Combinação Técnica M1',
+      confidence: 0.92,
+      description: 'Alinhamento de múltiplos fatores: cruzamento de médias móveis, suporte importante, divergência positiva de RSI e aumento de volume.',
+      recommendation: 'Setup de alta confiabilidade para scalping. Entre imediatamente após confirmação de candle de alta.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após fechamento do candle de confirmação',
+      stopLoss: '0.5% abaixo do ponto de entrada',
+      takeProfit: 'Objetivos escalonados: +1%, +2% e +3%'
     }
   ];
   

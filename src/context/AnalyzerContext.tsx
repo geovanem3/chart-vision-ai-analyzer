@@ -53,6 +53,16 @@ export type AnalysisResult = {
   candles?: CandleData[];
   manualRegion?: boolean;
   scalpingSignals?: ScalpingSignal[]; // Added for scalping signals
+  technicalIndicators?: TechnicalIndicator[]; // Added for technical indicators
+};
+
+// New type for technical indicators for enhanced M1 strategy
+export type TechnicalIndicator = {
+  name: string;
+  value: string;
+  trend: 'alta' | 'baixa' | 'neutro';
+  significance: 'alta' | 'média' | 'baixa';
+  description?: string;
 };
 
 export type ScalpingSignal = {
@@ -91,6 +101,9 @@ export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label'
 
 export type TimeframeType = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
 
+// New type for M1 strategy preferences
+export type ScalpingStrategy = 'momentum' | 'reversal' | 'breakout' | 'range';
+
 type AnalyzerContextType = {
   capturedImage: string | null;
   setCapturedImage: (image: string | null) => void;
@@ -119,8 +132,10 @@ type AnalyzerContextType = {
   setMarkupMode: (enabled: boolean) => void;
   timeframe: TimeframeType;
   setTimeframe: (timeframe: TimeframeType) => void;
-  optimizeForScalping: boolean; // Added for scalping optimization
-  setOptimizeForScalping: (optimize: boolean) => void; // Added for scalping optimization
+  optimizeForScalping: boolean;
+  setOptimizeForScalping: (optimize: boolean) => void;
+  scalpingStrategy: ScalpingStrategy; // Added for enhanced M1 strategy
+  setScalpingStrategy: (strategy: ScalpingStrategy) => void; // Added for enhanced M1 strategy
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -139,6 +154,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [isMarkupMode, setMarkupMode] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
   const [optimizeForScalping, setOptimizeForScalping] = useState(false);
+  const [scalpingStrategy, setScalpingStrategy] = useState<ScalpingStrategy>('momentum');
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -191,6 +207,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setTimeframe,
         optimizeForScalping,
         setOptimizeForScalping,
+        scalpingStrategy,
+        setScalpingStrategy,
       }}
     >
       {children}
