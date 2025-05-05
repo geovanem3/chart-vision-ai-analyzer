@@ -45,6 +45,9 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
       y: point.y
     };
   };
+
+  // Debug log to ensure elements are being properly passed
+  console.log('Rendering chart markup with elements:', allElements);
   
   return (
     <svg 
@@ -209,6 +212,65 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                         {element.label}
                       </text>
                     )}
+                  </g>
+                );
+              case 'cunha':
+              case 'bandeira':
+              case 'topoduplo':
+              case 'fundoduplo':
+                // Enhanced rendering for these pattern types
+                return (
+                  <g key={`pattern-${index}`}>
+                    <polyline
+                      points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                      stroke={element.color}
+                      strokeWidth={scaledThickness}
+                      strokeDasharray={element.dashArray?.join(' ')}
+                      fill="none"
+                    />
+                    <text
+                      x={element.points[Math.floor(element.points.length / 2)].x}
+                      y={element.points[Math.floor(element.points.length / 2)].y - 15}
+                      fill={element.color}
+                      fontSize={12 * sizeMultiplier * scale}
+                      textAnchor="middle"
+                    >
+                      {element.patternType}
+                    </text>
+                  </g>
+                );
+              case 'eliotwave':
+              case 'dowtheory':
+              case 'trendline':
+                // Enhanced rendering with additional visual cues
+                return (
+                  <g key={`pattern-${index}`}>
+                    <polyline
+                      points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                      stroke={element.color}
+                      strokeWidth={scaledThickness}
+                      strokeDasharray={element.dashArray?.join(' ')}
+                      fill="none"
+                    />
+                    {/* Add wave numbers or direction indicators */}
+                    {element.points.map((point, i) => (
+                      <circle
+                        key={`point-${i}`}
+                        cx={scalePoint(point).x}
+                        cy={scalePoint(point).y}
+                        r={4 * sizeMultiplier * scale}
+                        fill={element.color}
+                      />
+                    ))}
+                    <text
+                      x={element.points[0].x}
+                      y={element.points[0].y - 10}
+                      fill={element.color}
+                      fontSize={12 * sizeMultiplier * scale}
+                      textAnchor="start"
+                    >
+                      {element.patternType}
+                    </text>
                   </g>
                 );
               default:

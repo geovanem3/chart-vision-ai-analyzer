@@ -670,29 +670,46 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       confidence: 0.68,
       description: 'Aumento de volume confirmando movimento',
       action: 'compra'
+    },
+    {
+      type: 'Padrão Gráfico',
+      confidence: 0.76,
+      description: 'Triângulo ascendente formado',
+      action: 'compra',
+      recommendation: 'Aguardar confirmação da quebra da resistência'
+    },
+    {
+      type: 'Divergência',
+      confidence: 0.65,
+      description: 'Divergência positiva no RSI',
+      action: 'compra'
     }
   ];
 };
 
-// Adding the missing function for generating technical markup
+// Enhanced function for generating technical markup with more diverse elements
 export const generateTechnicalMarkup = (
   patterns: PatternResult[], 
   width: number, 
   height: number
 ): TechnicalElement[] => {
-  // Simple implementation to generate technical elements based on patterns
+  // Generate technical elements based on patterns
   const elements: TechnicalElement[] = [];
   
+  // Keep track of y positions to avoid overlap
+  let yPosition = 50;
+  const yIncrement = 40;
+  
   patterns.forEach((pattern, index) => {
-    const yPosition = 50 + index * 30;
+    const patternYPosition = yPosition + index * yIncrement;
     
     if (pattern.type === 'Suporte/Resistência') {
       // Add horizontal line for support/resistance
       elements.push({
         type: 'line',
         points: [
-          { x: 0, y: yPosition },
-          { x: width, y: yPosition }
+          { x: 0, y: patternYPosition },
+          { x: width, y: patternYPosition }
         ],
         color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
         thickness: 2,
@@ -702,7 +719,7 @@ export const generateTechnicalMarkup = (
       // Add label
       elements.push({
         type: 'label',
-        position: { x: 10, y: yPosition - 15 },
+        position: { x: 10, y: patternYPosition - 15 },
         text: pattern.action === 'compra' ? 'Suporte' : 'Resistência',
         color: pattern.action === 'compra' ? '#22c55e' : '#ef4444'
       });
@@ -733,6 +750,159 @@ export const generateTechnicalMarkup = (
         color: pattern.action === 'compra' ? '#22c55e' : '#ef4444'
       });
     }
+    
+    else if (pattern.type === 'Padrão Gráfico') {
+      if (pattern.description.toLowerCase().includes('triângulo')) {
+        // Create triangle pattern
+        elements.push({
+          type: 'pattern',
+          patternType: 'triangulo',
+          points: [
+            { x: width * 0.3, y: height * 0.6 },
+            { x: width * 0.5, y: height * 0.4 },
+            { x: width * 0.7, y: height * 0.6 }
+          ],
+          color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+          thickness: 2
+        });
+      } else if (pattern.description.toLowerCase().includes('topo duplo')) {
+        // Create double top pattern
+        elements.push({
+          type: 'pattern',
+          patternType: 'topoduplo',
+          points: [
+            { x: width * 0.2, y: height * 0.5 },
+            { x: width * 0.35, y: height * 0.3 },
+            { x: width * 0.5, y: height * 0.45 },
+            { x: width * 0.65, y: height * 0.3 },
+            { x: width * 0.8, y: height * 0.5 }
+          ],
+          color: '#ef4444',
+          thickness: 2
+        });
+      } else if (pattern.description.toLowerCase().includes('fundo duplo')) {
+        // Create double bottom pattern
+        elements.push({
+          type: 'pattern',
+          patternType: 'fundoduplo',
+          points: [
+            { x: width * 0.2, y: height * 0.5 },
+            { x: width * 0.35, y: height * 0.7 },
+            { x: width * 0.5, y: height * 0.55 },
+            { x: width * 0.65, y: height * 0.7 },
+            { x: width * 0.8, y: height * 0.5 }
+          ],
+          color: '#22c55e',
+          thickness: 2
+        });
+      } else if (pattern.description.toLowerCase().includes('ombro-cabeça-ombro') || 
+                pattern.description.toLowerCase().includes('oco')) {
+        // Create head and shoulders pattern
+        elements.push({
+          type: 'pattern',
+          patternType: 'OCO',
+          points: [
+            { x: width * 0.1, y: height * 0.5 },
+            { x: width * 0.25, y: height * 0.4 },
+            { x: width * 0.4, y: height * 0.5 },
+            { x: width * 0.5, y: height * 0.3 },
+            { x: width * 0.6, y: height * 0.5 },
+            { x: width * 0.75, y: height * 0.4 },
+            { x: width * 0.9, y: height * 0.5 }
+          ],
+          color: '#ef4444',
+          thickness: 2,
+          label: 'OCO'
+        });
+      }
+    }
+    
+    else if (pattern.type === 'Volume') {
+      // Add volume indicator at bottom
+      const baseY = height * 0.9;
+      const volHeight = height * 0.1 * Math.min(1, pattern.confidence * 1.5);
+      
+      elements.push({
+        type: 'rectangle',
+        position: { x: width * 0.5, y: baseY - volHeight / 2 },
+        width: width * 0.7,
+        height: volHeight,
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+        thickness: 2
+      });
+      
+      elements.push({
+        type: 'label',
+        position: { x: width * 0.5 - 60, y: baseY - volHeight - 10 },
+        text: 'Volume ' + (pattern.action === 'compra' ? '↑' : '↓'),
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+        backgroundColor: 'rgba(0,0,0,0.5)'
+      });
+    }
+    
+    else if (pattern.type === 'Divergência') {
+      // Add divergence lines
+      const startX = width * 0.3;
+      const endX = width * 0.7;
+      const priceStartY = pattern.action === 'compra' ? height * 0.6 : height * 0.4;
+      const priceEndY = pattern.action === 'compra' ? height * 0.7 : height * 0.3;
+      const indicatorStartY = pattern.action === 'compra' ? height * 0.8 : height * 0.65;
+      const indicatorEndY = pattern.action === 'compra' ? height * 0.7 : height * 0.75;
+      
+      // Price line
+      elements.push({
+        type: 'line',
+        points: [
+          { x: startX, y: priceStartY },
+          { x: endX, y: priceEndY }
+        ],
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+        thickness: 2
+      });
+      
+      // Indicator line (diverging)
+      elements.push({
+        type: 'line',
+        points: [
+          { x: startX, y: indicatorStartY },
+          { x: endX, y: indicatorEndY }
+        ],
+        color: '#3b82f6', // Blue for indicator
+        thickness: 2,
+        dashArray: [3, 3]
+      });
+      
+      // Label
+      elements.push({
+        type: 'label',
+        position: { x: startX, y: indicatorStartY + 15 },
+        text: 'Divergência RSI',
+        color: '#ffffff',
+        backgroundColor: '#3b82f6'
+      });
+    }
+  });
+  
+  // Add some additional market context elements
+  // Support and resistance zones
+  elements.push({
+    type: 'rectangle',
+    position: { x: width / 2, y: height * 0.2 },
+    width: width * 0.9,
+    height: height * 0.05,
+    color: '#ef4444', // Red for resistance
+    thickness: 1,
+    dashArray: [2, 2]
+  });
+  
+  elements.push({
+    type: 'rectangle',
+    position: { x: width / 2, y: height * 0.8 },
+    width: width * 0.9,
+    height: height * 0.05,
+    color: '#22c55e', // Green for support
+    thickness: 1,
+    dashArray: [2, 2]
   });
   
   return elements;
