@@ -488,8 +488,8 @@ export const analyzeVolume = (imageUrl: string): Promise<VolumeData> => {
     abnormal: false,
     significance: 'medium',
     relativeToAverage: 1.5,
-    distribution: 'neutral', // Adding the missing property
-    divergence: false // Adding the missing property
+    distribution: 'neutral',
+    divergence: false
   });
 };
 
@@ -503,7 +503,7 @@ export const analyzeVolatility = (imageUrl: string): Promise<VolatilityData> => 
     atr: 0.25,
     percentageRange: 1.2,
     isHigh: false,
-    historicalComparison: 'average' // Adding the missing property
+    historicalComparison: 'average'
   });
 };
 
@@ -596,7 +596,7 @@ export const analyzeMarketContext = (
         phase = 'lateral';
         description = `Mercado em range sem características claras de acumulação ou distribuição`;
         marketStructure = 'indefinida';
-        breakoutPotential = 'médio';
+        breakoutPotential = 'baixo';
         momentumSignature = 'estável';
       }
     } else {
@@ -648,4 +648,164 @@ export const analyzeMarketContext = (
   };
 };
 
-export const detectPatterns = async
+// Adding the missing function for detecting patterns
+export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]> => {
+  // Basic implementation that returns mock data
+  // In a real system, this would analyze the image for patterns
+  return [
+    {
+      type: 'Suporte/Resistência',
+      confidence: 0.85,
+      description: 'Forte nível de suporte identificado',
+      action: 'compra'
+    },
+    {
+      type: 'Tendência',
+      confidence: 0.72,
+      description: 'Tendência de alta com momentum positivo',
+      action: 'compra'
+    },
+    {
+      type: 'Volume',
+      confidence: 0.68,
+      description: 'Aumento de volume confirmando movimento',
+      action: 'compra'
+    }
+  ];
+};
+
+// Adding the missing function for generating technical markup
+export const generateTechnicalMarkup = (
+  patterns: PatternResult[], 
+  width: number, 
+  height: number
+): TechnicalElement[] => {
+  // Simple implementation to generate technical elements based on patterns
+  const elements: TechnicalElement[] = [];
+  
+  patterns.forEach((pattern, index) => {
+    const yPosition = 50 + index * 30;
+    
+    if (pattern.type === 'Suporte/Resistência') {
+      // Add horizontal line for support/resistance
+      elements.push({
+        type: 'line',
+        points: [
+          { x: 0, y: yPosition },
+          { x: width, y: yPosition }
+        ],
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+        thickness: 2,
+        dashArray: [5, 5]
+      });
+      
+      // Add label
+      elements.push({
+        type: 'label',
+        position: { x: 10, y: yPosition - 15 },
+        text: pattern.action === 'compra' ? 'Suporte' : 'Resistência',
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444'
+      });
+    } 
+    
+    else if (pattern.type === 'Tendência') {
+      // Add trend line
+      const startX = width * 0.2;
+      const endX = width * 0.8;
+      const startY = pattern.action === 'compra' ? height * 0.7 : height * 0.3;
+      const endY = pattern.action === 'compra' ? height * 0.3 : height * 0.7;
+      
+      elements.push({
+        type: 'line',
+        points: [
+          { x: startX, y: startY },
+          { x: endX, y: endY }
+        ],
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444',
+        thickness: 2
+      });
+      
+      // Add arrow at end of trend
+      elements.push({
+        type: 'arrow',
+        start: { x: endX - 30, y: pattern.action === 'compra' ? endY + 20 : endY - 20 },
+        end: { x: endX, y: endY },
+        color: pattern.action === 'compra' ? '#22c55e' : '#ef4444'
+      });
+    }
+  });
+  
+  return elements;
+};
+
+// Adding the missing function for detecting candles
+export const detectCandles = async (
+  imageUrl: string, 
+  width: number, 
+  height: number
+): Promise<CandleData[]> => {
+  // Simple implementation that returns mock candle data
+  // In a real system, this would detect candles from the image
+  const candles: CandleData[] = [];
+  const numCandles = 10;
+  const candleWidth = width / numCandles * 0.6;
+  const spacing = width / numCandles;
+  
+  for (let i = 0; i < numCandles; i++) {
+    const isGreen = Math.random() > 0.5;
+    const open = Math.random() * 100 + 50;
+    const close = isGreen ? open + Math.random() * 10 : open - Math.random() * 10;
+    const high = Math.max(open, close) + Math.random() * 5;
+    const low = Math.min(open, close) - Math.random() * 5;
+    
+    candles.push({
+      open,
+      high,
+      low,
+      close,
+      color: isGreen ? 'verde' : 'vermelho',
+      position: { x: i * spacing + spacing / 2, y: height / 2 },
+      width: candleWidth,
+      height: Math.abs(close - open)
+    });
+  }
+  
+  return candles;
+};
+
+// Adding the missing function for detecting false signals
+export const detectFalseSignals = (patterns: PatternResult[]): PatternResult[] => {
+  // Function to identify potentially false signals in the detected patterns
+  return patterns.map(pattern => {
+    // Check for low confidence patterns
+    if (pattern.confidence < 0.6) {
+      return {
+        ...pattern,
+        description: `${pattern.description} [POSSÍVEL FALSO SINAL]`,
+        confidence: pattern.confidence * 0.8,
+        recommendation: (pattern.recommendation || '') + 
+          ' Este sinal tem baixa confiança e pode ser um falso positivo. Aguarde confirmação adicional.'
+      };
+    }
+    
+    // Check for contradicting signals
+    const isContradicting = patterns.some(p => 
+      p !== pattern && 
+      p.action !== pattern.action && 
+      p.action !== 'neutro' && 
+      pattern.action !== 'neutro' && 
+      p.confidence > 0.7);
+    
+    if (isContradicting) {
+      return {
+        ...pattern,
+        description: `${pattern.description} [SINAL CONTRADITÓRIO]`,
+        confidence: pattern.confidence * 0.7,
+        recommendation: (pattern.recommendation || '') + 
+          ' Este sinal contradiz outros sinais de alta confiança. Considere aguardar maior clareza do mercado.'
+      };
+    }
+    
+    return pattern;
+  });
+};

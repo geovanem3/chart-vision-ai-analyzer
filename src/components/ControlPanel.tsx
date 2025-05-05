@@ -9,7 +9,11 @@ import {
   cropToRegion, 
   checkImageQuality
 } from '@/utils/imageProcessing';
-import { detectPatterns, generateTechnicalMarkup, detectCandles } from '@/utils/patternDetection';
+import { 
+  detectPatterns, 
+  generateTechnicalMarkup, 
+  detectCandles 
+} from '@/utils/patternDetection';
 import { 
   Loader2, 
   BarChart2, 
