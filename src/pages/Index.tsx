@@ -6,9 +6,7 @@ import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
-  ImageOff, Zap, 'trending-up' as TrendingUp,
-  'chart-candlestick' as ChartCandlestick,
-  'strategy' as Strategy
+  ImageOff, Zap, TrendingUp, CandlestickChart, BarChartHorizontal
 } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -101,7 +99,7 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-3 mb-2">
-                      <ChartCandlestick className="h-6 w-6 text-primary" />
+                      <CandlestickChart className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-sm font-medium">Padrões de Candles</p>
                     <p className="text-xs text-muted-foreground">
@@ -111,7 +109,7 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-amber-500/10 rounded-full p-3 mb-2">
-                      <Strategy className="h-6 w-6 text-amber-500" />
+                      <BarChartHorizontal className="h-6 w-6 text-amber-500" />
                     </div>
                     <p className="text-sm font-medium">Estratégia M1 Avançada</p>
                     <p className="text-xs text-muted-foreground">
@@ -142,14 +140,14 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-2 mb-1">
-                      <ChartCandlestick className="h-4 w-4 text-primary" />
+                      <CandlestickChart className="h-4 w-4 text-primary" />
                     </div>
                     <p className="text-xs font-medium">Padrões + Indicadores</p>
                   </div>
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-2 mb-1">
-                      <Strategy className="h-4 w-4 text-primary" />
+                      <BarChartHorizontal className="h-4 w-4 text-primary" />
                     </div>
                     <p className="text-xs font-medium">EMA9/21 + RSI</p>
                   </div>
