@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type PatternResult = {
@@ -45,31 +44,41 @@ export type CandleData = {
   height: number;
 };
 
-// New type for volume analysis
+// Enhanced volume analysis type
 export type VolumeData = {
   value: number;
   trend: 'increasing' | 'decreasing' | 'neutral';
   abnormal: boolean; // Indicates volume spikes
   significance: 'high' | 'medium' | 'low';
   relativeToAverage: number; // Ratio compared to average
+  distribution: 'accumulation' | 'distribution' | 'neutral'; // Volume distribution pattern
+  divergence: boolean; // Price-volume divergence indicator
 };
 
-// New type for volatility analysis
+// Enhanced volatility analysis type
 export type VolatilityData = {
   value: number; // Current volatility
   trend: 'increasing' | 'decreasing' | 'neutral';
   atr?: number; // Average True Range
   percentageRange?: number; // Range as percentage of price
   isHigh: boolean;
+  historicalComparison: 'above_average' | 'below_average' | 'average'; // Comparing to historical volatility
+  impliedVolatility?: number; // Forward-looking volatility expectation
 };
 
-// New type for market context
+// Enhanced market context type with more detailed phase recognition
 export type MarketContext = {
-  phase: 'acumulação' | 'tendência' | 'distribuição' | 'indefinida';
+  phase: 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida';
   strength: 'forte' | 'moderada' | 'fraca';
   dominantTimeframe: TimeframeType;
   sentiment: 'otimista' | 'pessimista' | 'neutro';
   description: string;
+  trendAngle?: number; // Angle of the trend line (steepness)
+  marketStructure: 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida'; // Higher highs/higher lows, etc.
+  liquidityPools?: { level: number, strength: 'alta' | 'média' | 'baixa' }[]; // Key liquidity levels
+  keyLevels?: { price: number, type: 'suporte' | 'resistência', strength: 'forte' | 'moderada' | 'fraca' }[]; 
+  breakoutPotential: 'alto' | 'médio' | 'baixo';
+  momentumSignature: 'acelerando' | 'estável' | 'desacelerando' | 'divergente';
 };
 
 export type AnalysisResult = {
@@ -81,9 +90,9 @@ export type AnalysisResult = {
   manualRegion?: boolean;
   scalpingSignals?: ScalpingSignal[]; // Added for scalping signals
   technicalIndicators?: TechnicalIndicator[]; // Added for technical indicators
-  volumeData?: VolumeData; // New for volume analysis
-  volatilityData?: VolatilityData; // New for volatility analysis
-  marketContext?: MarketContext; // New for market context understanding
+  volumeData?: VolumeData; // Enhanced volume analysis
+  volatilityData?: VolatilityData; // Enhanced volatility analysis
+  marketContext?: MarketContext; // Enhanced market context understanding
 };
 
 // New type for technical indicators for enhanced M1 strategy
@@ -107,6 +116,8 @@ export type ScalpingSignal = {
   volumeConfirmation?: boolean; // New property for volume confirmation
   volatilityCondition?: string; // New property for volatility condition
   marketPhaseAlignment?: boolean; // New property for market phase alignment
+  marketStructureAlignment?: boolean; // New property to check if aligned with market structure
+  liquidityTarget?: boolean; // Whether the signal targets a liquidity pool
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -136,6 +147,9 @@ export type TimeframeType = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '
 
 // New type for M1 strategy preferences
 export type ScalpingStrategy = 'momentum' | 'reversal' | 'breakout' | 'range';
+
+// New type for market analysis depth
+export type MarketAnalysisDepth = 'basic' | 'advanced' | 'comprehensive';
 
 type AnalyzerContextType = {
   capturedImage: string | null;
@@ -175,6 +189,8 @@ type AnalyzerContextType = {
   setConsiderVolatility: (consider: boolean) => void; // New setter
   marketContextEnabled: boolean; // New property for market context understanding
   setMarketContextEnabled: (enabled: boolean) => void; // New setter
+  marketAnalysisDepth: MarketAnalysisDepth;
+  setMarketAnalysisDepth: (depth: MarketAnalysisDepth) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -197,6 +213,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [considerVolume, setConsiderVolume] = useState(true); // New state for volume analysis
   const [considerVolatility, setConsiderVolatility] = useState(true); // New state for volatility analysis
   const [marketContextEnabled, setMarketContextEnabled] = useState(true); // New state for market context
+  const [marketAnalysisDepth, setMarketAnalysisDepth] = useState<MarketAnalysisDepth>('comprehensive'); // New state for market analysis depth
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -257,6 +274,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setConsiderVolatility,
         marketContextEnabled,
         setMarketContextEnabled,
+        marketAnalysisDepth,
+        setMarketAnalysisDepth,
       }}
     >
       {children}
