@@ -6,7 +6,8 @@ import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
-  ImageOff, Zap, TrendingUp, CandlestickChart, BarChartHorizontal
+  ImageOff, Zap, TrendingUp, CandlestickChart, BarChartHorizontal,
+  Volume, Activity
 } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -38,8 +39,8 @@ const GraphAnalyzerWithMarkupToolbar = () => {
           <Zap className="h-4 w-4 text-amber-500" />
           <AlertTitle>Modo Scalping Avançado</AlertTitle>
           <AlertDescription className="text-sm">
-            Análise técnica completa para M1: EMA9/EMA21, RSI, suportes/resistências, volume e fluxo de ordens.
-            Sinais precisos com gestão de risco otimizada (stops de 0.5%).
+            Análise técnica completa para M1: EMA9/EMA21, RSI, suportes/resistências, volume e volatilidade.
+            Entradas otimizadas com base no contexto de mercado e fluxo de ordens.
           </AlertDescription>
         </Alert>
       )}
@@ -126,6 +127,26 @@ const Index = () => {
                       Stop loss e take profit otimizados para cada estratégia de entrada
                     </p>
                   </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <div className="bg-blue-500/10 rounded-full p-3 mb-2">
+                      <Volume className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <p className="text-sm font-medium">Análise de Volume</p>
+                    <p className="text-xs text-muted-foreground">
+                      Identificação de anomalias e confirmação de movimentos através do volume
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <div className="bg-purple-500/10 rounded-full p-3 mb-2">
+                      <Activity className="h-6 w-6 text-purple-500" />
+                    </div>
+                    <p className="text-sm font-medium">Contexto de Mercado</p>
+                    <p className="text-xs text-muted-foreground">
+                      Entendimento da fase de mercado para alinhamento de operações
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -157,6 +178,20 @@ const Index = () => {
                       <Zap className="h-4 w-4 text-amber-500" />
                     </div>
                     <p className="text-xs font-medium">M1 Avançado</p>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <div className="bg-blue-500/10 rounded-full p-2 mb-1">
+                      <Volume className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <p className="text-xs font-medium">Volume</p>
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <div className="bg-purple-500/10 rounded-full p-2 mb-1">
+                      <Activity className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <p className="text-xs font-medium">Contexto</p>
                   </div>
                 </div>
               )}

@@ -1,5 +1,14 @@
 // Add imports from AnalyzerContext
-import { PatternResult, TechnicalElement, Point, CandleData, ScalpingSignal } from '@/context/AnalyzerContext';
+import { 
+  PatternResult, 
+  TechnicalElement, 
+  Point, 
+  CandleData, 
+  ScalpingSignal, 
+  VolumeData, 
+  VolatilityData,
+  MarketContext
+} from '@/context/AnalyzerContext';
 
 export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1m'): string => {
   if (!patterns || patterns.length === 0) {
@@ -31,32 +40,32 @@ export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1
   // Generate time-specific advice
   const timeframeText = getTimeframeText(timeframe);
   
-  // Enhanced recommendations for scalping in 1m timeframe
+  // Enhanced recommendations for scalping in 1m timeframe with volume and volatility context
   if (timeframe === '1m') {
     if (bullishWeight > 0.5) {
-      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Entre apenas se houver confirmação de volume e após o fechamento do candle acima da EMA9. Use um stop ajustado abaixo do último suporte ou 0.5% abaixo do preço de entrada. Alvos de 2-3% ou na próxima resistência. Monitore o RSI e o fluxo de ordens para confirmar a pressão compradora.`;
+      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Entre apenas com confirmação de volume crescente e volatilidade adequada (nem muito alta nem muito baixa). Aguarde o fechamento do candle acima da EMA9 e confirmação de fluxo de ordens positivo. Use stop de 0.5% ou abaixo do último suporte, com alvos de 2-3% ou na próxima resistência importante. A fase atual do mercado deve estar alinhada com a direção da entrada.`;
     } else if (bearishWeight > 0.5) {
-      return `Oportunidade de scalping de VENDA no ${timeframeText}: Entre apenas se houver confirmação de volume e após o fechamento do candle abaixo da EMA9. Use um stop ajustado acima da última resistência ou 0.5% acima do preço de entrada. Alvos de 2-3% ou no próximo suporte. Monitore o RSI e o fluxo de ordens para confirmar a pressão vendedora.`;
+      return `Oportunidade de scalping de VENDA no ${timeframeText}: Entre apenas com confirmação de volume crescente e volatilidade adequada (nem muito alta nem muito baixa). Aguarde o fechamento do candle abaixo da EMA9 e confirmação de fluxo de ordens negativo. Use stop de 0.5% ou acima da última resistência, com alvos de 2-3% ou no próximo suporte importante. A fase atual do mercado deve estar alinhada com a direção da entrada.`;
     } else if (bullishWeight > bearishWeight && bullishWeight > 0.3) {
-      return `Viés de alta com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por cima da EMA21 com volume crescente. Confirme com RSI acima de 50 e teste de suporte anterior. Considere entradas apenas com alinhamento do timeframe superior (5m).`;
+      return `Viés de alta com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por cima da EMA21 com volume crescente e volatilidade controlada. Confirme com RSI acima de 50, teste de suporte anterior e alinhamento com a fase atual do mercado. Considere entradas apenas com confirmação do timeframe superior (5m).`;
     } else if (bearishWeight > bullishWeight && bearishWeight > 0.3) {
-      return `Viés de baixa com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por baixo da EMA21 com volume crescente. Confirme com RSI abaixo de 50 e teste de resistência anterior. Considere entradas apenas com alinhamento do timeframe superior (5m).`;
+      return `Viés de baixa com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por baixo da EMA21 com volume crescente e volatilidade controlada. Confirme com RSI abaixo de 50, teste de resistência anterior e alinhamento com a fase atual do mercado. Considere entradas apenas com confirmação do timeframe superior (5m).`;
     } else {
-      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping. Aguarde formação de um padrão direcional com confirmação de duas médias móveis (EMA9 e EMA21) e divergência de RSI ou movimento significativo no fluxo de ordens.`;
+      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping. Monitore o volume, volatilidade e formação de um padrão direcional com confirmação de duas médias móveis (EMA9 e EMA21). Aguarde a definição da fase de mercado e uma divergência clara de RSI ou movimento significativo no fluxo de ordens para considerar uma entrada.`;
     }
   }
   
-  // Recomendações para outros timeframes (original)
+  // Recomendações para outros timeframes com consideração de volume e volatilidade
   if (bullishWeight > 0.6) {
-    return `Tendência de alta no ${timeframeText}: Os padrões identificados sugerem uma forte probabilidade de movimento ascendente. Considere posições compradas com stops abaixo dos níveis de suporte identificados.`;
+    return `Tendência de alta no ${timeframeText}: Os padrões identificados sugerem uma forte probabilidade de movimento ascendente. Considere posições compradas quando houver confirmação de volume e volatilidade favorável, mantendo stops abaixo dos níveis de suporte identificados.`;
   } else if (bearishWeight > 0.6) {
-    return `Tendência de baixa no ${timeframeText}: Os padrões identificados sugerem uma forte probabilidade de movimento descendente. Considere posições vendidas com stops acima dos níveis de resistência identificados.`;
+    return `Tendência de baixa no ${timeframeText}: Os padrões identificados sugerem uma forte probabilidade de movimento descendente. Considere posições vendidas quando houver confirmação de volume e volatilidade favorável, mantendo stops acima dos níveis de resistência identificados.`;
   } else if (bullishWeight > bearishWeight && bullishWeight > 0.4) {
-    return `Viés de alta no ${timeframeText}: Há um viés positivo, mas com sinais mistos. Aguarde confirmação por quebra de resistências antes de entrar em posições compradas.`;
+    return `Viés de alta no ${timeframeText}: Há um viés positivo, mas com sinais mistos. Monitore o volume e a volatilidade, aguardando confirmação por quebra de resistências com volume crescente antes de entrar em posições compradas.`;
   } else if (bearishWeight > bullishWeight && bearishWeight > 0.4) {
-    return `Viés de baixa no ${timeframeText}: Há um viés negativo, mas com sinais mistos. Aguarde confirmação por quebra de suportes antes de entrar em posições vendidas.`;
+    return `Viés de baixa no ${timeframeText}: Há um viés negativo, mas com sinais mistos. Monitore o volume e a volatilidade, aguardando confirmação por quebra de suportes com volume crescente antes de entrar em posições vendidas.`;
   } else {
-    return `Mercado lateralizado no ${timeframeText}: Os padrões detectados não indicam uma direção clara. Recomenda-se aguardar por confirmação de rompimento de suportes ou resistências.`;
+    return `Mercado lateralizado no ${timeframeText}: Os padrões detectados não indicam uma direção clara. Recomenda-se aguardar por confirmação de rompimento de suportes ou resistências com aumento significativo de volume e volatilidade adequada.`;
   }
 };
 
@@ -80,6 +89,19 @@ export const validatePatterns = (patterns: PatternResult[]): PatternResult[] => 
     p.type === 'Suporte/Resistência' || 
     p.type.toLowerCase().includes('suporte') || 
     p.type.toLowerCase().includes('resistência')
+  );
+  
+  // Check for volume patterns
+  const volumePattern = patterns.find(p => 
+    p.type.toLowerCase().includes('volume') || 
+    p.description?.toLowerCase().includes('volume')
+  );
+  
+  // Check for volatility patterns
+  const volatilityPattern = patterns.find(p => 
+    p.type.toLowerCase().includes('volatilidade') || 
+    p.description?.toLowerCase().includes('volatilidade') ||
+    p.description?.toLowerCase().includes('atr')
   );
   
   // If there are no support/resistance patterns, we can't validate
@@ -108,11 +130,43 @@ export const validatePatterns = (patterns: PatternResult[]): PatternResult[] => 
       };
     }
     
+    // Check for volume confirmation
+    if (pattern.action !== 'neutro' && volumePattern) {
+      const volumeIncreasing = volumePattern.description?.toLowerCase().includes('aumento') || 
+                              volumePattern.description?.toLowerCase().includes('alto');
+      
+      if (!volumeIncreasing) {
+        return {
+          ...pattern,
+          confidence: pattern.confidence * 0.8, // Reduce confidence
+          description: pattern.description + ' [ALERTA: Volume não confirma o sinal]',
+          recommendation: (pattern.recommendation || '') + 
+            ' Cuidado: O volume atual não confirma fortemente este sinal. Aguarde aumento de volume para maior confiança.'
+        };
+      }
+    }
+    
+    // Check for volatility conditions
+    if (pattern.action !== 'neutro' && volatilityPattern) {
+      const volatilityHigh = volatilityPattern.description?.toLowerCase().includes('alta') || 
+                            volatilityPattern.description?.toLowerCase().includes('elevada');
+      
+      if (volatilityHigh) {
+        return {
+          ...pattern,
+          confidence: pattern.confidence * 0.85, // Adjust confidence
+          description: pattern.description + ' [ALERTA: Alta volatilidade detectada]',
+          recommendation: (pattern.recommendation || '') + 
+            ' Nota: Alta volatilidade pode indicar movimentos falsos. Considere reduzir o tamanho da posição e usar stops mais amplos.'
+        };
+      }
+    }
+    
     return pattern;
   });
 };
 
-// Enhanced function for scalping signals with more technical indicators
+// Enhanced function for scalping signals with volume, volatility and market context analysis
 export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSignal[] => {
   if (!patterns || patterns.length === 0) return [];
   
@@ -142,7 +196,7 @@ export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSign
     p.type.toLowerCase().includes('divergência')
   );
   
-  // Moving average patterns (new for enhanced M1 strategy)
+  // Moving average patterns for enhanced M1 strategy
   const maPatterns = patterns.filter(
     p => p.description?.toLowerCase().includes('média móvel') ||
     p.description?.toLowerCase().includes('ema') ||
@@ -150,10 +204,25 @@ export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSign
     p.type.toLowerCase().includes('cruzamento')
   );
   
-  // RSI patterns (new for enhanced M1 strategy)
+  // RSI patterns for enhanced M1 strategy
   const rsiPatterns = patterns.filter(
     p => p.description?.toLowerCase().includes('rsi') ||
     p.description?.toLowerCase().includes('índice de força relativa')
+  );
+  
+  // Volatility patterns (new)
+  const volatilityPatterns = patterns.filter(
+    p => p.description?.toLowerCase().includes('volatilidade') ||
+    p.description?.toLowerCase().includes('atr') ||
+    p.type.toLowerCase().includes('volatilidade')
+  );
+  
+  // Market context patterns (new)
+  const marketContextPatterns = patterns.filter(
+    p => p.description?.toLowerCase().includes('tendência') ||
+    p.description?.toLowerCase().includes('distribuição') ||
+    p.description?.toLowerCase().includes('acumulação') ||
+    p.type.toLowerCase().includes('fase do mercado')
   );
   
   // Generate scalping signals based on pattern combinations with enhanced criteria
@@ -163,16 +232,35 @@ export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSign
     const hasSupportResistance = supportResistance.length > 0;
     const hasMASignal = maPatterns.length > 0;
     const hasRSISignal = rsiPatterns.length > 0;
+    const hasVolatilitySignal = volatilityPatterns.length > 0;
+    const hasMarketContextSignal = marketContextPatterns.length > 0;
     
-    // Enhanced signal combination rules for more reliable M1 entries
-    if ((hasVolumeConfirmation && (hasSupportResistance || hasMASignal)) || 
-        (hasMASignal && hasRSISignal) || 
-        (momentumPatterns.length > 0 && hasVolumeConfirmation)) {
+    // Enhanced signal combination rules for more reliable M1 entries with volume and volatility
+    const hasStrongVolume = hasVolumeConfirmation && volumePatterns[0].confidence > 0.7;
+    const hasAcceptableVolatility = !hasVolatilitySignal || 
+      (hasVolatilitySignal && !volatilityPatterns[0].description?.toLowerCase().includes('extrema'));
+    
+    // Check market phase alignment with the intended trade direction
+    let marketPhaseAligned = true; // Default to true if no market context data
+    if (hasMarketContextSignal) {
+      const marketPhase = marketContextPatterns[0].description?.toLowerCase() || '';
+      const isUptrend = marketPhase.includes('tendência de alta') || marketPhase.includes('acumulação');
+      const isDowntrend = marketPhase.includes('tendência de baixa') || marketPhase.includes('distribuição');
       
-      // Create more specific entry conditions
+      marketPhaseAligned = (dominantPattern.action === 'compra' && isUptrend) || 
+                           (dominantPattern.action === 'venda' && isDowntrend) ||
+                           marketPhase.includes('indefinida');
+    }
+    
+    // Only create signals when volume, volatility, and market context conditions are favorable
+    if (((hasStrongVolume || hasMASignal) && hasAcceptableVolatility && marketPhaseAligned) && 
+        ((hasSupportResistance || hasMASignal || hasRSISignal) || 
+         (momentumPatterns.length > 0 && hasVolumeConfirmation))) {
+      
+      // Create more specific entry conditions with volume and volatility context
       const entryCondition = dominantPattern.action === 'compra'
-        ? `${hasMASignal ? 'Cruzamento da EMA9 acima da EMA21' : 'Rompimento de resistência'} com ${hasVolumeConfirmation ? 'aumento de volume' : 'teste de suporte'}`
-        : `${hasMASignal ? 'Cruzamento da EMA9 abaixo da EMA21' : 'Rompimento de suporte'} com ${hasVolumeConfirmation ? 'aumento de volume' : 'teste de resistência'}`;
+        ? `${hasMASignal ? 'Cruzamento da EMA9 acima da EMA21' : 'Rompimento de resistência'} com ${hasVolumeConfirmation ? 'aumento de volume' : 'teste de suporte'} ${hasAcceptableVolatility ? 'e volatilidade favorável' : ''}`
+        : `${hasMASignal ? 'Cruzamento da EMA9 abaixo da EMA21' : 'Rompimento de suporte'} com ${hasVolumeConfirmation ? 'aumento de volume' : 'teste de resistência'} ${hasAcceptableVolatility ? 'e volatilidade favorável' : ''}`;
       
       // Additional confirmations based on available indicators
       let confirmations = [];
@@ -180,17 +268,40 @@ export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSign
         confirmations.push(dominantPattern.action === 'compra' ? 'RSI acima de 50 e subindo' : 'RSI abaixo de 50 e caindo');
       }
       if (hasVolumeConfirmation) {
-        confirmations.push('Volume acima da média');
+        const volumeDesc = volumePatterns[0].description?.toLowerCase() || '';
+        const volumeQuality = volumeDesc.includes('forte') || volumeDesc.includes('alto') ? 
+          'Volume forte' : 'Volume acima da média';
+        confirmations.push(volumeQuality);
       }
       if (hasSupportResistance) {
         confirmations.push(dominantPattern.action === 'compra' ? 'Após teste de suporte' : 'Após teste de resistência');
       }
+      if (hasVolatilitySignal) {
+        const volatilityDesc = volatilityPatterns[0].description?.toLowerCase() || '';
+        const volatilityState = volatilityDesc.includes('alta') ? 'Volatilidade alta' : 
+                              volatilityDesc.includes('baixa') ? 'Volatilidade baixa' : 
+                              'Volatilidade média';
+        confirmations.push(volatilityState);
+      }
+      if (hasMarketContextSignal) {
+        confirmations.push(`Alinhado com fase de mercado: ${marketContextPatterns[0].description}`);
+      }
+
+      // Calculate confidence based on all factors
+      const volumeFactor = hasVolumeConfirmation ? (hasStrongVolume ? 1.25 : 1.1) : 0.9;
+      const volatilityFactor = hasAcceptableVolatility ? 1.1 : 0.8;
+      const marketContextFactor = marketPhaseAligned ? 1.15 : 0.75;
+      const adjustedConfidence = dominantPattern.confidence * 
+                                volumeFactor * 
+                                (hasMASignal ? 1.1 : 1) * 
+                                volatilityFactor * 
+                                marketContextFactor;
 
       signals.push({
         type: 'entrada',
         action: dominantPattern.action as 'compra' | 'venda',
         price: entryCondition,
-        confidence: dominantPattern.confidence * (hasVolumeConfirmation ? 1.2 : 1) * (hasMASignal ? 1.1 : 1),
+        confidence: adjustedConfidence,
         timeframe: '1m',
         description: `${dominantPattern.type}: ${dominantPattern.description} ${confirmations.length > 0 ? '| Confirmações: ' + confirmations.join(', ') : ''}`,
         target: dominantPattern.action === 'compra'
@@ -198,89 +309,299 @@ export const generateScalpingSignals = (patterns: PatternResult[]): ScalpingSign
           : 'Próximo suporte ou -2-3% do preço atual',
         stopLoss: dominantPattern.action === 'compra'
           ? '0.5% abaixo do ponto de entrada ou abaixo do último suporte'
-          : '0.5% acima do ponto de entrada ou acima da última resistência'
+          : '0.5% acima do ponto de entrada ou acima da última resistência',
+        volumeConfirmation: hasVolumeConfirmation,
+        volatilityCondition: hasVolatilitySignal ? 
+          volatilityPatterns[0].description : 
+          'Volatilidade dentro de níveis aceitáveis',
+        marketPhaseAlignment: marketPhaseAligned
       });
       
-      // Add exit signal with more specific risk management rules
+      // Add exit signal with more specific risk management rules including volume and volatility
       signals.push({
         type: 'saída',
         action: dominantPattern.action as 'compra' | 'venda',
         price: 'Take profit ou stop loss',
-        confidence: dominantPattern.confidence * 0.9,
+        confidence: adjustedConfidence * 0.9,
         timeframe: '1m',
-        description: `Encerre a posição quando: 1) O preço atingir o alvo de ${dominantPattern.action === 'compra' ? '+2-3%' : '-2-3%'}, 2) O stop loss for ativado, 3) Houver reversão de EMA9/EMA21, ou 4) Após 3-5 candles sem progresso em direção ao alvo.`
+        description: `Encerre a posição quando: 1) O preço atingir o alvo de ${dominantPattern.action === 'compra' ? '+2-3%' : '-2-3%'}, 2) O stop loss for ativado, 3) Houver reversão de EMA9/EMA21 com confirmação de volume, ou 4) Após 3-5 candles sem progresso em direção ao alvo ${hasVolatilitySignal && volatilityPatterns[0].description?.toLowerCase().includes('alta') ? 'ou mudança abrupta na volatilidade' : ''}.`
       });
     }
   }
   
-  // Add signals for moving average crossovers (important for M1)
-  if (maPatterns.length > 0) {
-    const maPattern = maPatterns[0];
-    if (maPattern.confidence > 0.6) {
+  // Add signals for volume spike analysis (new)
+  const volumeSpikes = volumePatterns.filter(p => 
+    (p.description?.toLowerCase().includes('surto') || p.description?.toLowerCase().includes('spike')) &&
+    p.confidence > 0.75
+  );
+  
+  if (volumeSpikes.length > 0) {
+    const volumeSpike = volumeSpikes[0];
+    const direction = volumeSpike.action === 'compra' ? 'alta' : 
+                      volumeSpike.action === 'venda' ? 'baixa' : 'indefinida';
+    
+    if (direction !== 'indefinida') {
       signals.push({
         type: 'entrada',
-        action: maPattern.action as 'compra' | 'venda',
-        price: maPattern.action === 'compra' 
-          ? 'Após cruzamento da EMA9 por cima da EMA21' 
-          : 'Após cruzamento da EMA9 por baixo da EMA21',
-        confidence: maPattern.confidence,
+        action: volumeSpike.action as 'compra' | 'venda',
+        price: `Após confirmação de surto de volume com candle de ${direction}`,
+        confidence: volumeSpike.confidence * 1.1,
         timeframe: '1m',
-        description: `Cruzamento de Médias Móveis: ${maPattern.description}`,
-        target: maPattern.action === 'compra'
+        description: `Surto de Volume Significativo: ${volumeSpike.description}`,
+        target: volumeSpike.action === 'compra'
           ? 'Próxima resistência ou +1.5-2% do preço atual'
           : 'Próximo suporte ou -1.5-2% do preço atual',
-        stopLoss: maPattern.action === 'compra'
-          ? '0.5% abaixo do ponto de entrada ou abaixo da EMA21'
-          : '0.5% acima do ponto de entrada ou acima da EMA21'
+        stopLoss: volumeSpike.action === 'compra'
+          ? '0.5% abaixo do ponto de entrada'
+          : '0.5% acima do ponto de entrada',
+        volumeConfirmation: true,
+        volatilityCondition: 'Aumento esperado na volatilidade'
       });
     }
   }
   
-  // Add signals for RSI divergences (excellent for M1 reversals)
-  if (rsiPatterns.length > 0) {
+  // Add signals for moving average crossovers with volume confirmation
+  if (maPatterns.length > 0 && volumePatterns.length > 0) {
+    const maPattern = maPatterns[0];
+    const volumePattern = volumePatterns[0];
+    
+    if (maPattern.confidence > 0.6 && volumePattern.confidence > 0.6) {
+      const volumeIncreasing = volumePattern.description?.toLowerCase().includes('aumento') || 
+                              volumePattern.description?.toLowerCase().includes('alto');
+      
+      if (volumeIncreasing) {
+        signals.push({
+          type: 'entrada',
+          action: maPattern.action as 'compra' | 'venda',
+          price: maPattern.action === 'compra' 
+            ? 'Após cruzamento da EMA9 por cima da EMA21 com volume crescente' 
+            : 'Após cruzamento da EMA9 por baixo da EMA21 com volume crescente',
+          confidence: maPattern.confidence * 1.2, // Increase confidence due to volume confirmation
+          timeframe: '1m',
+          description: `Cruzamento de Médias Móveis com Volume: ${maPattern.description}, ${volumePattern.description}`,
+          target: maPattern.action === 'compra'
+            ? 'Próxima resistência ou +1.5-2% do preço atual'
+            : 'Próximo suporte ou -1.5-2% do preço atual',
+          stopLoss: maPattern.action === 'compra'
+            ? '0.5% abaixo do ponto de entrada ou abaixo da EMA21'
+            : '0.5% acima do ponto de entrada ou acima da EMA21',
+          volumeConfirmation: true
+        });
+      }
+    }
+  }
+  
+  // Add signals for RSI divergences with volume and volatility context
+  if (rsiPatterns.length > 0 && volumePatterns.length > 0) {
     const rsiPattern = rsiPatterns[0];
-    if (rsiPattern.confidence > 0.7) {
+    const volumePattern = volumePatterns[0];
+    
+    const hasAcceptableVolatility = volatilityPatterns.length === 0 || 
+      !volatilityPatterns[0].description?.toLowerCase().includes('extrema');
+    
+    if (rsiPattern.confidence > 0.7 && volumePattern.confidence > 0.6 && hasAcceptableVolatility) {
       signals.push({
         type: 'entrada',
         action: rsiPattern.action as 'compra' | 'venda',
         price: rsiPattern.action === 'compra' 
-          ? 'Após confirmação de divergência positiva no RSI' 
-          : 'Após confirmação de divergência negativa no RSI',
-        confidence: rsiPattern.confidence,
+          ? 'Após confirmação de divergência positiva no RSI com volume crescente' 
+          : 'Após confirmação de divergência negativa no RSI com volume crescente',
+        confidence: rsiPattern.confidence * 1.15,
         timeframe: '1m',
-        description: `Divergência RSI: ${rsiPattern.description}`,
+        description: `Divergência RSI com Volume: ${rsiPattern.description}, ${volumePattern.description}`,
         target: rsiPattern.action === 'compra'
           ? 'Próxima resistência ou +2% do preço atual'
           : 'Próximo suporte ou -2% do preço atual',
         stopLoss: rsiPattern.action === 'compra'
           ? '0.5% abaixo do ponto de entrada ou abaixo do último mínimo'
-          : '0.5% acima do ponto de entrada ou acima do último máximo'
+          : '0.5% acima do ponto de entrada ou acima do último máximo',
+        volumeConfirmation: true,
+        volatilityCondition: hasAcceptableVolatility ? 'Volatilidade favorável' : 'Monitorar volatilidade'
       });
     }
   }
   
-  // Add signals based on volume profile (important for M1)
-  if (volumePatterns.length > 0) {
-    const volumePattern = volumePatterns[0];
-    if (volumePattern.confidence > 0.7 && volumePattern.action !== 'neutro') {
+  // New signals based on market context phase
+  if (marketContextPatterns.length > 0 && marketContextPatterns[0].confidence > 0.7) {
+    const contextPattern = marketContextPatterns[0];
+    const marketPhase = contextPattern.description?.toLowerCase() || '';
+    
+    // Generate different signals based on market phase
+    if (marketPhase.includes('acumulação') && volumePatterns.length > 0) {
       signals.push({
         type: 'entrada',
-        action: volumePattern.action as 'compra' | 'venda',
-        price: 'Após surto de volume com confirmação de preço',
-        confidence: volumePattern.confidence,
+        action: 'compra',
+        price: 'Compra em região de suporte com volume crescente',
+        confidence: contextPattern.confidence * 1.1,
         timeframe: '1m',
-        description: `Sinal de Volume: ${volumePattern.description}`,
-        target: volumePattern.action === 'compra'
-          ? 'Próxima resistência ou +1.5-2% do preço atual'
-          : 'Próximo suporte ou -1.5-2% do preço atual',
-        stopLoss: volumePattern.action === 'compra'
-          ? '0.5% abaixo do ponto de entrada'
-          : '0.5% acima do ponto de entrada'
+        description: `Fase de Acumulação: Oportunidade de compra em região de valor com aumento de volume institucional`,
+        target: 'Saída do range de acumulação ou +2-3% do preço de entrada',
+        stopLoss: 'Abaixo da zona de acumulação ou 0.5% abaixo da entrada',
+        volumeConfirmation: true,
+        marketPhaseAlignment: true
+      });
+    } else if (marketPhase.includes('distribuição') && volumePatterns.length > 0) {
+      signals.push({
+        type: 'entrada',
+        action: 'venda',
+        price: 'Venda em região de resistência com volume crescente',
+        confidence: contextPattern.confidence * 1.1,
+        timeframe: '1m',
+        description: `Fase de Distribuição: Oportunidade de venda em região de topo com aumento de volume institucional`,
+        target: 'Saída do range de distribuição ou -2-3% do preço de entrada',
+        stopLoss: 'Acima da zona de distribuição ou 0.5% acima da entrada',
+        volumeConfirmation: true,
+        marketPhaseAlignment: true
+      });
+    } else if (marketPhase.includes('tendência') && maPatterns.length > 0) {
+      const direction = marketPhase.includes('alta') ? 'compra' : 'venda';
+      signals.push({
+        type: 'entrada',
+        action: direction as 'compra' | 'venda',
+        price: direction === 'compra' 
+          ? 'Pullback para EMA9/21 em tendência de alta' 
+          : 'Pullback para EMA9/21 em tendência de baixa',
+        confidence: contextPattern.confidence * 1.2,
+        timeframe: '1m',
+        description: `Tendência Estabelecida: Entrada em pullback para médias móveis com alinhamento direcional do mercado`,
+        target: direction === 'compra'
+          ? 'Extensão da tendência ou +2.5% do preço de entrada'
+          : 'Extensão da tendência ou -2.5% do preço de entrada',
+        stopLoss: direction === 'compra'
+          ? 'Abaixo da EMA21 ou 0.5% abaixo da entrada'
+          : 'Acima da EMA21 ou 0.5% acima da entrada',
+        marketPhaseAlignment: true
       });
     }
   }
   
   return signals;
+};
+
+// New function to analyze volume patterns
+export const analyzeVolume = (imageUrl: string): Promise<VolumeData> => {
+  // In a real implementation, this would analyze volume from the image
+  // For now, we'll return mock data
+  return Promise.resolve({
+    value: 1.5, // 50% above average
+    trend: 'increasing',
+    abnormal: false,
+    significance: 'medium',
+    relativeToAverage: 1.5
+  });
+};
+
+// New function to analyze volatility patterns
+export const analyzeVolatility = (imageUrl: string): Promise<VolatilityData> => {
+  // In a real implementation, this would analyze volatility from the image
+  // For now, we'll return mock data
+  return Promise.resolve({
+    value: 0.8,
+    trend: 'increasing',
+    atr: 0.25,
+    percentageRange: 1.2,
+    isHigh: false
+  });
+};
+
+// New function to determine market context
+export const analyzeMarketContext = (
+  patterns: PatternResult[], 
+  volumeData?: VolumeData, 
+  volatilityData?: VolatilityData
+): MarketContext => {
+  // Find trends and phases from patterns
+  const trendPatterns = patterns.filter(p => 
+    p.type.toLowerCase().includes('tendência') || 
+    p.description?.toLowerCase().includes('tendência')
+  );
+  
+  const supportResistancePatterns = patterns.filter(p => 
+    p.type === 'Suporte/Resistência' || 
+    p.type.toLowerCase().includes('suporte') || 
+    p.type.toLowerCase().includes('resistência')
+  );
+  
+  const volumePatterns = patterns.filter(p => 
+    p.type.toLowerCase().includes('volume') || 
+    p.description?.toLowerCase().includes('volume')
+  );
+  
+  // Determine market phase
+  let phase: 'acumulação' | 'tendência' | 'distribuição' | 'indefinida' = 'indefinida';
+  let strength: 'forte' | 'moderada' | 'fraca' = 'moderada';
+  let sentiment: 'otimista' | 'pessimista' | 'neutro' = 'neutro';
+  let description = 'Fase de mercado indefinida';
+  
+  // Check for trend patterns
+  if (trendPatterns.length > 0) {
+    const dominantTrend = trendPatterns.sort((a, b) => b.confidence - a.confidence)[0];
+    
+    if (dominantTrend.type.toLowerCase().includes('alta') || 
+        dominantTrend.description?.toLowerCase().includes('alta')) {
+      phase = 'tendência';
+      sentiment = 'otimista';
+      strength = dominantTrend.confidence > 0.8 ? 'forte' : dominantTrend.confidence > 0.6 ? 'moderada' : 'fraca';
+      description = `Tendência de alta ${strength}`;
+    } else if (dominantTrend.type.toLowerCase().includes('baixa') || 
+               dominantTrend.description?.toLowerCase().includes('baixa')) {
+      phase = 'tendência';
+      sentiment = 'pessimista';
+      strength = dominantTrend.confidence > 0.8 ? 'forte' : dominantTrend.confidence > 0.6 ? 'moderada' : 'fraca';
+      description = `Tendência de baixa ${strength}`;
+    }
+  } 
+  // Check for ranging market
+  else if (supportResistancePatterns.length > 0) {
+    const rangePattern = supportResistancePatterns[0];
+    
+    // Check for accumulation or distribution
+    if (volumePatterns.length > 0 || volumeData) {
+      const volumeIncreasing = volumePatterns.length > 0 ? 
+                              volumePatterns[0].description?.toLowerCase().includes('aumento') : 
+                              volumeData?.trend === 'increasing';
+      
+      const priceNearSupport = rangePattern.description?.toLowerCase().includes('suporte');
+      const priceNearResistance = rangePattern.description?.toLowerCase().includes('resistência');
+      
+      if (priceNearSupport && volumeIncreasing) {
+        phase = 'acumulação';
+        sentiment = 'otimista';
+        strength = rangePattern.confidence > 0.7 ? 'forte' : 'moderada';
+        description = `Fase de acumulação próxima a suporte`;
+      } else if (priceNearResistance && volumeIncreasing) {
+        phase = 'distribuição';
+        sentiment = 'pessimista';
+        strength = rangePattern.confidence > 0.7 ? 'forte' : 'moderada';
+        description = `Fase de distribuição próxima a resistência`;
+      } else {
+        phase = 'indefinida';
+        description = `Mercado em range sem características claras de acumulação ou distribuição`;
+      }
+    } else {
+      phase = 'indefinida';
+      description = `Mercado em range, monitorar volume para confirmar fase`;
+    }
+  }
+  
+  // Add volatility context
+  if (volatilityData) {
+    if (volatilityData.isHigh) {
+      description += ` com volatilidade elevada`;
+    } else if (volatilityData.trend === 'increasing') {
+      description += ` com volatilidade crescente`;
+    } else if (volatilityData.trend === 'decreasing') {
+      description += ` com volatilidade decrescente`;
+    }
+  }
+  
+  return {
+    phase,
+    strength,
+    dominantTimeframe: '1m',
+    sentiment,
+    description
+  };
 };
 
 export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]> => {
@@ -486,10 +807,100 @@ export const detectPatterns = async (imageUrl: string): Promise<PatternResult[]>
       entryPrice: 'Após fechamento do candle de confirmação',
       stopLoss: '0.5% abaixo do ponto de entrada',
       takeProfit: 'Objetivos escalonados: +1%, +2% e +3%'
-    }
+    },
+    // Add new patterns for volume analysis
+    {
+      type: 'Volume Crescente',
+      confidence: 0.88,
+      description: 'Volume crescente nas últimas barras com pressão compradora evidente.',
+      recommendation: 'Confirme padrões de reversão ou continuação com este aumento de volume.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após confirmação de fechamento forte',
+      stopLoss: '0.5% abaixo da entrada',
+      takeProfit: '+2% do preço de entrada'
+    },
+    {
+      type: 'Surto de Volume',
+      confidence: 0.92,
+      description: 'Surto significativo de volume com candle de alta após teste de suporte.',
+      recommendation: 'Excelente confirmação de reversão de baixa para alta. Entre imediatamente.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Atual ou próximo candle',
+      stopLoss: 'Abaixo do mínimo do candle de volume',
+      takeProfit: '+2.5-3% do preço de entrada'
+    },
+    {
+      type: 'Divergência Volume-Preço',
+      confidence: 0.79,
+      description: 'Volume decrescente em movimento de alta, indicando possível esgotamento.',
+      recommendation: 'Alerta de possível topo. Prepare-se para reversão ou correção técnica.',
+      action: 'venda' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após confirmação de reversão',
+      stopLoss: 'Acima do último topo',
+      takeProfit: '-2% do preço de entrada'
+    },
+    
+    // Add new patterns for volatility analysis
+    {
+      type: 'Alta Volatilidade',
+      confidence: 0.82,
+      description: 'ATR em níveis elevados comparado à média recente, indicando possível exaustão.',
+      recommendation: 'Aumenta probabilidade de reversão. Maior cautela nas entradas e stops mais amplos.',
+      action: 'neutro' as const,
+      isScalpingSignal: false
+    },
+    {
+      type: 'Contração de Volatilidade',
+      confidence: 0.75,
+      description: 'Estreitamento de range e redução significativa de volatilidade antes de movimento importante.',
+      recommendation: 'Prepare-se para possível movimento direcional forte após esta contração.',
+      action: 'neutro' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Após quebra do range de contração',
+      stopLoss: 'Dentro do range de contração',
+      takeProfit: 'Projeção baseada na amplitude do range'
+    },
+    
+    // Add new patterns for market context understanding
+    {
+      type: 'Fase de Acumulação',
+      confidence: 0.85,
+      description: 'Mercado em fase de acumulação com teste repetido de suporte e aumento de volume nos fundos.',
+      recommendation: 'Momento ideal para entradas de compra em região de suporte com stops justos.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Na região de suporte com confirmação de volume',
+      stopLoss: '0.5% abaixo do suporte',
+      takeProfit: 'Saída da fase de acumulação'
+    },
+    {
+      type: 'Fase de Distribuição',
+      confidence: 0.82,
+      description: 'Mercado em fase de distribuição com teste repetido de resistência e aumento de volume nos topos.',
+      recommendation: 'Momento ideal para entradas de venda em região de resistência com stops justos.',
+      action: 'venda' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Na região de resistência com confirmação de volume',
+      stopLoss: '0.5% acima da resistência',
+      takeProfit: 'Saída da fase de distribuição'
+    },
+    {
+      type: 'Tendência Estabelecida',
+      confidence: 0.90,
+      description: 'Tendência de alta bem estabelecida com fundos e topos ascendentes e EMA9 acima da EMA21.',
+      recommendation: 'Procure entradas durante pullbacks para as médias móveis, mantendo-se alinhado com a tendência.',
+      action: 'compra' as const,
+      isScalpingSignal: true,
+      entryPrice: 'Pullback para a EMA9/21',
+      stopLoss: 'Abaixo da EMA21 ou 0.5% da entrada',
+      takeProfit: 'Extensão da tendência ou +2.5%'
+    },
   ];
   
-  // Validate patterns against support/resistance
+  // Validate patterns against support/resistance and other factors
   return validatePatterns(patterns);
 };
 
@@ -498,6 +909,69 @@ export const detectFalseSignals = (patterns: PatternResult[]): {
   warnings: string[] 
 } => {
   const warnings: string[] = [];
+  
+  // Check for volume confirmation issues
+  const volumePatterns = patterns.filter(p => 
+    p.description?.toLowerCase().includes('volume') ||
+    p.type.toLowerCase().includes('volume')
+  );
+  
+  const actionablePatterns = patterns.filter(p => p.action !== 'neutro');
+  
+  if (volumePatterns.length > 0 && actionablePatterns.length > 0) {
+    const volumeDecreasing = volumePatterns.some(p => 
+      p.description?.toLowerCase().includes('decrescente') ||
+      p.description?.toLowerCase().includes('baixo')
+    );
+    
+    if (volumeDecreasing) {
+      warnings.push('⚠️ Alerta: Sinais de direção com volume decrescente. Volume insuficiente pode resultar em movimentos falsos ou falhas de continuidade.');
+    }
+  }
+  
+  // Check for volatility issues
+  const volatilityPatterns = patterns.filter(p => 
+    p.description?.toLowerCase().includes('volatilidade') ||
+    p.description?.toLowerCase().includes('atr') ||
+    p.type.toLowerCase().includes('volatilidade')
+  );
+  
+  if (volatilityPatterns.length > 0) {
+    const extremeVolatility = volatilityPatterns.some(p => 
+      p.description?.toLowerCase().includes('extrema') ||
+      p.description?.toLowerCase().includes('muito alta')
+    );
+    
+    if (extremeVolatility) {
+      warnings.push('⚠️ Alerta: Volatilidade extrema detectada. Maior probabilidade de movimentos falsos e whipsaws. Considere aumentar stops e reduzir tamanho de posições.');
+    }
+  }
+  
+  // Check for market context misalignment
+  const marketPhasePatterns = patterns.filter(p => 
+    p.type.includes('Fase de') ||
+    p.description?.toLowerCase().includes('fase de') ||
+    p.description?.toLowerCase().includes('tendência estabelecida')
+  );
+  
+  if (marketPhasePatterns.length > 0 && actionablePatterns.length > 0) {
+    const marketDesc = marketPhasePatterns[0].description?.toLowerCase() || '';
+    const isDistribution = marketDesc.includes('distribuição');
+    const isAccumulation = marketDesc.includes('acumulação');
+    const isUptrend = marketDesc.includes('tendência de alta');
+    const isDowntrend = marketDesc.includes('tendência de baixa');
+    
+    const hasBuySignals = actionablePatterns.some(p => p.action === 'compra');
+    const hasSellSignals = actionablePatterns.some(p => p.action === 'venda');
+    
+    if ((isDistribution || isDowntrend) && hasBuySignals) {
+      warnings.push('⚠️ Alerta de Contexto: Sinais de compra durante fase de distribuição ou tendência de baixa. Considere esperar confirmação adicional ou evitar entradas de compra.');
+    }
+    
+    if ((isAccumulation || isUptrend) && hasSellSignals) {
+      warnings.push('⚠️ Alerta de Contexto: Sinais de venda durante fase de acumulação ou tendência de alta. Considere esperar confirmação adicional ou evitar entradas de venda.');
+    }
+  }
   
   // Check for buy signals near resistance
   const resistancePatterns = patterns.filter(p => 
@@ -1206,6 +1680,311 @@ export const generateTechnicalMarkup = (
           type: 'label',
           position: { x: width * 0.5, y: height * 0.2 },
           text: 'Triângulo Simétrico',
+          color: 'rgba(33, 150, 243, 1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+        
+      // New patterns for volume analysis
+      case 'Volume Crescente':
+      case 'Surto de Volume':
+      case 'Divergência Volume-Preço':
+        // Volume visualization
+        const volumeBarWidth = width * 0.6;
+        const volumeBarHeight = height * 0.15;
+        const volumeX = width * 0.2;
+        const volumeY = height * 0.8;
+        
+        // Draw volume bars
+        for (let i = 0; i < 5; i++) {
+          const barHeight = volumeBarHeight * (0.4 + (i * 0.15));
+          const barColor = i >= 3 ? 'rgba(76, 175, 80, 0.8)' : 'rgba(158, 158, 158, 0.8)';
+          
+          elements.push({
+            type: 'rectangle',
+            position: { 
+              x: volumeX + (i * volumeBarWidth / 5), 
+              y: volumeY - barHeight 
+            },
+            width: volumeBarWidth / 6,
+            height: barHeight,
+            color: barColor
+          });
+        }
+        
+        elements.push({
+          type: 'label',
+          position: { x: volumeX, y: volumeY - volumeBarHeight - 20 },
+          text: pattern.type,
+          color: 'rgba(0, 0, 0, 0.8)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+        
+      // New patterns for volatility analysis
+      case 'Alta Volatilidade':
+      case 'Contração de Volatilidade':
+        // Volatility visualization
+        const volatilityX = width * 0.5;
+        const volatilityY = height * 0.5;
+        const volatilityRadius = width * 0.15;
+        
+        if (pattern.type === 'Alta Volatilidade') {
+          // Draw high volatility indicator
+          elements.push({
+            type: 'circle',
+            center: { x: volatilityX, y: volatilityY },
+            radius: volatilityRadius,
+            color: 'rgba(244, 67, 54, 0.3)',
+            thickness: 2 * scale
+          });
+          
+          // Draw volatility spikes
+          for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI / 4);
+            const innerX = volatilityX + Math.cos(angle) * volatilityRadius * 0.7;
+            const innerY = volatilityY + Math.sin(angle) * volatilityRadius * 0.7;
+            const outerX = volatilityX + Math.cos(angle) * volatilityRadius * 1.3;
+            const outerY = volatilityY + Math.sin(angle) * volatilityRadius * 1.3;
+            
+            elements.push({
+              type: 'line',
+              points: [
+                { x: innerX, y: innerY },
+                { x: outerX, y: outerY }
+              ],
+              color: 'rgba(244, 67, 54, 0.8)',
+              thickness: 1.5 * scale
+            });
+          }
+        } else {
+          // Draw contracting volatility indicator
+          elements.push({
+            type: 'circle',
+            center: { x: volatilityX, y: volatilityY },
+            radius: volatilityRadius * 0.7,
+            color: 'rgba(33, 150, 243, 0.3)',
+            thickness: 2 * scale
+          });
+          
+          elements.push({
+            type: 'circle',
+            center: { x: volatilityX, y: volatilityY },
+            radius: volatilityRadius,
+            color: 'rgba(158, 158, 158, 0.3)',
+            thickness: 1 * scale,
+            dashArray: [5, 3]
+          });
+        }
+        
+        elements.push({
+          type: 'label',
+          position: { x: volatilityX, y: volatilityY - volatilityRadius - 20 },
+          text: pattern.type,
+          color: 'rgba(0, 0, 0, 0.8)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+        
+      // New patterns for market context
+      case 'Fase de Acumulação':
+        // Accumulation phase visualization
+        const accX = width * 0.5;
+        const accY = height * 0.6;
+        const accWidth = width * 0.7;
+        const accHeight = height * 0.3;
+        
+        // Draw accumulation range
+        elements.push({
+          type: 'line',
+          points: [
+            { x: width * 0.15, y: accY - accHeight * 0.3 },
+            { x: width * 0.85, y: accY - accHeight * 0.3 }
+          ],
+          color: 'rgba(244, 67, 54, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        elements.push({
+          type: 'line',
+          points: [
+            { x: width * 0.15, y: accY + accHeight * 0.3 },
+            { x: width * 0.85, y: accY + accHeight * 0.3 }
+          ],
+          color: 'rgba(76, 175, 80, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        // Draw price action in accumulation
+        const accPoints = [
+          { x: width * 0.15, y: accY },
+          { x: width * 0.25, y: accY - accHeight * 0.2 },
+          { x: width * 0.35, y: accY + accHeight * 0.25 },
+          { x: width * 0.45, y: accY - accHeight * 0.1 },
+          { x: width * 0.55, y: accY + accHeight * 0.28 },
+          { x: width * 0.65, y: accY - accHeight * 0.15 },
+          { x: width * 0.75, y: accY + accHeight * 0.2 },
+          { x: width * 0.85, y: accY - accHeight * 0.25 }
+        ];
+        
+        elements.push({
+          type: 'line',
+          points: accPoints,
+          color: 'rgba(33, 150, 243, 0.8)',
+          thickness: 2 * scale
+        });
+        
+        elements.push({
+          type: 'label',
+          position: { x: width * 0.5, y: accY - accHeight * 0.5 },
+          text: 'Fase de Acumulação',
+          color: 'rgba(76, 175, 80, 1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+        
+      case 'Fase de Distribuição':
+        // Distribution phase visualization
+        const distX = width * 0.5;
+        const distY = height * 0.4;
+        const distWidth = width * 0.7;
+        const distHeight = height * 0.3;
+        
+        // Draw distribution range
+        elements.push({
+          type: 'line',
+          points: [
+            { x: width * 0.15, y: distY - distHeight * 0.3 },
+            { x: width * 0.85, y: distY - distHeight * 0.3 }
+          ],
+          color: 'rgba(244, 67, 54, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        elements.push({
+          type: 'line',
+          points: [
+            { x: width * 0.15, y: distY + distHeight * 0.3 },
+            { x: width * 0.85, y: distY + distHeight * 0.3 }
+          ],
+          color: 'rgba(76, 175, 80, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        // Draw price action in distribution
+        const distPoints = [
+          { x: width * 0.15, y: distY },
+          { x: width * 0.25, y: distY - distHeight * 0.25 },
+          { x: width * 0.35, y: distY + distHeight * 0.2 },
+          { x: width * 0.45, y: distY - distHeight * 0.28 },
+          { x: width * 0.55, y: distY + distHeight * 0.1 },
+          { x: width * 0.65, y: distY - distHeight * 0.2 },
+          { x: width * 0.75, y: distY + distHeight * 0.15 },
+          { x: width * 0.85, y: distY + distHeight * 0.25 }
+        ];
+        
+        elements.push({
+          type: 'line',
+          points: distPoints,
+          color: 'rgba(33, 150, 243, 0.8)',
+          thickness: 2 * scale
+        });
+        
+        elements.push({
+          type: 'label',
+          position: { x: width * 0.5, y: distY - distHeight * 0.5 },
+          text: 'Fase de Distribuição',
+          color: 'rgba(244, 67, 54, 1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
+        });
+        break;
+        
+      case 'Tendência Estabelecida':
+        // Established trend visualization
+        const trendX = width * 0.1;
+        const trendY = height * 0.7;
+        const trendWidth = width * 0.8;
+        const trendHeight = height * 0.4;
+        
+        // Draw trend channel
+        const upperTrendPoints = [
+          { x: trendX, y: trendY - trendHeight * 0.5 },
+          { x: trendX + trendWidth, y: trendY - trendHeight * 0.9 }
+        ];
+        
+        const lowerTrendPoints = [
+          { x: trendX, y: trendY },
+          { x: trendX + trendWidth, y: trendY - trendHeight * 0.4 }
+        ];
+        
+        elements.push({
+          type: 'line',
+          points: upperTrendPoints,
+          color: 'rgba(244, 67, 54, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        elements.push({
+          type: 'line',
+          points: lowerTrendPoints,
+          color: 'rgba(76, 175, 80, 0.8)',
+          thickness: 2 * scale,
+          dashArray: [5, 3]
+        });
+        
+        // Draw price action in trend
+        const trendActionPoints = [
+          { x: trendX, y: trendY - trendHeight * 0.1 },
+          { x: trendX + trendWidth * 0.2, y: trendY - trendHeight * 0.25 },
+          { x: trendX + trendWidth * 0.3, y: trendY - trendHeight * 0.2 },
+          { x: trendX + trendWidth * 0.4, y: trendY - trendHeight * 0.4 },
+          { x: trendX + trendWidth * 0.5, y: trendY - trendHeight * 0.35 },
+          { x: trendX + trendWidth * 0.6, y: trendY - trendHeight * 0.55 },
+          { x: trendX + trendWidth * 0.7, y: trendY - trendHeight * 0.5 },
+          { x: trendX + trendWidth * 0.8, y: trendY - trendHeight * 0.7 }
+        ];
+        
+        elements.push({
+          type: 'line',
+          points: trendActionPoints,
+          color: 'rgba(33, 150, 243, 0.8)',
+          thickness: 2 * scale
+        });
+        
+        // Draw EMA lines
+        const ema9Points = trendActionPoints.map((p, i) => ({
+          x: p.x,
+          y: p.y + Math.sin(i) * 5 + 10
+        }));
+        
+        const ema21Points = trendActionPoints.map((p, i) => ({
+          x: p.x,
+          y: p.y + Math.sin(i) * 8 + 20
+        }));
+        
+        elements.push({
+          type: 'line',
+          points: ema9Points,
+          color: 'rgba(255, 152, 0, 0.8)',
+          thickness: 1.5 * scale
+        });
+        
+        elements.push({
+          type: 'line',
+          points: ema21Points,
+          color: 'rgba(156, 39, 176, 0.8)',
+          thickness: 1.5 * scale
+        });
+        
+        elements.push({
+          type: 'label',
+          position: { x: width * 0.5, y: height * 0.2 },
+          text: 'Tendência Estabelecida',
           color: 'rgba(33, 150, 243, 1)',
           backgroundColor: 'rgba(255, 255, 255, 0.7)'
         });

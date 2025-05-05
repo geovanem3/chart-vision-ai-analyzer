@@ -45,6 +45,33 @@ export type CandleData = {
   height: number;
 };
 
+// New type for volume analysis
+export type VolumeData = {
+  value: number;
+  trend: 'increasing' | 'decreasing' | 'neutral';
+  abnormal: boolean; // Indicates volume spikes
+  significance: 'high' | 'medium' | 'low';
+  relativeToAverage: number; // Ratio compared to average
+};
+
+// New type for volatility analysis
+export type VolatilityData = {
+  value: number; // Current volatility
+  trend: 'increasing' | 'decreasing' | 'neutral';
+  atr?: number; // Average True Range
+  percentageRange?: number; // Range as percentage of price
+  isHigh: boolean;
+};
+
+// New type for market context
+export type MarketContext = {
+  phase: 'acumulação' | 'tendência' | 'distribuição' | 'indefinida';
+  strength: 'forte' | 'moderada' | 'fraca';
+  dominantTimeframe: TimeframeType;
+  sentiment: 'otimista' | 'pessimista' | 'neutro';
+  description: string;
+};
+
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
@@ -54,6 +81,9 @@ export type AnalysisResult = {
   manualRegion?: boolean;
   scalpingSignals?: ScalpingSignal[]; // Added for scalping signals
   technicalIndicators?: TechnicalIndicator[]; // Added for technical indicators
+  volumeData?: VolumeData; // New for volume analysis
+  volatilityData?: VolatilityData; // New for volatility analysis
+  marketContext?: MarketContext; // New for market context understanding
 };
 
 // New type for technical indicators for enhanced M1 strategy
@@ -74,6 +104,9 @@ export type ScalpingSignal = {
   description: string;
   target?: string;
   stopLoss?: string;
+  volumeConfirmation?: boolean; // New property for volume confirmation
+  volatilityCondition?: string; // New property for volatility condition
+  marketPhaseAlignment?: boolean; // New property for market phase alignment
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -134,8 +167,14 @@ type AnalyzerContextType = {
   setTimeframe: (timeframe: TimeframeType) => void;
   optimizeForScalping: boolean;
   setOptimizeForScalping: (optimize: boolean) => void;
-  scalpingStrategy: ScalpingStrategy; // Added for enhanced M1 strategy
-  setScalpingStrategy: (strategy: ScalpingStrategy) => void; // Added for enhanced M1 strategy
+  scalpingStrategy: ScalpingStrategy; 
+  setScalpingStrategy: (strategy: ScalpingStrategy) => void;
+  considerVolume: boolean; // New property for volume analysis
+  setConsiderVolume: (consider: boolean) => void; // New setter
+  considerVolatility: boolean; // New property for volatility analysis
+  setConsiderVolatility: (consider: boolean) => void; // New setter
+  marketContextEnabled: boolean; // New property for market context understanding
+  setMarketContextEnabled: (enabled: boolean) => void; // New setter
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -155,6 +194,9 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
   const [optimizeForScalping, setOptimizeForScalping] = useState(false);
   const [scalpingStrategy, setScalpingStrategy] = useState<ScalpingStrategy>('momentum');
+  const [considerVolume, setConsiderVolume] = useState(true); // New state for volume analysis
+  const [considerVolatility, setConsiderVolatility] = useState(true); // New state for volatility analysis
+  const [marketContextEnabled, setMarketContextEnabled] = useState(true); // New state for market context
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -209,6 +251,12 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setOptimizeForScalping,
         scalpingStrategy,
         setScalpingStrategy,
+        considerVolume,
+        setConsiderVolume,
+        considerVolatility,
+        setConsiderVolatility,
+        marketContextEnabled,
+        setMarketContextEnabled,
       }}
     >
       {children}
