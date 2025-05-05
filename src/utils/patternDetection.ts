@@ -774,11 +774,14 @@ export const detectCandles = async (
 };
 
 // Adding the missing function for detecting false signals
-export const detectFalseSignals = (patterns: PatternResult[]): PatternResult[] => {
+export const detectFalseSignals = (patterns: PatternResult[]): { patterns: PatternResult[], warnings: string[] } => {
   // Function to identify potentially false signals in the detected patterns
-  return patterns.map(pattern => {
+  const warnings: string[] = [];
+  
+  const updatedPatterns = patterns.map(pattern => {
     // Check for low confidence patterns
     if (pattern.confidence < 0.6) {
+      warnings.push(`Alerta: O padrão "${pattern.type}" tem baixa confiança (${Math.round(pattern.confidence * 100)}%) e pode ser um falso positivo.`);
       return {
         ...pattern,
         description: `${pattern.description} [POSSÍVEL FALSO SINAL]`,
@@ -797,6 +800,7 @@ export const detectFalseSignals = (patterns: PatternResult[]): PatternResult[] =
       p.confidence > 0.7);
     
     if (isContradicting) {
+      warnings.push(`Alerta: O padrão "${pattern.type}" contradiz outros sinais de alta confiança. Recomenda-se cautela.`);
       return {
         ...pattern,
         description: `${pattern.description} [SINAL CONTRADITÓRIO]`,
@@ -808,4 +812,6 @@ export const detectFalseSignals = (patterns: PatternResult[]): PatternResult[] =
     
     return pattern;
   });
+  
+  return { patterns: updatedPatterns, warnings };
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -126,8 +125,8 @@ const AnalysisResults = () => {
 
   useEffect(() => {
     if (analysisResults?.patterns) {
-      const { warnings } = detectFalseSignals(analysisResults.patterns);
-      setFalseSignalWarnings(warnings);
+      const result = detectFalseSignals(analysisResults.patterns);
+      setFalseSignalWarnings(result.warnings);
       
       const filtered = analysisResults.patterns.filter(
         pattern => pattern.confidence >= confidenceThreshold
@@ -193,8 +192,7 @@ const AnalysisResults = () => {
       const elements = generateTechnicalMarkup(
         analysisResults.patterns, 
         imageSize.width, 
-        imageSize.height, 
-        value[0]
+        imageSize.height
       );
       
       setAnalysisResults({
@@ -243,8 +241,7 @@ const AnalysisResults = () => {
       const elements = generateTechnicalMarkup(
         analysisResults.patterns, 
         imageSize.width, 
-        imageSize.height, 
-        1
+        imageSize.height
       );
       
       setAnalysisResults({
