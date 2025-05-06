@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -7,7 +6,7 @@ import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
   ImageOff, Zap, TrendingUp, CandlestickChart, BarChartHorizontal,
-  Volume, Activity, Clock, ArrowDown, ArrowUp
+  Volume, Activity, Clock, ArrowDown, ArrowUp, Check
 } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -26,10 +25,10 @@ const GraphAnalyzerWithMarkupToolbar = () => {
       {capturedImage && !analysisResults && (
         <Alert className="my-3" variant="warning">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Qualidade da imagem importante</AlertTitle>
+          <AlertTitle>Certifique-se que a imagem esteja clara</AlertTitle>
           <AlertDescription className="text-sm">
-            Para uma análise precisa, use imagens nítidas de gráficos com boa resolução. 
-            {!isMobile && " Se a análise automática falhar, utilize as ferramentas de marcação manual para ajustar as áreas críticas do gráfico."}
+            Imagem nítida = análise precisa.
+            {!isMobile && " Use as ferramentas de marcação se necessário."}
           </AlertDescription>
         </Alert>
       )}
@@ -37,10 +36,9 @@ const GraphAnalyzerWithMarkupToolbar = () => {
       {timeframe === '1m' && capturedImage && (
         <Alert className="my-3" variant="default">
           <Zap className="h-4 w-4 text-amber-500" />
-          <AlertTitle>Modo Scalping Avançado</AlertTitle>
+          <AlertTitle>Modo Scalping Ativado</AlertTitle>
           <AlertDescription className="text-sm">
-            Análise técnica completa para M1: EMA9/EMA21, RSI, suportes/resistências, volume e volatilidade.
-            Entradas precisas com minuto exato e tipo (reversão, pullback, teste de níveis) para maximizar resultados.
+            Análise M1 com timing exato para entradas precisas.
           </AlertDescription>
         </Alert>
       )}
@@ -49,16 +47,16 @@ const GraphAnalyzerWithMarkupToolbar = () => {
         <Alert className="my-3" variant="default">
           <Clock className="h-4 w-4 text-green-500" />
           <AlertTitle className="flex items-center gap-1">
-            Timing Exato de Entrada 
+            <Check className="h-4 w-4 text-green-500" /> Confirmado:
             {analysisResults.patterns.some(p => p.action === 'compra' && p.confidence > 0.6) ? 
               <ArrowUp className="h-4 w-4 text-green-500" /> : 
               <ArrowDown className="h-4 w-4 text-red-500" />}
           </AlertTitle>
           <AlertDescription className="text-sm">
-            <div className="font-semibold">Horário: {analysisResults.preciseEntryAnalysis.exactMinute}</div>
+            <div className="font-semibold">Entrar: {analysisResults.preciseEntryAnalysis.exactMinute}</div>
             <div>Tipo: {analysisResults.preciseEntryAnalysis.entryType.replace('_', ' de ')}</div>
             <div>Próxima vela: {analysisResults.preciseEntryAnalysis.nextCandleExpectation}</div>
-            <div className="mt-1 text-xs bg-black/10 p-1 rounded">
+            <div className="mt-1 text-xs bg-black/10 p-1 rounded font-semibold">
               {analysisResults.preciseEntryAnalysis.entryInstructions}
             </div>
           </AlertDescription>
