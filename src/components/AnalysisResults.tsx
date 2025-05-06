@@ -9,6 +9,7 @@ import {
   detectFalseSignals,
   generateScalpingSignals
 } from '@/utils/patternDetection';
+import { identifyEntryExitPoints } from '@/utils/imagePreProcessing';
 import { 
   Info, 
   ArrowUp, 
@@ -79,6 +80,13 @@ const AnalysisResults = () => {
   const [patternListExpanded, setPatternListExpanded] = useState(false);
   const [scalpingSignals, setScalpingSignals] = useState<ScalpingSignal[]>([]);
   const [showScalpingPanel, setShowScalpingPanel] = useState(true);
+  const [scenarioAnalysisExpanded, setScenarioAnalysisExpanded] = useState(false);
+  const [entryExitScenarios, setEntryExitScenarios] = useState<{
+    bestEntries: Array<{price: string, confidence: number, scenario: string}>;
+    worstEntries: Array<{price: string, confidence: number, scenario: string}>;
+    bestExits: Array<{price: string, confidence: number, scenario: string}>;
+    worstExits: Array<{price: string, confidence: number, scenario: string}>;
+  } | null>(null);
 
   // Process scalping signals when analysis results or timeframe changes
   useEffect(() => {
@@ -99,6 +107,7 @@ const AnalysisResults = () => {
         toast({
           title: "Sinais de Scalping Detectados",
           description: `${signals.length} sinais encontrados para operações de curto prazo`,
+          variant: "success"
         });
       }
     } else {
@@ -106,6 +115,24 @@ const AnalysisResults = () => {
       setOptimizeForScalping(false);
     }
   }, [analysisResults?.patterns, timeframe, setAnalysisResults, setOptimizeForScalping]);
+
+  // Generate entry/exit scenario analysis
+  useEffect(() => {
+    if (analysisResults?.patterns) {
+      const scenarios = identifyEntryExitPoints(
+        analysisResults.patterns,
+        analysisResults.candles || []
+      );
+      
+      setEntryExitScenarios(scenarios);
+      
+      toast({
+        title: "Análise Profissional Completa",
+        description: "Cenários de entrada e saída identificados com análise detalhada",
+        variant: "success"
+      });
+    }
+  }, [analysisResults?.patterns]);
 
   useEffect(() => {
     if (analysisResults && imageRef.current && imageRef.current.complete && !analysisResults.technicalElements) {
@@ -154,6 +181,7 @@ const AnalysisResults = () => {
         toast({
           title: "Modo Scalping Ativado",
           description: "Análise otimizada para operações de curto prazo em 1 minuto",
+          variant: "success"
         });
       }
     }
@@ -207,6 +235,7 @@ const AnalysisResults = () => {
     toast({
       title: "Filtro atualizado",
       description: `Mostrando padrões com confiança ≥ ${Math.round(value[0] * 100)}%`,
+      variant: "default"
     });
   };
 
@@ -257,7 +286,8 @@ const AnalysisResults = () => {
     if (!optimizeForScalping) {
       toast({
         title: "Modo Scalping Ativado",
-        description: "Análise otimizada para operações de curto prazo"
+        description: "Análise otimizada para operações de curto prazo",
+        variant: "success"
       });
     }
   };
@@ -722,6 +752,110 @@ const AnalysisResults = () => {
                 </Collapsible>
               )}
             </div>
+          )}
+          
+          {/* New Professional Analysis of Entry/Exit Scenarios Section */}
+          {entryExitScenarios && (
+            <Collapsible
+              open={scenarioAnalysisExpanded}
+              onOpenChange={setScenarioAnalysisExpanded}
+              className="w-full mb-4"
+            >
+              <CollapsibleTrigger asChild>
+                <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-blue-500" />
+                    <h4 className="font-medium">Análise Profissional de Cenários</h4>
+                  </div>
+                  {scenarioAnalysisExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Best-case Entry Scenarios */}
+                  <div className="p-3 rounded-lg border border-green-500/20 bg-green-500/5">
+                    <h4 className="font-semibold text-green-600 mb-2">Melhores Cenários de Entrada</h4>
+                    <div className="space-y-3">
+                      {entryExitScenarios.bestEntries.slice(0, 3).map((entry, idx) => (
+                        <div key={idx} className="border-b border-green-200 pb-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">{entry.price}</span>
+                            <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-300">
+                              {Math.round(entry.confidence * 100)}% confiança
+                            </Badge>
+                          </div>
+                          <p className="text-xs mt-1 text-muted-foreground">{entry.scenario}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Worst-case Entry Scenarios */}
+                  <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
+                    <h4 className="font-semibold text-red-600 mb-2">Piores Cenários de Entrada</h4>
+                    <div className="space-y-3">
+                      {entryExitScenarios.worstEntries.slice(0, 3).map((entry, idx) => (
+                        <div key={idx} className="border-b border-red-200 pb-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">{entry.price}</span>
+                            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300">
+                              {Math.round(entry.confidence * 100)}% risco
+                            </Badge>
+                          </div>
+                          <p className="text-xs mt-1 text-muted-foreground">{entry.scenario}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Best-case Exit Scenarios */}
+                  <div className="p-3 rounded-lg border border-green-500/20 bg-green-500/5">
+                    <h4 className="font-semibold text-green-600 mb-2">Melhores Cenários de Saída</h4>
+                    <div className="space-y-3">
+                      {entryExitScenarios.bestExits.slice(0, 3).map((exit, idx) => (
+                        <div key={idx} className="border-b border-green-200 pb-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">{exit.price}</span>
+                            <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-300">
+                              {Math.round(exit.confidence * 100)}% confiança
+                            </Badge>
+                          </div>
+                          <p className="text-xs mt-1 text-muted-foreground">{exit.scenario}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Worst-case Exit Scenarios */}
+                  <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
+                    <h4 className="font-semibold text-red-600 mb-2">Piores Cenários de Saída</h4>
+                    <div className="space-y-3">
+                      {entryExitScenarios.worstExits.slice(0, 3).map((exit, idx) => (
+                        <div key={idx} className="border-b border-red-200 pb-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">{exit.price}</span>
+                            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300">
+                              {Math.round(exit.confidence * 100)}% risco
+                            </Badge>
+                          </div>
+                          <p className="text-xs mt-1 text-muted-foreground">{exit.scenario}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <Alert className="mt-4 border-blue-300 bg-blue-50">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-800">Análise Profissional</AlertTitle>
+                  <AlertDescription className="text-sm text-blue-700">
+                    Esta análise de cenários considera fatores avançados como volatilidade de mercado, 
+                    padrões de volume, e contexto de mercado. Sempre utilize stops apropriados e siga 
+                    seu plano de gerenciamento de risco.
+                  </AlertDescription>
+                </Alert>
+              </CollapsibleContent>
+            </Collapsible>
           )}
           
           <div className={`gradient-border p-3`}>

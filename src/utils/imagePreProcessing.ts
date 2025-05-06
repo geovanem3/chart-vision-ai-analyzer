@@ -51,6 +51,9 @@ export const enhanceImageForAnalysis = async (imageUrl: string): Promise<string>
           // Apply adaptive thresholding for better line detection
           applyAdaptiveThreshold(ctx, canvas);
           
+          // Apply pattern-specific enhancements for better entry/exit point detection
+          enhanceEntryExitPoints(ctx, canvas);
+          
           // Return enhanced image
           resolve(canvas.toDataURL('image/jpeg', 0.95));
         } catch (e) {
@@ -168,6 +171,93 @@ const applyAdaptiveThreshold = (ctx: CanvasRenderingContext2D, canvas: HTMLCanva
   ctx.putImageData(imageData, 0, 0);
 };
 
+// New function to enhance entry and exit points specifically
+const enhanceEntryExitPoints = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void => {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  // Detect horizontal support/resistance lines (potential entry/exit points)
+  const horizontalLines = detectHorizontalLines(data, canvas.width, canvas.height);
+  
+  // Enhance these areas in the image
+  for (const line of horizontalLines) {
+    const y = line.y;
+    const importance = line.importance;
+    
+    // Draw subtle highlight on these lines
+    for (let x = 0; x < canvas.width; x++) {
+      const pixelIndex = (y * canvas.width + x) * 4;
+      
+      // Make potential entry/exit points more visible with a subtle enhancement
+      // The stronger the line (higher importance), the more we enhance it
+      const enhanceFactor = 1 + (importance * 0.3);
+      
+      if (line.type === 'support') {
+        // Enhance support lines slightly toward green
+        data[pixelIndex + 1] = Math.min(255, data[pixelIndex + 1] * enhanceFactor);
+      } else {
+        // Enhance resistance lines slightly toward red
+        data[pixelIndex] = Math.min(255, data[pixelIndex] * enhanceFactor);
+      }
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+};
+
+// Detect horizontal support and resistance lines
+const detectHorizontalLines = (data: Uint8ClampedArray, width: number, height: number): Array<{y: number, type: 'support' | 'resistance', importance: number}> => {
+  const horizontalLines: Array<{y: number, type: 'support' | 'resistance', importance: number}> = [];
+  const threshold = 30; // Threshold for line detection
+  const minLineLength = width * 0.2; // Minimum line length (20% of width)
+  
+  // Scan each row for potential horizontal lines
+  for (let y = 5; y < height - 5; y++) {
+    let linePixels = 0;
+    let darkPixels = 0;
+    let brightPixels = 0;
+    
+    // Check if this row has potential to be a support/resistance line
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      const aboveIndex = ((y - 3) * width + x) * 4;
+      const belowIndex = ((y + 3) * width + x) * 4;
+      
+      // Get luminance of current pixel and pixels above/below
+      const luminance = 0.299 * data[pixelIndex] + 0.587 * data[pixelIndex + 1] + 0.114 * data[pixelIndex + 2];
+      const aboveLuminance = 0.299 * data[aboveIndex] + 0.587 * data[aboveIndex + 1] + 0.114 * data[aboveIndex + 2];
+      const belowLuminance = 0.299 * data[belowIndex] + 0.587 * data[belowIndex + 1] + 0.114 * data[belowIndex + 2];
+      
+      // If there's significant difference above vs. below, it might be a line
+      if (Math.abs(aboveLuminance - belowLuminance) > threshold) {
+        linePixels++;
+        
+        // Check if it's likely a support (darker above, brighter below)
+        if (aboveLuminance < belowLuminance) {
+          darkPixels++;
+        } 
+        // Check if it's likely a resistance (brighter above, darker below)
+        else if (aboveLuminance > belowLuminance) {
+          brightPixels++;
+        }
+      }
+    }
+    
+    // If we found enough line pixels, classify as support or resistance
+    if (linePixels > minLineLength) {
+      const importance = linePixels / width; // How significant this line is (0-1)
+      
+      if (darkPixels > brightPixels) {
+        horizontalLines.push({y, type: 'support', importance});
+      } else {
+        horizontalLines.push({y, type: 'resistance', importance});
+      }
+    }
+  }
+  
+  return horizontalLines;
+};
+
 // Detect if the image is clear enough for analysis
 export const isImageClearForAnalysis = (imageUrl: string): Promise<{
   isClear: boolean;
@@ -226,13 +316,17 @@ export const isImageClearForAnalysis = (imageUrl: string): Promise<{
           const blurLevel = estimateBlurLevel(data, canvas.width, canvas.height);
           const isNotBlurry = blurLevel < 20;
           
+          // Check for readable price levels (horizontal lines)
+          const hasReadablePriceLevels = detectHorizontalLines(data, canvas.width, canvas.height).length > 2;
+          
           // Calculate overall confidence
           let confidence = 0.5; // Base confidence
           
-          if (hasGoodResolution) confidence += 0.2;
+          if (hasGoodResolution) confidence += 0.15;
           if (hasGoodContrast) confidence += 0.15;
           if (hasLowNoise) confidence += 0.1;
           if (isNotBlurry) confidence += 0.05;
+          if (hasReadablePriceLevels) confidence += 0.15;
           
           // Compile issues
           const issues = [];
@@ -241,6 +335,7 @@ export const isImageClearForAnalysis = (imageUrl: string): Promise<{
           if (!hasGoodContrast) issues.push('Contraste insuficiente');
           if (!hasLowNoise) issues.push('Imagem com ruído');
           if (!isNotBlurry) issues.push('Imagem desfocada');
+          if (!hasReadablePriceLevels) issues.push('Níveis de preço não identificáveis');
           
           resolve({
             isClear: confidence > 0.7,
@@ -346,4 +441,105 @@ const estimateBlurLevel = (data: Uint8ClampedArray, width: number, height: numbe
   
   // Invert so higher value = more blur
   return 30 - Math.min(30, avgEdgeStrength);
+};
+
+// New function to identify potential entry/exit points
+export const identifyEntryExitPoints = (
+  patterns: any[],
+  candles: any[] = []
+): {
+  bestEntries: Array<{price: string, confidence: number, scenario: string}>;
+  worstEntries: Array<{price: string, confidence: number, scenario: string}>;
+  bestExits: Array<{price: string, confidence: number, scenario: string}>;
+  worstExits: Array<{price: string, confidence: number, scenario: string}>;
+} => {
+  const result = {
+    bestEntries: [],
+    worstEntries: [],
+    bestExits: [],
+    worstExits: []
+  };
+  
+  // Process dominant patterns first
+  const sortedPatterns = [...patterns].sort((a, b) => b.confidence - a.confidence);
+  
+  for (const pattern of sortedPatterns) {
+    // Best entry scenarios
+    if (pattern.action === 'compra') {
+      // Best case: confirmed support with strong volume
+      result.bestEntries.push({
+        price: pattern.entryPrice || "Na região de suporte confirmado",
+        confidence: pattern.confidence * 1.1, // Slightly boosted confidence for best case
+        scenario: "Confirmação de suporte com volume elevado e divergência positiva de RSI"
+      });
+      
+      // Worst case: false breakout
+      result.worstEntries.push({
+        price: pattern.entryPrice || "Na região de suporte aparente",
+        confidence: pattern.confidence * 0.7, // Reduced confidence for worst case
+        scenario: "Falso rompimento com queda abrupta após entrada"
+      });
+    } else if (pattern.action === 'venda') {
+      // Best case: confirmed resistance with decreasing volume
+      result.bestEntries.push({
+        price: pattern.entryPrice || "Na região de resistência confirmada",
+        confidence: pattern.confidence * 1.1,
+        scenario: "Confirmação de resistência com volume decrescente e divergência negativa de RSI"
+      });
+      
+      // Worst case: false breakdown
+      result.worstEntries.push({
+        price: pattern.entryPrice || "Na região de resistência aparente",
+        confidence: pattern.confidence * 0.7,
+        scenario: "Falso rompimento com alta abrupta após entrada"
+      });
+    }
+    
+    // Best and worst exit scenarios
+    if (pattern.takeProfit) {
+      result.bestExits.push({
+        price: pattern.takeProfit,
+        confidence: pattern.confidence * 1.1,
+        scenario: pattern.action === 'compra' 
+          ? "Saída na resistência com volume crescente" 
+          : "Saída no suporte com volume crescente"
+      });
+    }
+    
+    if (pattern.stopLoss) {
+      result.worstExits.push({
+        price: pattern.stopLoss,
+        confidence: pattern.confidence * 0.9,
+        scenario: "Stop atingido em movimento rápido contra a tendência"
+      });
+    }
+  }
+  
+  // Add realistic worst-case scenarios
+  result.worstEntries.push({
+    price: "Qualquer nível",
+    confidence: 0.6,
+    scenario: "Notícia inesperada mudando a tendência imediatamente após a entrada"
+  });
+  
+  result.worstExits.push({
+    price: "Qualquer nível",
+    confidence: 0.6,
+    scenario: "Gap contra a posição na abertura do próximo período"
+  });
+  
+  // Add realistic best-case scenarios
+  result.bestEntries.push({
+    price: "Em retração de Fibonacci",
+    confidence: 0.85,
+    scenario: "Entrada perfeita no nível de Fibonacci 61.8% com reversão imediata na direção esperada"
+  });
+  
+  result.bestExits.push({
+    price: "Alvo estendido",
+    confidence: 0.85,
+    scenario: "Movimento forte ultrapassando o alvo original com aumento de volume"
+  });
+  
+  return result;
 };
