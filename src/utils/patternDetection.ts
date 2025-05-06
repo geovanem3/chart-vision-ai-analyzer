@@ -44,15 +44,15 @@ export const analyzeResults = (patterns: PatternResult[], timeframe: string = '1
   // Enhanced recommendations for scalping in 1m timeframe with volume and volatility context
   if (timeframe === '1m') {
     if (bullishWeight > 0.5) {
-      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Entre apenas com confirmação de volume crescente e volatilidade adequada (nem muito alta nem muito baixa). Aguarde o fechamento do candle acima da EMA9 e confirmação de fluxo de ordens positivo. Use stop de 0.5% ou abaixo do último suporte, com alvos de 2-3% ou na próxima resistência importante. A fase atual do mercado deve estar alinhada com a direção da entrada.`;
+      return `Oportunidade de scalping de COMPRA no ${timeframeText}: Entre apenas com confirmação de volume crescente e volatilidade adequada (nem muito alta nem muito baixa). Aguarde o fechamento do candle acima da EMA9 e confirmação de fluxo de ordens positivo. Use stop de 0.5% ou abaixo do último suporte, com alvos de 2-3% ou na próxima resistência importante. A fase atual do mercado deve estar alinhada com a direção da entrada. IMPORTANTE: Não entre se o RSI estiver acima de 70 ou se o último candle tiver sombra superior longa.`;
     } else if (bearishWeight > 0.5) {
-      return `Oportunidade de scalping de VENDA no ${timeframeText}: Entre apenas com confirmação de volume crescente e volatilidade adequada (nem muito alta nem muito baixa). Aguarde o fechamento do candle abaixo da EMA9 e confirmação de fluxo de ordens negativo. Use stop de 0.5% ou acima da última resistência, com alvos de 2-3% ou no próximo suporte importante. A fase atual do mercado deve estar alinhada com a direção da entrada.`;
+      return `Oportunidade de scalping de VENDA no ${timeframeText}: Entre apenas com confirmação de volume crescente e volatilidade adequada (nem muito alta nem muito baixa). Aguarde o fechamento do candle abaixo da EMA9 e confirmação de fluxo de ordens negativo. Use stop de 0.5% ou acima da última resistência, com alvos de 2-3% ou no próximo suporte importante. A fase atual do mercado deve estar alinhada com a direção da entrada. IMPORTANTE: Não entre se o RSI estiver abaixo de 30 ou se o último candle tiver sombra inferior longa.`;
     } else if (bullishWeight > bearishWeight && bullishWeight > 0.3) {
-      return `Viés de alta com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por cima da EMA21 com volume crescente e volatilidade controlada. Confirme com RSI acima de 50, teste de suporte anterior e alinhamento com a fase atual do mercado. Considere entradas apenas com confirmação do timeframe superior (5m).`;
+      return `Viés de alta com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por cima da EMA21 com volume crescente e volatilidade controlada. Confirme com RSI acima de 50, teste de suporte anterior e alinhamento com a fase atual do mercado. Considere entradas apenas com confirmação do timeframe superior (5m). Não fique em posição por mais de 3 candles se não houver movimento claro.`;
     } else if (bearishWeight > bullishWeight && bearishWeight > 0.3) {
-      return `Viés de baixa com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por baixo da EMA21 com volume crescente e volatilidade controlada. Confirme com RSI abaixo de 50, teste de resistência anterior e alinhamento com a fase atual do mercado. Considere entradas apenas com confirmação do timeframe superior (5m).`;
+      return `Viés de baixa com potencial de entrada no ${timeframeText}: Aguarde cruzamento da EMA9 por baixo da EMA21 com volume crescente e volatilidade controlada. Confirme com RSI abaixo de 50, teste de resistência anterior e alinhamento com a fase atual do mercado. Considere entradas apenas com confirmação do timeframe superior (5m). Não fique em posição por mais de 3 candles se não houver movimento claro.`;
     } else {
-      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping. Monitore o volume, volatilidade e formação de um padrão direcional com confirmação de duas médias móveis (EMA9 e EMA21). Aguarde a definição da fase de mercado e uma divergência clara de RSI ou movimento significativo no fluxo de ordens para considerar uma entrada.`;
+      return `Mercado sem direção clara no ${timeframeText}: Evite entradas de scalping. Monitore o volume, volatilidade e formação de um padrão direcional com confirmação de duas médias móveis (EMA9 e EMA21). Aguarde a definição da fase de mercado e uma divergência clara de RSI ou movimento significativo no fluxo de ordens para considerar uma entrada. No mercado lateral, apenas opere falhas de rompimento ou reversões nas extremidades do range.`;
     }
   }
   
@@ -232,101 +232,143 @@ export const generatePreciseEntryAnalysis = (
     entryType = 'breakout';
   }
   
-  // Generate precise minute entry time (simulated)
-  // In a real system, this would analyze candle timing patterns
+  // Generate precise minute entry time with more intelligent logic
+  // In a real system, this would analyze candle timing patterns and market microstructure
   const now = new Date();
-  const minutes = now.getMinutes();
-  const nextMinute = (minutes + 1) % 60;
+  let minutes = now.getMinutes();
+  let nextMinute = minutes;
+  
+  // More intelligent entry timing based on pattern type and market context
+  if (entryType === 'reversão') {
+    // For reversals, we want to wait a bit longer for confirmation
+    nextMinute = (minutes + 2) % 60;
+  } else if (entryType === 'breakout') {
+    // For breakouts, we want to enter quickly after confirmation
+    nextMinute = (minutes + 1) % 60;
+  } else if (candlePatterns.length > 0 && candlePatterns[0].confidence > 0.8) {
+    // For strong candle patterns, enter at specific timing
+    nextMinute = (minutes + 1) % 60;
+  } else if (volumeData && volumeData.trend === 'increasing' && volumeData.abnormal) {
+    // For abnormal volume, enter quickly
+    nextMinute = (minutes + 1) % 60;
+  } else {
+    // Default wait time
+    nextMinute = (minutes + 2) % 60;
+  }
+  
+  // Check if entry should be avoided due to market conditions
+  let shouldAvoidEntry = false;
+  let avoidanceReason = '';
+  
+  if (volatilityData && volatilityData.isHigh && volatilityData.value > 1.5) {
+    shouldAvoidEntry = true;
+    avoidanceReason = 'Volatilidade extremamente alta. Risco de movimentos erráticos e falsos sinais.';
+  }
+  
+  if (marketContext && marketContext.phase === 'indefinida') {
+    shouldAvoidEntry = true;
+    avoidanceReason = 'Fase de mercado indefinida. Aguarde clareza na direção do mercado.';
+  }
+  
+  if (marketContext && 
+      ((isBullish && marketContext.phase === 'tendência_baixa' && marketContext.strength === 'forte') || 
+       (!isBullish && marketContext.phase === 'tendência_alta' && marketContext.strength === 'forte'))) {
+    shouldAvoidEntry = true;
+    avoidanceReason = 'Sinal contrário à tendência principal forte. Alto risco de falha.';
+  }
+  
   const entryMinute = nextMinute < 10 ? `0${nextMinute}` : `${nextMinute}`;
-  const entryHour = nextMinute === 0 ? (now.getHours() + 1) % 24 : now.getHours();
+  const entryHour = nextMinute < minutes ? (now.getHours() + 1) % 24 : now.getHours();
   const formattedHour = entryHour < 10 ? `0${entryHour}` : `${entryHour}`;
   const exactMinute = `${formattedHour}:${entryMinute}`;
   
-  // Generate entry expectations based on pattern types
+  // Generate entry expectations based on pattern types with improved trade management
   let nextCandleExpectation = '';
   let priceAction = '';
   let confirmationSignal = '';
   let riskRewardRatio = 2.5; // Default
-  let entryInstructions = '';
+  let entryInstructions = shouldAvoidEntry ? `RECOMENDAÇÃO: EVITAR ENTRADA. ${avoidanceReason}` : '';
   
-  if (entryType === 'reversão') {
-    nextCandleExpectation = isBullish
-      ? 'Próxima vela deve fechar acima do nível atual com alta de pelo menos 50% da amplitude da vela atual'
-      : 'Próxima vela deve fechar abaixo do nível atual com queda de pelo menos 50% da amplitude da vela atual';
-    
-    priceAction = isBullish
-      ? 'Espere um rompimento acima da máxima da vela de reversão'
-      : 'Espere um rompimento abaixo da mínima da vela de reversão';
-    
-    confirmationSignal = 'Confirmação por aumento de volume e fechamento forte da vela';
-    riskRewardRatio = 3.0;
-    
-    entryInstructions = isBullish
-      ? 'Entre após o fechamento da vela de confirmação acima da máxima da vela de reversão com stop loss abaixo da mínima da vela de reversão'
-      : 'Entre após o fechamento da vela de confirmação abaixo da mínima da vela de reversão com stop loss acima da máxima da vela de reversão';
-  } 
-  else if (entryType === 'teste_suporte') {
-    nextCandleExpectation = 'Próxima vela deve mostrar rejeição do nível de suporte com sombra inferior longa e fechamento na metade superior';
-    priceAction = 'Espere formação de cauda inferior (sombra) longa indicando rejeição do nível';
-    confirmationSignal = 'Aumento de volume na rejeição e RSI saindo da zona de sobrevenda';
-    riskRewardRatio = 2.8;
-    entryInstructions = 'Entre após o fechamento da vela de rejeição do suporte com stop loss 5-10 pips abaixo do nível de suporte';
-  } 
-  else if (entryType === 'teste_resistência') {
-    nextCandleExpectation = 'Próxima vela deve mostrar rejeição do nível de resistência com sombra superior longa e fechamento na metade inferior';
-    priceAction = 'Espere formação de cauda superior (sombra) longa indicando rejeição do nível';
-    confirmationSignal = 'Aumento de volume na rejeição e RSI saindo da zona de sobrecompra';
-    riskRewardRatio = 2.8;
-    entryInstructions = 'Entre após o fechamento da vela de rejeição da resistência com stop loss 5-10 pips acima do nível de resistência';
-  } 
-  else if (entryType === 'pullback') {
-    nextCandleExpectation = isBullish
-      ? 'Próxima vela deve mostrar retomada da tendência de alta após recuo para a média móvel'
-      : 'Próxima vela deve mostrar retomada da tendência de baixa após recuo para a média móvel';
-    
-    priceAction = isBullish
-      ? 'Espere fechamento acima da EMA9 com corpo de vela sólido'
-      : 'Espere fechamento abaixo da EMA9 com corpo de vela sólido';
-    
-    confirmationSignal = 'Aumento de volume no momento do rompimento da média móvel';
-    riskRewardRatio = 2.5;
-    
-    entryInstructions = isBullish
-      ? 'Entre no rompimento da máxima da vela anterior com stop loss abaixo da EMA9 ou do mínimo recente'
-      : 'Entre no rompimento da mínima da vela anterior com stop loss acima da EMA9 ou do máximo recente';
-  } 
-  else if (entryType === 'retração') {
-    nextCandleExpectation = isBullish
-      ? 'Próxima vela deve formar-se acima do nível de Fibonacci de retração (geralmente 61.8% ou 50%)'
-      : 'Próxima vela deve formar-se abaixo do nível de Fibonacci de retração (geralmente 61.8% ou 50%)';
-    
-    priceAction = 'Espere vela de indecisão (doji) seguida de vela de confirmação na direção da tendência';
-    confirmationSignal = 'Volume diminui durante a retração e aumenta na retomada da direção principal';
-    riskRewardRatio = 2.0;
-    
-    entryInstructions = isBullish
-      ? 'Entre após o fechamento da vela de confirmação acima da máxima da vela de indecisão com stop loss abaixo do nível de Fibonacci'
-      : 'Entre após o fechamento da vela de confirmação abaixo da mínima da vela de indecisão com stop loss acima do nível de Fibonacci';
-  } 
-  else { // breakout
-    nextCandleExpectation = isBullish
-      ? 'Próxima vela deve continuar o movimento ascendente após o rompimento da resistência'
-      : 'Próxima vela deve continuar o movimento descendente após o rompimento do suporte';
-    
-    priceAction = isBullish
-      ? 'Espere vela de continuação após o rompimento sem fechamento abaixo do nível rompido'
-      : 'Espere vela de continuação após o rompimento sem fechamento acima do nível rompido';
-    
-    confirmationSignal = 'Alto volume no rompimento e ausência de retorno abaixo/acima do nível quebrado';
-    riskRewardRatio = 2.2;
-    
-    entryInstructions = isBullish
-      ? 'Entre no fechamento da vela de rompimento acima da resistência com stop loss abaixo do nível rompido'
-      : 'Entre no fechamento da vela de rompimento abaixo do suporte com stop loss acima do nível rompido';
+  if (!shouldAvoidEntry) {
+    if (entryType === 'reversão') {
+      nextCandleExpectation = isBullish
+        ? 'Próxima vela deve fechar acima do nível atual com alta de pelo menos 50% da amplitude da vela atual'
+        : 'Próxima vela deve fechar abaixo do nível atual com queda de pelo menos 50% da amplitude da vela atual';
+      
+      priceAction = isBullish
+        ? 'Espere um rompimento acima da máxima da vela de reversão'
+        : 'Espere um rompimento abaixo da mínima da vela de reversão';
+      
+      confirmationSignal = 'Confirmação por aumento de volume e fechamento forte da vela';
+      riskRewardRatio = 3.0;
+      
+      entryInstructions = isBullish
+        ? 'Entre após o fechamento da vela de confirmação acima da máxima da vela de reversão com stop loss abaixo da mínima da vela de reversão. IMPORTANTE: Saia imediatamente se o preço voltar abaixo do ponto de entrada e fechar um candle abaixo. Considere sair com 50% do lucro no primeiro alvo e mover o stop para o ponto de entrada.'
+        : 'Entre após o fechamento da vela de confirmação abaixo da mínima da vela de reversão com stop loss acima da máxima da vela de reversão. IMPORTANTE: Saia imediatamente se o preço voltar acima do ponto de entrada e fechar um candle acima. Considere sair com 50% do lucro no primeiro alvo e mover o stop para o ponto de entrada.';
+    } 
+    else if (entryType === 'teste_suporte') {
+      nextCandleExpectation = 'Próxima vela deve mostrar rejeição do nível de suporte com sombra inferior longa e fechamento na metade superior';
+      priceAction = 'Espere formação de cauda inferior (sombra) longa indicando rejeição do nível';
+      confirmationSignal = 'Aumento de volume na rejeição e RSI saindo da zona de sobrevenda';
+      riskRewardRatio = 2.8;
+      entryInstructions = 'Entre após o fechamento da vela de rejeição do suporte com stop loss 5-10 pips abaixo do nível de suporte. REGRA DE SAÍDA: Se após 3 candles o preço não subir pelo menos 1.5x o valor arriscado, saia da operação com perda mínima ou no empate.';
+    } 
+    else if (entryType === 'teste_resistência') {
+      nextCandleExpectation = 'Próxima vela deve mostrar rejeição do nível de resistência com sombra superior longa e fechamento na metade inferior';
+      priceAction = 'Espere formação de cauda superior (sombra) longa indicando rejeição do nível';
+      confirmationSignal = 'Aumento de volume na rejeição e RSI saindo da zona de sobrecompra';
+      riskRewardRatio = 2.8;
+      entryInstructions = 'Entre após o fechamento da vela de rejeição da resistência com stop loss 5-10 pips acima do nível de resistência. REGRA DE SAÍDA: Se após 3 candles o preço não cair pelo menos 1.5x o valor arriscado, saia da operação com perda mínima ou no empate.';
+    } 
+    else if (entryType === 'pullback') {
+      nextCandleExpectation = isBullish
+        ? 'Próxima vela deve mostrar retomada da tendência de alta após recuo para a média móvel'
+        : 'Próxima vela deve mostrar retomada da tendência de baixa após recuo para a média móvel';
+      
+      priceAction = isBullish
+        ? 'Espere fechamento acima da EMA9 com corpo de vela sólido'
+        : 'Espere fechamento abaixo da EMA9 com corpo de vela sólido';
+      
+      confirmationSignal = 'Aumento de volume no momento do rompimento da média móvel';
+      riskRewardRatio = 2.5;
+      
+      entryInstructions = isBullish
+        ? 'Entre no rompimento da máxima da vela anterior com stop loss abaixo da EMA9 ou do mínimo recente. GESTÃO: Mova o stop loss para o ponto de entrada após o preço avançar 1.5x o valor arriscado. Saia de 50% da posição no primeiro alvo.'
+        : 'Entre no rompimento da mínima da vela anterior com stop loss acima da EMA9 ou do máximo recente. GESTÃO: Mova o stop loss para o ponto de entrada após o preço avançar 1.5x o valor arriscado. Saia de 50% da posição no primeiro alvo.';
+    } 
+    else if (entryType === 'retração') {
+      nextCandleExpectation = isBullish
+        ? 'Próxima vela deve formar-se acima do nível de Fibonacci de retração (geralmente 61.8% ou 50%)'
+        : 'Próxima vela deve formar-se abaixo do nível de Fibonacci de retração (geralmente 61.8% ou 50%)';
+      
+      priceAction = 'Espere vela de indecisão (doji) seguida de vela de confirmação na direção da tendência';
+      confirmationSignal = 'Volume diminui durante a retração e aumenta na retomada da direção principal';
+      riskRewardRatio = 2.0;
+      
+      entryInstructions = isBullish
+        ? 'Entre após o fechamento da vela de confirmação acima da máxima da vela de indecisão com stop loss abaixo do nível de Fibonacci. GESTÃO: Use trailing stop de 1.0 ATR após o preço avançar 2x o valor arriscado.'
+        : 'Entre após o fechamento da vela de confirmação abaixo da mínima da vela de indecisão com stop loss acima do nível de Fibonacci. GESTÃO: Use trailing stop de 1.0 ATR após o preço avançar 2x o valor arriscado.';
+    } 
+    else { // breakout
+      nextCandleExpectation = isBullish
+        ? 'Próxima vela deve continuar o movimento ascendente após o rompimento da resistência'
+        : 'Próxima vela deve continuar o movimento descendente após o rompimento do suporte';
+      
+      priceAction = isBullish
+        ? 'Espere vela de continuação após o rompimento sem fechamento abaixo do nível rompido'
+        : 'Espere vela de continuação após o rompimento sem fechamento acima do nível rompido';
+      
+      confirmationSignal = 'Alto volume no rompimento e ausência de retorno abaixo/acima do nível quebrado';
+      riskRewardRatio = 2.2;
+      
+      entryInstructions = isBullish
+        ? 'Entre no fechamento da vela de rompimento acima da resistência com stop loss abaixo do nível rompido. REGRA ANTI-FALSO ROMPIMENTO: Se o preço não avançar mais 0.5 ATR após o rompimento em 2 candles, saia com perda mínima. Saia de 40% da posição no primeiro alvo, 30% no segundo alvo, e deixe 30% para trailing stop.'
+        : 'Entre no fechamento da vela de rompimento abaixo do suporte com stop loss acima do nível rompido. REGRA ANTI-FALSO ROMPIMENTO: Se o preço não avançar mais 0.5 ATR após o rompimento em 2 candles, saia com perda mínima. Saia de 40% da posição no primeiro alvo, 30% no segundo alvo, e deixe 30% para trailing stop.';
+    }
   }
   
   // Adjust instructions based on market context if available
-  if (marketContext) {
+  if (marketContext && !shouldAvoidEntry) {
     const isMarketAligned = (isBullish && (
         marketContext.phase === 'tendência_alta' || 
         marketContext.phase === 'acumulação'
@@ -336,34 +378,72 @@ export const generatePreciseEntryAnalysis = (
       ));
     
     if (!isMarketAligned) {
-      entryInstructions += ' ATENÇÃO: Esta entrada vai contra a fase atual do mercado. Considere reduzir o tamanho da posição ou aguardar confirmação mais forte.';
+      entryInstructions += ' ATENÇÃO: Esta entrada vai contra a fase atual do mercado. Considere reduzir tamanho para 30% do habitual ou aguardar confirmação mais forte.';
       riskRewardRatio *= 0.7; // Reduce expected risk/reward if against market context
     } else {
-      entryInstructions += ' Esta entrada está alinhada com a fase atual do mercado, aumentando suas chances de sucesso.';
+      entryInstructions += ' Esta entrada está alinhada com a fase atual do mercado, aumentando suas chances de sucesso. Considere usar tamanho normal de posição.';
       riskRewardRatio *= 1.2; // Increase expected risk/reward if aligned with market context
+    }
+    
+    // Add contra-trend warning
+    if ((isBullish && marketContext.marketStructure === 'baixa_baixas') ||
+        (!isBullish && marketContext.marketStructure === 'alta_altas')) {
+      entryInstructions += ' AVISO: Este sinal vai contra a estrutura de mercado dominante. Use risco menor e alvo mais próximo.';
+      riskRewardRatio *= 0.6;
+    }
+    
+    // Liquidity targeting strategy
+    if (marketContext.liquidityPools && marketContext.liquidityPools.length > 0) {
+      const relevantLiquidityPool = marketContext.liquidityPools.find(pool => 
+        (isBullish && pool.level > (dominantPattern.entryPrice ? parseFloat(dominantPattern.entryPrice) : 0)) ||
+        (!isBullish && pool.level < (dominantPattern.entryPrice ? parseFloat(dominantPattern.entryPrice) : 0))
+      );
+      
+      if (relevantLiquidityPool) {
+        entryInstructions += ` Importante ponto de liquidez detectado em ${relevantLiquidityPool.level} (força: ${relevantLiquidityPool.strength}). ${isBullish ? 'Considere este nível como alvo ou área de potencial reversão.' : 'Considere este nível como alvo ou área de potencial reversão.'}`;
+      }
     }
   }
   
   // Adjust instructions based on volume if available
-  if (volumeData) {
+  if (volumeData && !shouldAvoidEntry) {
     const isVolumeConfirmation = volumeData.trend === 'increasing';
     
     if (!isVolumeConfirmation) {
-      entryInstructions += ' Volume atual não confirma fortemente o sinal. Aguarde aumento de volume na próxima vela antes de entrar.';
+      entryInstructions += ' Volume atual não confirma fortemente o sinal. Aguarde aumento de volume na próxima vela antes de entrar. Reduza tamanho para 50% do habitual se entrar sem confirmação de volume.';
+    } else if (volumeData.abnormal) {
+      entryInstructions += ' ALERTA: Volume anormalmente alto detectado. Possível esgotamento ou início de movimento impulsivo. Prepare-se para volatilidade elevada.';
     } else {
       entryInstructions += ' Volume crescente confirma o sinal de entrada.';
+    }
+    
+    // Volume divergence strategy
+    if (volumeData.divergence) {
+      entryInstructions += ' DIVERGÊNCIA PREÇO-VOLUME DETECTADA: O volume está divergindo do movimento de preço, sugerindo possível reversão em breve.';
     }
   }
   
   // Adjust instructions based on volatility if available
-  if (volatilityData) {
+  if (volatilityData && !shouldAvoidEntry) {
     if (volatilityData.isHigh) {
-      entryInstructions += ' Alta volatilidade detectada. Considere ampliar o stop loss e reduzir tamanho da posição.';
+      entryInstructions += ' Alta volatilidade detectada. Use stops mais amplos (1.5x o normal) e reduza tamanho para 70% do habitual. Considere alvos mais próximos.';
       riskRewardRatio *= 0.8; // Reduce expected risk/reward in high volatility
     } else if (volatilityData.trend === 'decreasing' && volatilityData.value < 0.5) {
-      entryInstructions += ' Volatilidade muito baixa. Possível movimento explosivo em breve, fique atento a aumento súbito de volume.';
+      entryInstructions += ' Volatilidade muito baixa. Possível movimento explosivo em breve, fique atento a aumento súbito de volume. Use stops normais mas esteja preparado para expansão de range.';
+    } else if (volatilityData.trend === 'increasing' && !volatilityData.isHigh) {
+      entryInstructions += ' Volatilidade crescente em níveis aceitáveis. Condições favoráveis para entrada com potencial de movimento contínuo.';
+      riskRewardRatio *= 1.1;
     }
   }
+  
+  // Add specific stop loss management based on ATR if available
+  if (volatilityData && volatilityData.atr && !shouldAvoidEntry) {
+    const atrValue = volatilityData.atr;
+    entryInstructions += ` GESTÃO DE STOP: Use ${(isBullish ? 1.5 : 1.5) * atrValue}x ATR (${Math.round(atrValue * 150)/100}) para stop loss inicial e ${Math.round(atrValue * 100)/100} ATR para trailing stop após o primeiro alvo.`;
+  }
+  
+  // Add time-based exit strategy
+  entryInstructions += ' ESTRATÉGIA DE SAÍDA POR TEMPO: Se o preço não atingir o primeiro alvo em 5 candles, saia com metade da posição. Saia completamente após 8 candles se não houver progresso significativo.';
   
   return {
     exactMinute,
@@ -376,7 +456,7 @@ export const generatePreciseEntryAnalysis = (
   };
 };
 
-// Enhanced function for scalping signals with more precise timing and entry conditions
+// Enhanced function for scalping signals with more intelligent trade management
 export const generateScalpingSignals = (
   patterns: PatternResult[],
   candles?: CandleData[],
@@ -441,7 +521,7 @@ export const generateScalpingSignals = (
     p.type.toLowerCase().includes('fase do mercado')
   );
   
-  // Generate more precise entry times and conditions for scalping
+  // Generate more precise entry times and conditions for scalping with improved decision making
   if (highConfidencePatterns.length > 0) {
     const dominantPattern = highConfidencePatterns[0];
     const hasVolumeConfirmation = volumePatterns.length > 0;
@@ -451,13 +531,15 @@ export const generateScalpingSignals = (
     const hasVolatilitySignal = volatilityPatterns.length > 0;
     const hasMarketContextSignal = marketContextPatterns.length > 0;
     
-    // Enhanced signal combination rules
+    // Enhanced signal combination rules with more intelligent filtering
     const hasStrongVolume = hasVolumeConfirmation && volumePatterns[0].confidence > 0.7;
     const hasAcceptableVolatility = !hasVolatilitySignal || 
       (hasVolatilitySignal && !volatilityPatterns[0].description?.toLowerCase().includes('extrema'));
     
-    // Check market phase alignment
+    // Check market phase alignment with stricter criteria
     let marketPhaseAligned = true;
+    let marketConditionWarning = '';
+    
     if (hasMarketContextSignal) {
       const marketPhase = marketContextPatterns[0].description?.toLowerCase() || '';
       const isUptrend = marketPhase.includes('tendência de alta') || marketPhase.includes('acumulação');
@@ -466,6 +548,29 @@ export const generateScalpingSignals = (
       marketPhaseAligned = (dominantPattern.action === 'compra' && isUptrend) || 
                            (dominantPattern.action === 'venda' && isDowntrend) ||
                            marketPhase.includes('indefinida');
+                           
+      if (!marketPhaseAligned) {
+        marketConditionWarning = 'AVISO: Entrada contra a fase dominante do mercado. Risco elevado.';
+      }
+    }
+    
+    // More intelligent checks based on market conditions
+    const isOverbought = hasRSISignal && rsiPatterns[0].description?.toLowerCase().includes('sobrecompra');
+    const isOversold = hasRSISignal && rsiPatterns[0].description?.toLowerCase().includes('sobrevenda');
+    
+    // Counter-trend check
+    const isCounterTrend = marketContext && ((dominantPattern.action === 'compra' && 
+        marketContext.marketStructure === 'baixa_baixas') || 
+        (dominantPattern.action === 'venda' && 
+        marketContext.marketStructure === 'alta_altas'));
+    
+    // Avoid entries in extreme market conditions
+    if ((dominantPattern.action === 'compra' && isOverbought) || 
+        (dominantPattern.action === 'venda' && isOversold) || 
+        (hasVolatilitySignal && volatilityPatterns[0].description?.toLowerCase().includes('extrema')) ||
+        (marketContext && marketContext.phase === 'indefinida' && marketContext.strength === 'forte')) {
+      // Skip creating signals in extreme conditions
+      return signals;
     }
     
     // Generate precise entry timing
@@ -497,33 +602,68 @@ export const generateScalpingSignals = (
       entryType = dominantPattern.action === 'compra' ? 'teste_suporte' : 'teste_resistência';
     }
     
-    // Generate next candle expectation
-    let nextCandleExpectation = '';
-    if (dominantPattern.action === 'compra') {
-      if (entryType === 'teste_suporte') {
-        nextCandleExpectation = 'Espere candle verde (alta) com fechamento forte acima da abertura e mínima respeitando o suporte';
-      } else if (entryType === 'breakout') {
-        nextCandleExpectation = 'Espere candle de continuação após o rompimento, sem fechamento abaixo do nível anterior de resistência';
-      } else if (entryType === 'pullback') {
-        nextCandleExpectation = 'Espere candle de alta após recuo para EMA9/21, com fechamento acima da média móvel';
-      } else {
-        nextCandleExpectation = 'Espere candle de reversão com corpo maior que o anterior e fechamento acima da metade da amplitude';
-      }
-    } else {
-      if (entryType === 'teste_resistência') {
-        nextCandleExpectation = 'Espere candle vermelho (baixa) com fechamento forte abaixo da abertura e máxima respeitando a resistência';
-      } else if (entryType === 'breakout') {
-        nextCandleExpectation = 'Espere candle de continuação após o rompimento, sem fechamento acima do nível anterior de suporte';
-      } else if (entryType === 'pullback') {
-        nextCandleExpectation = 'Espere candle de baixa após recuo para EMA9/21, com fechamento abaixo da média móvel';
-      } else {
-        nextCandleExpectation = 'Espere candle de reversão com corpo maior que o anterior e fechamento abaixo da metade da amplitude';
+    // Enhanced trade management instructions based on various factors
+    let tradeManagementInstructions = '';
+    
+    // Risk management based on volatility and market phase
+    if (hasVolatilitySignal) {
+      const volatilityDesc = volatilityPatterns[0].description?.toLowerCase() || '';
+      if (volatilityDesc.includes('alta')) {
+        tradeManagementInstructions += ' Use stops 25% mais amplos e targets 15% mais próximos. Reduza tamanho para 70%.';
+      } else if (volatilityDesc.includes('baixa')) {
+        tradeManagementInstructions += ' Use stops ajustados e seja paciente. Movimento pode ser lento.';
       }
     }
     
-    if (((hasStrongVolume || hasMASignal) && hasAcceptableVolatility && marketPhaseAligned) && 
-        ((hasSupportResistance || hasMASignal || hasRSISignal) || 
-         (momentumPatterns.length > 0 && hasVolumeConfirmation))) {
+    // Adjust based on market phase
+    if (marketContext) {
+      if (marketContext.phase === 'lateral') {
+        tradeManagementInstructions += ' Em mercado lateral, saia rapidamente com 1.5-2R de lucro. Evite hold muito longo.';
+      } else if (marketContext.phase === 'tendência_alta' && dominantPattern.action === 'compra') {
+        tradeManagementInstructions += ' Em tendência clara de alta, use trailing stop após 2R de lucro.';
+      } else if (marketContext.phase === 'tendência_baixa' && dominantPattern.action === 'venda') {
+        tradeManagementInstructions += ' Em tendência clara de baixa, use trailing stop após 2R de lucro.';
+      }
+    }
+    
+    // Add time-based management
+    tradeManagementInstructions += ' Regra de tempo: Saia com metade em 5 candles e resto em 8 candles se não atingir alvos.';
+    
+    // Add counter-trend warning if applicable
+    if (isCounterTrend) {
+      tradeManagementInstructions += ' AVISO: Trade contra-tendência identificado. Reduza tamanho para 50% e use alvo mais próximo.';
+    }
+    
+    // Generate enhanced next candle expectation with more precise criteria
+    let nextCandleExpectation = '';
+    if (dominantPattern.action === 'compra') {
+      if (entryType === 'teste_suporte') {
+        nextCandleExpectation = 'Espere candle verde (alta) com fechamento forte acima da abertura, mínima respeitando o suporte, e fechamento no terço superior do candle';
+      } else if (entryType === 'breakout') {
+        nextCandleExpectation = 'Espere candle de continuação após o rompimento, corpo maior que média dos 3 anteriores, sem fechamento abaixo do nível anterior de resistência';
+      } else if (entryType === 'pullback') {
+        nextCandleExpectation = 'Espere candle de alta após recuo para EMA9/21, com fechamento acima da média móvel e sem sombra superior longa';
+      } else {
+        nextCandleExpectation = 'Espere candle de reversão com corpo maior que o anterior, sem sombra superior longa e fechamento acima da metade da amplitude';
+      }
+    } else {
+      if (entryType === 'teste_resistência') {
+        nextCandleExpectation = 'Espere candle vermelho (baixa) com fechamento forte abaixo da abertura, máxima respeitando a resistência, e fechamento no terço inferior do candle';
+      } else if (entryType === 'breakout') {
+        nextCandleExpectation = 'Espere candle de continuação após o rompimento, corpo maior que média dos 3 anteriores, sem fechamento acima do nível anterior de suporte';
+      } else if (entryType === 'pullback') {
+        nextCandleExpectation = 'Espere candle de baixa após recuo para EMA9/21, com fechamento abaixo da média móvel e sem sombra inferior longa';
+      } else {
+        nextCandleExpectation = 'Espere candle de reversão com corpo maior que o anterior, sem sombra inferior longa e fechamento abaixo da metade da amplitude';
+      }
+    }
+    
+    // Only create signal if market conditions pass the intelligent filters
+    if (((hasStrongVolume || hasMASignal) && hasAcceptableVolatility && 
+          (marketPhaseAligned || entryType === 'reversão')) && 
+        ((hasSupportResistance || hasMASignal || (hasRSISignal && !isOverbought && !isOversold)) || 
+         (momentumPatterns.length > 0 && hasVolumeConfirmation)) && 
+        !(isCounterTrend && marketContext && marketContext.strength === 'forte')) {
       
       // Create specific entry conditions
       const entryCondition = dominantPattern.action === 'compra'
@@ -554,24 +694,29 @@ export const generateScalpingSignals = (
       if (hasMarketContextSignal) {
         confirmations.push(`Alinhado com fase de mercado: ${marketContextPatterns[0].description}`);
       }
-
-      // Calculate confidence
+      
+      // Calculate confidence with more factors
       const volumeFactor = hasVolumeConfirmation ? (hasStrongVolume ? 1.25 : 1.1) : 0.9;
       const volatilityFactor = hasAcceptableVolatility ? 1.1 : 0.8;
       const marketContextFactor = marketPhaseAligned ? 1.15 : 0.75;
+      const counterTrendFactor = isCounterTrend ? 0.7 : 1.0;
+      const extremeConditionFactor = (isOverbought || isOversold) ? 0.8 : 1.0;
+      
       const adjustedConfidence = dominantPattern.confidence * 
                                 volumeFactor * 
                                 (hasMASignal ? 1.1 : 1) * 
                                 volatilityFactor * 
-                                marketContextFactor;
+                                marketContextFactor * 
+                                counterTrendFactor *
+                                extremeConditionFactor;
 
       signals.push({
         type: 'entrada',
         action: dominantPattern.action as 'compra' | 'venda',
         price: entryCondition,
-        confidence: adjustedConfidence,
+        confidence: Math.min(adjustedConfidence, 0.95), // Cap confidence to avoid overconfidence
         timeframe: '1m',
-        description: `${dominantPattern.type}: ${dominantPattern.description} ${confirmations.length > 0 ? '| Confirmações: ' + confirmations.join(', ') : ''}`,
+        description: `${dominantPattern.type}: ${dominantPattern.description} ${confirmations.length > 0 ? '| Confirmações: ' + confirmations.join(', ') : ''} ${marketConditionWarning}`,
         target: dominantPattern.action === 'compra'
           ? 'Próxima resistência ou +2-3% do preço atual'
           : 'Próximo suporte ou -2-3% do preço atual',
@@ -583,20 +728,21 @@ export const generateScalpingSignals = (
           volatilityPatterns[0].description : 
           'Volatilidade dentro de níveis aceitáveis',
         marketPhaseAlignment: marketPhaseAligned,
+        marketStructureAlignment: !isCounterTrend,
         exactEntryTime: exactEntryTime,
         entryType: entryType,
         nextCandleExpectation: nextCandleExpectation,
-        entryCondition: `Entre às ${exactEntryTime} após confirmação de ${entryType} com ${nextCandleExpectation.toLowerCase()}`
+        entryCondition: `Entre às ${exactEntryTime} após confirmação de ${entryType} com ${nextCandleExpectation.toLowerCase()}. ${tradeManagementInstructions}`
       });
       
-      // Add exit signal
+      // Add exit signal with more sophisticated exit strategy
       signals.push({
         type: 'saída',
         action: dominantPattern.action as 'compra' | 'venda',
         price: 'Take profit ou stop loss',
         confidence: adjustedConfidence * 0.9,
         timeframe: '1m',
-        description: `Encerre a posição quando: 1) O preço atingir o alvo de ${dominantPattern.action === 'compra' ? '+2-3%' : '-2-3%'}, 2) O stop loss for ativado, 3) Houver reversão de EMA9/EMA21 com confirmação de volume, ou 4) Após 3-5 candles sem progresso.`
+        description: `Encerre a posição quando: 1) O preço atingir o alvo de ${dominantPattern.action === 'compra' ? '+2-3%' : '-2-3%'}, 2) O stop loss for ativado, 3) Houver reversão de EMA9/EMA21 com confirmação de volume, 4) Após 3-5 candles sem progresso, ou 5) Se formar padrão de reversão com alta confiança.${tradeManagementInstructions}`
       });
     }
   }
@@ -1251,7 +1397,7 @@ export const detectFalseSignals = (patterns: PatternResult[]): { patterns: Patte
   return { patterns: updatedPatterns, warnings };
 };
 
-// This is the main integrating function that combines all analyses with precise entry timing
+// Enhanced main integration function with more intelligent trade decisions
 export const performCompleteAnalysis = async (
   imageUrl: string,
   width: number,
@@ -1279,16 +1425,59 @@ export const performCompleteAnalysis = async (
   // Step 4: Analyze volatility
   const volatilityData = await analyzeVolatility(imageUrl);
   
-  // Step 5: Generate technical markup
-  const technicalElements = generateTechnicalMarkup(patterns, width, height);
+  // Add enhanced profitability filtering to avoid low-probability setups
+  const { patterns: filteredPatterns, warnings: baseWarnings } = detectFalseSignals(patterns);
   
-  // Step 6: Check for false signals
-  const { patterns: validatedPatterns, warnings } = detectFalseSignals(patterns);
+  // Advanced pattern validation with trade intelligence
+  const validatedPatterns = filteredPatterns.filter(pattern => {
+    // Skip patterns with very low confidence
+    if (pattern.confidence < 0.55) return false;
+    
+    // Verify if pattern is tradeable
+    if (pattern.action === 'neutro') return true; // Keep neutral patterns for context
+    
+    // Filter out low probability setups
+    if (pattern.type.toLowerCase().includes('divergência') && pattern.confidence < 0.7) {
+      baseWarnings.push(`Padrão de divergência ignorado por baixa confiança (${Math.round(pattern.confidence * 100)}%)`);
+      return false;
+    }
+    
+    // Filter based on pattern-specific criteria
+    if (pattern.type.toLowerCase().includes('candle') && pattern.confidence < 0.75) {
+      baseWarnings.push(`Padrão de candle ignorado por baixa confiança (${Math.round(pattern.confidence * 100)}%)`);
+      return false;
+    }
+    
+    return true;
+  });
   
-  // Step 7: Analyze market context
+  // Add additional warnings about potential profit-loss ratio
+  const warnings = [...baseWarnings];
+  
+  // Check for market condition warnings
   const marketContext = analyzeMarketContext(validatedPatterns, volumeData, volatilityData, candles);
   
-  // Step 8: Generate scalping signals with precise timing
+  if (marketContext.phase === 'indefinida' || marketContext.strength === 'fraca') {
+    warnings.push('AVISO DE RENTABILIDADE: Fase de mercado indefinida ou fraca pode resultar em sinais falsos e perdas. Considere reduzir tamanho ou aguardar condições mais claras.');
+  }
+  
+  if (volumeData && volumeData.trend === 'decreasing') {
+    warnings.push('AVISO DE RENTABILIDADE: Volume decrescente indica menor participação dos players. Sinais podem falhar por falta de impulso.');
+  }
+  
+  if (volatilityData && volatilityData.isHigh) {
+    warnings.push('AVISO DE RENTABILIDADE: Alta volatilidade detectada. Aumente stops e reduza tamanho de posição para preservar capital.');
+  }
+  
+  // Check for pattern conflict
+  const bullishPatterns = validatedPatterns.filter(p => p.action === 'compra' && p.confidence > 0.65);
+  const bearishPatterns = validatedPatterns.filter(p => p.action === 'venda' && p.confidence > 0.65);
+  
+  if (bullishPatterns.length > 0 && bearishPatterns.length > 0) {
+    warnings.push('ALERTA: Conflito de sinais detectado (sinais de compra e venda com alta confiança). Evite operar em condições conflitantes ou espere resolução clara.');
+  }
+  
+  // Generate smarter scalping signals with profit focus
   const scalpingSignals = generateScalpingSignals(
     validatedPatterns, 
     candles, 
@@ -1297,7 +1486,7 @@ export const performCompleteAnalysis = async (
     marketContext
   );
   
-  // Step 9: Generate precise entry analysis
+  // Generate precise entry analysis with improved trade management
   const preciseEntryAnalysis = generatePreciseEntryAnalysis(
     validatedPatterns,
     candles,
@@ -1308,7 +1497,7 @@ export const performCompleteAnalysis = async (
   
   return {
     patterns: validatedPatterns,
-    technicalElements,
+    technicalElements: generateTechnicalMarkup(validatedPatterns, width, height),
     candles,
     scalpingSignals,
     volumeData,
@@ -1317,11 +1506,11 @@ export const performCompleteAnalysis = async (
     preciseEntryAnalysis: preciseEntryAnalysis || {
       exactMinute: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
       entryType: 'pullback',
-      nextCandleExpectation: 'Aguardar candle de confirmação',
-      priceAction: 'Monitorar fechamento acima/abaixo de níveis importantes',
-      confirmationSignal: 'Volume crescente',
+      nextCandleExpectation: 'Aguardar candle de confirmação com corpo forte',
+      priceAction: 'Monitorar fechamento acima/abaixo de níveis importantes com volume crescente',
+      confirmationSignal: 'Volume crescente e alinhamento com tendência de timeframe superior',
       riskRewardRatio: 2.5,
-      entryInstructions: 'Aguardar sinais mais definidos para entrada'
+      entryInstructions: 'Aguardar sinais mais definidos para entrada. NÃO ENTRE se o sinal não tiver pelo menos 75% de confiança.'
     },
     warnings
   };
