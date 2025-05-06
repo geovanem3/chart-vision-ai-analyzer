@@ -95,6 +95,7 @@ export type AnalysisResult = {
   volatilityData?: VolatilityData; // Enhanced volatility analysis
   marketContext?: MarketContext; // Enhanced market context understanding
   warnings?: string[]; // Warnings about potential false signals
+  preciseEntryAnalysis?: PreciseEntryAnalysis; // Added for precise entry timing
 };
 
 // New type for technical indicators for enhanced M1 strategy

@@ -751,7 +751,7 @@ export const analyzeMarketContext = (
   
   // Add candle pattern analysis if candles are available
   let candleBasedTrend = 'indefinida';
-  let candleStrength = 'moderada';
+  let candleStrength: 'forte' | 'moderada' | 'fraca' = 'moderada';
   
   if (candles && candles.length > 3) {
     // Count bullish vs bearish candles
