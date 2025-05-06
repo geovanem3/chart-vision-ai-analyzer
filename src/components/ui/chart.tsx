@@ -353,6 +353,141 @@ function getPayloadConfigFromPayload(
     : config[key as keyof typeof config]
 }
 
+// Adding a new CandlePatternIndicator component to visualize candle patterns
+const CandlePatternIndicator = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div"> & {
+    candles: any[];
+    width: number;
+    height: number;
+    patternType?: string;
+  }
+>(({ candles, width, height, patternType, className, ...props }, ref) => {
+  if (!candles?.length) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={cn("absolute top-0 left-0 w-full h-full pointer-events-none", className)}
+      {...props}
+    >
+      {candles.map((candle, index) => {
+        const isGreen = candle.color === 'verde' || candle.close > candle.open;
+        
+        // Calculate candle position and dimensions
+        const x = candle.position?.x || (width / candles.length) * (index + 0.5);
+        const y = candle.position?.y || height / 2;
+        const candleWidth = candle.width || width / candles.length * 0.6;
+        const bodyHeight = candle.height || Math.abs(candle.close - candle.open) * 5;
+        const wickHeight = ((candle.high - candle.low) * 5) || bodyHeight * 1.5;
+        
+        return (
+          <div 
+            key={index} 
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: x,
+              top: y,
+            }}
+          >
+            {/* Candle wick */}
+            <div
+              className="absolute left-1/2 transform -translate-x-1/2"
+              style={{
+                width: 1,
+                height: wickHeight,
+                top: -(wickHeight / 2),
+                backgroundColor: isGreen ? '#22c55e' : '#ef4444'
+              }}
+            />
+            
+            {/* Candle body */}
+            <div
+              className="absolute left-1/2 transform -translate-x-1/2"
+              style={{
+                width: candleWidth,
+                height: bodyHeight,
+                top: -(bodyHeight / 2),
+                backgroundColor: isGreen ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)',
+                border: `1px solid ${isGreen ? '#22c55e' : '#ef4444'}`
+              }}
+            />
+            
+            {/* Pattern label if provided */}
+            {patternType && index === Math.floor(candles.length / 2) && (
+              <div 
+                className="absolute text-xs font-semibold px-1 py-0.5 rounded bg-black/70 text-white whitespace-nowrap"
+                style={{
+                  bottom: -(wickHeight / 2) - 20,
+                  left: -(patternType.length * 2),
+                }}
+              >
+                {patternType}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+CandlePatternIndicator.displayName = "CandlePatternIndicator";
+
+// Adding a new PriceLevel component to indicate important levels
+const PriceLevel = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div"> & {
+    level: number;
+    type: 'support' | 'resistance';
+    strength?: 'forte' | 'moderada' | 'fraca';
+    width: number;
+    height: number;
+    maxPrice: number;
+    minPrice: number;
+  }
+>(({ level, type, strength = 'moderada', width, height, maxPrice, minPrice, className, ...props }, ref) => {
+  // Calculate vertical position
+  const priceRange = maxPrice - minPrice;
+  const relativePosition = 1 - ((level - minPrice) / priceRange);
+  const y = height * relativePosition;
+  
+  // Determine color and style based on type and strength
+  const color = type === 'support' ? '#22c55e' : '#ef4444';
+  const opacity = strength === 'forte' ? 0.8 : strength === 'moderada' ? 0.6 : 0.4;
+  const thickness = strength === 'forte' ? 2 : 1;
+  const dashArray = strength === 'forte' ? 'none' : strength === 'moderada' ? '5,5' : '3,3';
+  
+  return (
+    <div
+      ref={ref}
+      className={cn("absolute left-0", className)}
+      style={{
+        top: y,
+        width: width,
+        height: thickness,
+        backgroundColor: color,
+        opacity: opacity,
+        strokeDasharray: dashArray
+      }}
+      {...props}
+    >
+      <div 
+        className="absolute text-xs font-semibold px-1 py-0.5 rounded text-white whitespace-nowrap"
+        style={{
+          left: 5,
+          top: thickness,
+          backgroundColor: color,
+        }}
+      >
+        {type === 'support' ? 'Suporte' : 'Resistência'} {level.toFixed(2)}
+      </div>
+    </div>
+  );
+});
+PriceLevel.displayName = "PriceLevel";
+
 export {
   ChartContainer,
   ChartTooltip,
@@ -360,4 +495,6 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  CandlePatternIndicator,
+  PriceLevel
 }

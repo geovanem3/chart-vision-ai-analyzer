@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type PatternResult = {
@@ -121,6 +120,11 @@ export type ScalpingSignal = {
   marketPhaseAlignment?: boolean; // New property for market phase alignment
   marketStructureAlignment?: boolean; // New property to check if aligned with market structure
   liquidityTarget?: boolean; // Whether the signal targets a liquidity pool
+  // New fields for precise timing
+  exactEntryTime?: string; // Exact minute for entry
+  entryType?: 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência';
+  nextCandleExpectation?: string; // What to expect on the next candle
+  entryCondition?: string; // Detailed condition for entry
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -153,6 +157,17 @@ export type ScalpingStrategy = 'momentum' | 'reversal' | 'breakout' | 'range';
 
 // New type for market analysis depth
 export type MarketAnalysisDepth = 'basic' | 'advanced' | 'comprehensive';
+
+// New type for precise entry analysis
+export type PreciseEntryAnalysis = {
+  exactMinute: string;
+  entryType: 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência';
+  nextCandleExpectation: string;
+  priceAction: string;
+  confirmationSignal: string;
+  riskRewardRatio: number;
+  entryInstructions: string;
+};
 
 type AnalyzerContextType = {
   capturedImage: string | null;

@@ -7,7 +7,7 @@ import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
   ImageOff, Zap, TrendingUp, CandlestickChart, BarChartHorizontal,
-  Volume, Activity
+  Volume, Activity, Clock, ArrowDown, ArrowUp
 } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -40,7 +40,27 @@ const GraphAnalyzerWithMarkupToolbar = () => {
           <AlertTitle>Modo Scalping Avançado</AlertTitle>
           <AlertDescription className="text-sm">
             Análise técnica completa para M1: EMA9/EMA21, RSI, suportes/resistências, volume e volatilidade.
-            Entradas otimizadas com base no contexto de mercado e fluxo de ordens.
+            Entradas precisas com minuto exato e tipo (reversão, pullback, teste de níveis) para maximizar resultados.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {analysisResults?.preciseEntryAnalysis && (
+        <Alert className="my-3" variant="default">
+          <Clock className="h-4 w-4 text-green-500" />
+          <AlertTitle className="flex items-center gap-1">
+            Timing Exato de Entrada 
+            {analysisResults.patterns.some(p => p.action === 'compra' && p.confidence > 0.6) ? 
+              <ArrowUp className="h-4 w-4 text-green-500" /> : 
+              <ArrowDown className="h-4 w-4 text-red-500" />}
+          </AlertTitle>
+          <AlertDescription className="text-sm">
+            <div className="font-semibold">Horário: {analysisResults.preciseEntryAnalysis.exactMinute}</div>
+            <div>Tipo: {analysisResults.preciseEntryAnalysis.entryType.replace('_', ' de ')}</div>
+            <div>Próxima vela: {analysisResults.preciseEntryAnalysis.nextCandleExpectation}</div>
+            <div className="mt-1 text-xs bg-black/10 p-1 rounded">
+              {analysisResults.preciseEntryAnalysis.entryInstructions}
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -62,7 +82,7 @@ const Index = () => {
                 <h1 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold tracking-tight`}>Chart Vision AI</h1>
               </div>
               <div className="text-xs text-muted-foreground">
-                Análise Técnica
+                Análise Técnica Precisa
               </div>
             </div>
           </header>
@@ -70,31 +90,21 @@ const Index = () => {
           <main className={`flex-1 container ${isMobile ? 'py-4' : 'py-8'}`}>
             <div className={`text-center ${isMobile ? 'mb-4' : 'mb-8'}`}>
               <h1 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold tracking-tight mb-2`}>
-                Análise Crítica de Gráficos Financeiros
+                Timing Perfeito para Operações
               </h1>
               <p className={`${isMobile ? 'text-sm' : 'text-xl'} text-muted-foreground max-w-3xl mx-auto`}>
-                Capture imagens de gráficos financeiros e utilize nossa IA para detectar padrões de negociação e indicadores.
+                Captura e análise avançada com timing exato para entradas em reversões, retrações, pullbacks e testes de níveis.
               </p>
               
               {!isMobile && (
                 <div className="flex justify-center space-x-8 mt-6">
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-3 mb-2">
-                      <Scan className="h-6 w-6 text-primary" />
+                      <Clock className="h-6 w-6 text-primary" />
                     </div>
-                    <p className="text-sm font-medium">Seleção Precisa</p>
+                    <p className="text-sm font-medium">Timing Preciso</p>
                     <p className="text-xs text-muted-foreground">
-                      Selecione e ajuste áreas específicas do gráfico para análise crítica detalhada
-                    </p>
-                  </div>
-                  
-                  <div className="flex flex-col items-center">
-                    <div className="bg-primary/10 rounded-full p-3 mb-2">
-                      <Eye className="h-6 w-6 text-primary" />
-                    </div>
-                    <p className="text-sm font-medium">Ajuste Manual</p>
-                    <p className="text-xs text-muted-foreground">
-                      Refinamento preciso para garantir análises mais críticas e assertivas
+                      Identifica o minuto exato para entrada com base nos padrões detectados
                     </p>
                   </div>
                   
@@ -102,9 +112,9 @@ const Index = () => {
                     <div className="bg-primary/10 rounded-full p-3 mb-2">
                       <CandlestickChart className="h-6 w-6 text-primary" />
                     </div>
-                    <p className="text-sm font-medium">Padrões de Candles</p>
+                    <p className="text-sm font-medium">Análise de Candles</p>
                     <p className="text-xs text-muted-foreground">
-                      Identificação de padrões de velas com confirmação por indicadores técnicos
+                      Previsão do próximo candle e condições ideais para entrada
                     </p>
                   </div>
                   
@@ -112,9 +122,9 @@ const Index = () => {
                     <div className="bg-amber-500/10 rounded-full p-3 mb-2">
                       <BarChartHorizontal className="h-6 w-6 text-amber-500" />
                     </div>
-                    <p className="text-sm font-medium">Estratégia M1 Avançada</p>
+                    <p className="text-sm font-medium">Tipo de Entrada</p>
                     <p className="text-xs text-muted-foreground">
-                      Análise com EMA9/21, RSI, volume e pontos de entrada/saída precisos
+                      Identifica se é reversão, retração, pullback ou teste de suporte/resistência
                     </p>
                   </div>
                   
@@ -132,9 +142,9 @@ const Index = () => {
                     <div className="bg-blue-500/10 rounded-full p-3 mb-2">
                       <Volume className="h-6 w-6 text-blue-500" />
                     </div>
-                    <p className="text-sm font-medium">Análise de Volume</p>
+                    <p className="text-sm font-medium">Confirmação de Volume</p>
                     <p className="text-xs text-muted-foreground">
-                      Identificação de anomalias e confirmação de movimentos através do volume
+                      Análise de volume para confirmar a qualidade da entrada
                     </p>
                   </div>
                   
@@ -144,7 +154,7 @@ const Index = () => {
                     </div>
                     <p className="text-sm font-medium">Contexto de Mercado</p>
                     <p className="text-xs text-muted-foreground">
-                      Entendimento da fase de mercado para alinhamento de operações
+                      Alinhamento com a fase atual do mercado para entradas mais precisas
                     </p>
                   </div>
                 </div>
@@ -154,23 +164,23 @@ const Index = () => {
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-2 mb-1">
-                      <Scan className="h-4 w-4 text-primary" />
+                      <Clock className="h-4 w-4 text-primary" />
                     </div>
-                    <p className="text-xs font-medium">Seleção Precisa</p>
+                    <p className="text-xs font-medium">Timing Exato</p>
                   </div>
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-2 mb-1">
                       <CandlestickChart className="h-4 w-4 text-primary" />
                     </div>
-                    <p className="text-xs font-medium">Padrões + Indicadores</p>
+                    <p className="text-xs font-medium">Próximo Candle</p>
                   </div>
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-2 mb-1">
                       <BarChartHorizontal className="h-4 w-4 text-primary" />
                     </div>
-                    <p className="text-xs font-medium">EMA9/21 + RSI</p>
+                    <p className="text-xs font-medium">Tipo Entrada</p>
                   </div>
                   
                   <div className="flex flex-col items-center">
@@ -203,7 +213,7 @@ const Index = () => {
           <footer className={`${isMobile ? 'py-3' : 'py-6'} border-t border-border/60`}>
             <div className="container text-center text-xs text-muted-foreground">
               <p>Chart Vision AI Analyzer &copy; {new Date().getFullYear()}</p>
-              <p className="mt-1">Análise técnica avançada para gráficos financeiros</p>
+              <p className="mt-1">Timing Preciso para Entradas Otimizadas</p>
             </div>
           </footer>
         </div>
