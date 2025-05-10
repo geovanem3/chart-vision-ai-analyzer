@@ -17,8 +17,11 @@ const AdvancedMarketAnalysis = () => {
   } = useAnalyzer();
   const { toast } = useToast();
 
-  // Only render advanced analysis for 1m timeframe
-  if (timeframe !== '1m' || !analysisResults) return null;
+  // Verificar se a análise está disponível antes de tentar renderizar
+  if (!analysisResults) return null;
+  
+  // Verificar o timeframe
+  if (timeframe !== '1m') return null;
 
   // Safe access to pattern data with fallback
   const patterns = analysisResults.patterns || [];
@@ -38,7 +41,10 @@ const AdvancedMarketAnalysis = () => {
     momentumSignature: 'estável'
   };
   
-  const hasManipulationSigns = marketContext.liquidityPools?.some?.(pool => pool.strength === 'alta') || false;
+  // Verificando se liquidityPools existe e tem o método some antes de chamá-lo
+  const hasManipulationSigns = Array.isArray(marketContext.liquidityPools) && 
+    marketContext.liquidityPools.some(pool => pool && pool.strength === 'alta') || false;
+    
   const marketPhase = marketContext.phase || 'indefinida';
   const marketStrength = marketContext.strength || 'moderada';
   
