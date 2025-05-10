@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -19,20 +20,24 @@ const AdvancedMarketAnalysis = () => {
   // Only render advanced analysis for 1m timeframe
   if (timeframe !== '1m' || !analysisResults) return null;
 
-  const isUptrend = analysisResults.patterns.some(p => p.action === 'compra' && p.confidence > 0.65);
-  const isDowntrend = analysisResults.patterns.some(p => p.action === 'venda' && p.confidence > 0.65);
+  // Safe access to pattern data with fallback
+  const patterns = analysisResults.patterns || [];
+  const isUptrend = patterns.some(p => p.action === 'compra' && p.confidence > 0.65);
+  const isDowntrend = patterns.some(p => p.action === 'venda' && p.confidence > 0.65);
   
-  // Market manipulation detection
-  const hasManipulationSigns = analysisResults.marketContext?.liquidityPools?.some(pool => pool.strength === 'alta') || false;
+  // Safe access to market context data with fallbacks
+  const marketContext = analysisResults.marketContext || {};
+  const hasManipulationSigns = marketContext.liquidityPools?.some(pool => pool.strength === 'alta') || false;
   
-  // Determine market phase and dominant players
-  const marketPhase = analysisResults.marketContext?.phase || 'indefinida';
-  const marketStrength = analysisResults.marketContext?.strength || 'moderada';
+  // Use safe access with nullish coalescing for all values
+  const marketPhase = marketContext.phase || 'indefinida';
+  const marketStrength = marketContext.strength || 'moderada';
   
-  // Identify exact entry point from candle patterns
-  const entryCondition = analysisResults.preciseEntryAnalysis?.entryType || '';
-  const entryMinute = analysisResults.preciseEntryAnalysis?.exactMinute || '';
-  const nextCandleExpectation = analysisResults.preciseEntryAnalysis?.nextCandleExpectation || '';
+  // Safe access to precise entry analysis with fallbacks
+  const preciseEntryAnalysis = analysisResults.preciseEntryAnalysis || {};
+  const entryCondition = preciseEntryAnalysis.entryType || '';
+  const entryMinute = preciseEntryAnalysis.exactMinute || 'pendente';
+  const nextCandleExpectation = preciseEntryAnalysis.nextCandleExpectation || 'aguardando análise';
   
   // Ultra quick entry decision - just the bare direction and when
   const quickEntrySignal = () => {
@@ -111,9 +116,9 @@ const AdvancedMarketAnalysis = () => {
           ) : (
             <span>Mercado operando dentro dos padrões normais.</span>
           )}
-          {analysisResults.preciseEntryAnalysis?.entryInstructions && (
+          {preciseEntryAnalysis?.entryInstructions && (
             <div className="mt-1 text-xs border-l-2 border-primary pl-2">
-              {analysisResults.preciseEntryAnalysis.entryInstructions}
+              {preciseEntryAnalysis.entryInstructions}
             </div>
           )}
         </AlertDescription>

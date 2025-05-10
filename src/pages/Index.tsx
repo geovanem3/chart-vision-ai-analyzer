@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -53,7 +52,7 @@ const GraphAnalyzerWithMarkupToolbar = () => {
           <Clock className="h-4 w-4 text-green-500" />
           <AlertTitle className="flex items-center gap-1">
             <Check className="h-4 w-4 text-green-500" /> Confirmado:
-            {analysisResults.patterns.some(p => p.action === 'compra' && p.confidence > 0.6) ? 
+            {analysisResults.patterns && analysisResults.patterns.some(p => p.action === 'compra' && p.confidence > 0.6) ? 
               <ArrowUp className="h-4 w-4 text-green-500" /> : 
               <ArrowDown className="h-4 w-4 text-red-500" />}
           </AlertTitle>
