@@ -113,7 +113,7 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-3 mb-2">
-                      <CandlestickChart className="h-6 w-6 text-primary" />
+                      <ChartCandlestick className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-sm font-medium">Análise de Candles</p>
                     <p className="text-xs text-muted-foreground">
@@ -174,7 +174,7 @@ const Index = () => {
                   
                   <div className="flex flex-col items-center">
                     <div className="bg-primary/10 rounded-full p-2 mb-1">
-                      <CandlestickChart className="h-4 w-4 text-primary" />
+                      <ChartCandlestick className="h-4 w-4 text-primary" />
                     </div>
                     <p className="text-xs font-medium">Próximo Candle</p>
                   </div>
