@@ -25,16 +25,34 @@ const AdvancedMarketAnalysis = () => {
   const isUptrend = patterns.some(p => p.action === 'compra' && p.confidence > 0.65);
   const isDowntrend = patterns.some(p => p.action === 'venda' && p.confidence > 0.65);
   
-  // Safe access to market context data with fallbacks
-  const marketContext = analysisResults.marketContext || {};
-  const hasManipulationSigns = marketContext.liquidityPools?.some(pool => pool.strength === 'alta') || false;
+  // Safe access to market context data with proper type handling
+  const marketContext = analysisResults.marketContext || {
+    liquidityPools: [],
+    phase: 'indefinida',
+    strength: 'moderada',
+    description: '',
+    dominantTimeframe: '1m',
+    sentiment: 'neutro',
+    marketStructure: 'indefinida',
+    breakoutPotential: 'baixo',
+    momentumSignature: 'estável'
+  };
   
-  // Use safe access with nullish coalescing for all values
+  const hasManipulationSigns = marketContext.liquidityPools?.some?.(pool => pool.strength === 'alta') || false;
   const marketPhase = marketContext.phase || 'indefinida';
   const marketStrength = marketContext.strength || 'moderada';
   
-  // Safe access to precise entry analysis with fallbacks
-  const preciseEntryAnalysis = analysisResults.preciseEntryAnalysis || {};
+  // Safe access to precise entry analysis with proper type handling
+  const preciseEntryAnalysis = analysisResults.preciseEntryAnalysis || {
+    exactMinute: 'pendente',
+    entryType: '',
+    nextCandleExpectation: 'aguardando análise',
+    priceAction: '',
+    confirmationSignal: '',
+    riskRewardRatio: 0,
+    entryInstructions: ''
+  };
+  
   const entryCondition = preciseEntryAnalysis.entryType || '';
   const entryMinute = preciseEntryAnalysis.exactMinute || 'pendente';
   const nextCandleExpectation = preciseEntryAnalysis.nextCandleExpectation || 'aguardando análise';
@@ -116,7 +134,7 @@ const AdvancedMarketAnalysis = () => {
           ) : (
             <span>Mercado operando dentro dos padrões normais.</span>
           )}
-          {preciseEntryAnalysis?.entryInstructions && (
+          {preciseEntryAnalysis.entryInstructions && (
             <div className="mt-1 text-xs border-l-2 border-primary pl-2">
               {preciseEntryAnalysis.entryInstructions}
             </div>
