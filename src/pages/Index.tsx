@@ -1,11 +1,13 @@
+
 import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
+import AdvancedMarketAnalysis from '@/components/AdvancedMarketAnalysis';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
-  ImageOff, Zap, TrendingUp, CandlestickChart, BarChartHorizontal,
+  ImageOff, Zap, TrendingUp, ChartCandlestick, BarChartHorizontal,
   Volume, Activity, Clock, ArrowDown, ArrowUp, Check
 } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
@@ -42,6 +44,9 @@ const GraphAnalyzerWithMarkupToolbar = () => {
           </AlertDescription>
         </Alert>
       )}
+      
+      {/* Advanced 1-minute Market Analysis */}
+      {capturedImage && <AdvancedMarketAnalysis />}
       
       {analysisResults?.preciseEntryAnalysis && (
         <Alert className="my-3" variant="default">
