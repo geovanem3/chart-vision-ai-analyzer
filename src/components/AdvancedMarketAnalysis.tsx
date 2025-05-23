@@ -160,7 +160,7 @@ const AdvancedMarketAnalysis = () => {
     
     return (
       <Alert className="mt-3 rounded-lg" variant={hasManipulationSigns ? "warning" : "default"}>
-        <ChartCandlestick className="h-4 w-4" />
+        <CandlestickChart className="h-4 w-4" />
         <AlertTitle className="flex items-center gap-2 text-sm">
           {marketPhase !== 'indefinida' ? 
             `Fase: ${marketPhase.charAt(0).toUpperCase() + marketPhase.slice(1)}` : 
