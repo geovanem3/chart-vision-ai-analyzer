@@ -4,15 +4,17 @@ import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
 import ControlPanel from './ControlPanel';
 import AnalysisResults from './AnalysisResults';
+import MobileBottomBar from './MobileBottomBar';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useIsMobile, useViewportSize } from '@/hooks/use-mobile';
+import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock, Camera, Settings } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { checkImageQuality } from '@/utils/imageProcessing';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { motion } from 'framer-motion';
 
 const GraphAnalyzer = () => {
   const { 
@@ -20,7 +22,6 @@ const GraphAnalyzer = () => {
     analysisResults, 
     resetAnalysis, 
     selectedRegion, 
-    setSelectedRegion,
     timeframe,
     setTimeframe,
     setIsAnalyzing,
@@ -74,32 +75,47 @@ const GraphAnalyzer = () => {
     }
   };
 
+  const fadeAnimation = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -10 },
+    transition: { duration: 0.3 }
+  };
+
   return (
-    <div className={`w-full ${isMobile ? 'px-2' : 'max-w-4xl'} mx-auto`}>
+    <motion.div 
+      className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto`}
+      {...fadeAnimation}
+    >
       {!capturedImage ? (
         <>
-          <div className="text-center mb-6">
-            <h2 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold mb-2`}>Capturar Imagem do Gráfico</h2>
-            <p className="text-muted-foreground text-sm">
-              Use sua câmera para tirar uma foto de um gráfico financeiro para análise ou carregue uma imagem.
+          <div className="text-center mb-4">
+            <h2 className="text-xl font-bold mb-2">Capturar Imagem</h2>
+            <p className="text-sm text-muted-foreground">
+              Tire uma foto do gráfico para análise
             </p>
           </div>
           <CameraView />
         </>
       ) : (
-        <div className="space-y-3">
+        <motion.div 
+          className="space-y-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={resetAnalysis}
-                className="mr-2"
+                className="mr-1"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold`}>
-                {analysisResults ? 'Resultados da Análise' : (isAnalyzing ? 'Analisando...' : 'Configurar Análise')}
+              <h2 className="text-lg font-bold">
+                {analysisResults ? 'Resultados' : (isAnalyzing ? 'Analisando...' : 'Configurar')}
               </h2>
             </div>
             
@@ -146,10 +162,10 @@ const GraphAnalyzer = () => {
           {!analysisResults && !isAnalyzing ? (
             <>
               {imageQuality && (
-                <Alert variant={imageQuality.isGoodQuality ? "default" : "destructive"} className="mb-3">
+                <Alert variant={imageQuality.isGoodQuality ? "default" : "destructive"} className="mb-2 rounded-lg">
                   <BarChart2 className="h-4 w-4" />
-                  <AlertTitle>Qualidade da Imagem</AlertTitle>
-                  <AlertDescription className="text-sm">
+                  <AlertTitle className="text-sm">Qualidade da Imagem</AlertTitle>
+                  <AlertDescription className="text-xs">
                     {imageQuality.message}
                     {imageQuality.details && (
                       <ul className="mt-1 list-disc list-inside text-xs">
@@ -162,33 +178,25 @@ const GraphAnalyzer = () => {
                 </Alert>
               )}
               
-              <Card className={`p-0 overflow-hidden bg-card/50`}>
-                <CardHeader className="p-3 pb-0 flex flex-row justify-between items-center">
-                  <div>
-                    <CardTitle className="text-base">Imagem Capturada</CardTitle>
-                    <CardDescription className="text-xs">
-                      Ajuste a região do gráfico para melhor precisão
-                    </CardDescription>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                </CardHeader>
-                <CardContent className="p-3 pt-2">
-                  <div className="relative w-full max-w-3xl overflow-hidden rounded-md mb-2">
+              <Card className="p-0 overflow-hidden bg-card/50 rounded-lg shadow-sm">
+                <CardContent className="p-2">
+                  <div className="relative w-full overflow-hidden rounded-md">
                     <img 
                       src={capturedImage} 
                       alt="Captured Chart" 
                       className="w-full object-contain" 
                     />
+                    <Button variant="secondary" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-80">
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
               
               <Tabs defaultValue="region" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="region">Região do Gráfico</TabsTrigger>
-                  <TabsTrigger value="controls">Análise Avançada</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 h-10">
+                  <TabsTrigger value="region" className="text-xs">Região do Gráfico</TabsTrigger>
+                  <TabsTrigger value="controls" className="text-xs">Análise Avançada</TabsTrigger>
                 </TabsList>
                 <TabsContent value="region" className="mt-2">
                   <ChartRegionSelector />
@@ -202,10 +210,10 @@ const GraphAnalyzer = () => {
             <>
               {/* Mostrar um indicador de carregamento durante a análise */}
               {isAnalyzing && (
-                <div className="flex flex-col items-center justify-center p-8 bg-card/50 rounded-lg border border-border/30">
+                <div className="flex flex-col items-center justify-center p-6 bg-card/50 rounded-lg border border-border/30">
                   <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
-                  <p className="text-lg font-medium">Analisando região selecionada...</p>
-                  <p className="text-sm text-muted-foreground mt-2">
+                  <p className="text-base font-medium">Analisando região selecionada...</p>
+                  <p className="text-xs text-muted-foreground mt-2">
                     Processando padrões e indicadores técnicos
                   </p>
                 </div>
@@ -215,9 +223,12 @@ const GraphAnalyzer = () => {
               {!isAnalyzing && analysisResults && <AnalysisResults />}
             </>
           )}
-        </div>
+        </motion.div>
       )}
-    </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomBar />
+    </motion.div>
   );
 };
 

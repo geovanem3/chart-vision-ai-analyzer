@@ -3,11 +3,12 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle, ScanSearch, ScanFace } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis, isImageClearForAnalysis } from '@/utils/imagePreProcessing';
 import { checkImageQuality } from '@/utils/imageProcessing';
+import { motion } from 'framer-motion';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const CameraView = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -18,6 +19,7 @@ const CameraView = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraAccessAttempted, setCameraAccessAttempted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const isMobile = useIsMobile();
 
   const { setCapturedImage } = useAnalyzer();
   const { toast } = useToast();
@@ -287,41 +289,54 @@ const CameraView = () => {
   }, [facingMode, cameraAccessAttempted]);
 
   return (
-    <div className="w-full flex flex-col items-center">
-      <div className="relative w-full max-w-3xl overflow-hidden rounded-xl aspect-video bg-black">
+    <motion.div 
+      className="w-full flex flex-col items-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="relative w-full overflow-hidden rounded-xl aspect-video bg-black">
         {cameraError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-4">
+          <motion.div 
+            className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             <div className="text-center max-w-md">
-              <Alert variant="destructive" className="mb-4">
+              <Alert variant="destructive" className="mb-4 rounded-lg">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Problema com a câmera</AlertTitle>
-                <AlertDescription>{cameraError}</AlertDescription>
+                <AlertTitle className="text-sm">Problema com a câmera</AlertTitle>
+                <AlertDescription className="text-xs">{cameraError}</AlertDescription>
               </Alert>
-              <div className="flex gap-4 justify-center">
-                <Button onClick={startCamera}>Tentar Novamente</Button>
-                <Button variant="outline" onClick={triggerFileUpload}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Carregar Imagem
+              <div className="flex gap-2 justify-center">
+                <Button onClick={startCamera} size="sm">Tentar Novamente</Button>
+                <Button variant="outline" onClick={triggerFileUpload} size="sm" className="gap-1">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Carregar</span>
                 </Button>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
         
         {isProcessing && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+          <motion.div 
+            className="absolute inset-0 flex items-center justify-center bg-black/60 z-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             <div className="text-center">
               <div className="flex flex-col items-center">
-                <ScanSearch className="animate-pulse h-12 w-12 text-primary mb-4" />
-                <h3 className="text-white text-lg font-bold">Processando Imagem</h3>
-                <p className="text-white/70 text-sm mt-1">Otimizando para melhor análise...</p>
+                <ScanSearch className="animate-pulse h-10 w-10 text-primary mb-3" />
+                <h3 className="text-white text-base font-bold">Processando Imagem</h3>
+                <p className="text-white/70 text-xs mt-1">Otimizando para melhor análise...</p>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
         
         <div className={`absolute top-4 left-4 z-10 ${isCameraActive ? 'flex' : 'hidden'}`}>
-          <div className="bg-black/70 text-white px-3 py-1 rounded-full text-xs">
+          <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs">
             <ScanFace className="inline h-3 w-3 mr-1" /> 
             Posicione o gráfico
           </div>
@@ -341,14 +356,14 @@ const CameraView = () => {
         />
       </div>
       
-      <div className="flex items-center gap-4 mt-4">
+      <div className="flex items-center gap-3 mt-3">
         {isCameraActive ? (
           <>
             <Button
               variant="outline"
               size="icon"
               onClick={toggleCameraFacing}
-              className="rounded-full"
+              className="rounded-full h-10 w-10"
               disabled={isProcessing}
             >
               <FlipHorizontal className="w-4 h-4" />
@@ -356,32 +371,32 @@ const CameraView = () => {
             
             <Button
               onClick={captureImage}
-              className="rounded-full w-16 h-16 p-0"
+              className="rounded-full w-14 h-14 p-0"
               disabled={isProcessing}
             >
-              <div className="w-12 h-12 rounded-full border-2 border-white" />
+              <div className="w-10 h-10 rounded-full border-2 border-white" />
             </Button>
             
             <Button
               variant="outline"
               size="icon"
               onClick={stopCamera}
-              className="rounded-full"
+              className="rounded-full h-10 w-10"
               disabled={isProcessing}
             >
               <X className="w-4 h-4" />
             </Button>
           </>
         ) : (
-          <div className="flex gap-4">
-            <Button onClick={startCamera} className="gap-2" disabled={isProcessing}>
+          <div className="flex gap-3 justify-center w-full">
+            <Button onClick={startCamera} className="gap-1 flex-1" disabled={isProcessing}>
               <Camera className="w-4 h-4" />
-              <span>Iniciar Câmera</span>
+              <span>Câmera</span>
             </Button>
             
-            <Button variant="outline" onClick={triggerFileUpload} className="gap-2" disabled={isProcessing}>
+            <Button variant="outline" onClick={triggerFileUpload} className="gap-1 flex-1" disabled={isProcessing}>
               <Image className="w-4 h-4" />
-              <span>Carregar Imagem</span>
+              <span>Galeria</span>
             </Button>
             
             <input 
@@ -395,32 +410,44 @@ const CameraView = () => {
         )}
       </div>
 
-      {/* Sample chart examples */}
-      <Card className="p-4 mt-6 w-full">
-        <h3 className="text-lg font-medium mb-2">Exemplos de Gráficos</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Você pode usar um gráfico de exemplo para testar a análise.
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <Button variant="outline" onClick={() => setCapturedImage('/chart-example-1.jpg')} className="h-auto p-2" disabled={isProcessing}>
-            <div className="flex flex-col items-center">
-              <span className="text-sm mb-1">Gráfico de Velas</span>
-              <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
-                <span className="text-xs text-muted-foreground">Exemplo 1</span>
+      {/* Sample chart examples - more compact for mobile */}
+      {!isCameraActive && (
+        <motion.div 
+          className="grid grid-cols-2 gap-2 w-full mt-4"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Button 
+            variant="outline" 
+            onClick={() => setCapturedImage('/chart-example-1.jpg')} 
+            className="h-auto p-2 rounded-lg" 
+            disabled={isProcessing}
+          >
+            <div className="flex flex-col items-center w-full">
+              <span className="text-xs mb-1">Exemplo 1</span>
+              <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
+                <ChartCandlestick className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </Button>
-          <Button variant="outline" onClick={() => setCapturedImage('/chart-example-2.jpg')} className="h-auto p-2" disabled={isProcessing}>
-            <div className="flex flex-col items-center">
-              <span className="text-sm mb-1">Gráfico de Linha</span>
-              <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
-                <span className="text-xs text-muted-foreground">Exemplo 2</span>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => setCapturedImage('/chart-example-2.jpg')} 
+            className="h-auto p-2 rounded-lg" 
+            disabled={isProcessing}
+          >
+            <div className="flex flex-col items-center w-full">
+              <span className="text-xs mb-1">Exemplo 2</span>
+              <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
+                <BarChart2 className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </Button>
-        </div>
-      </Card>
-    </div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 };
 

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -45,7 +45,7 @@ const AdvancedMarketAnalysis = () => {
         <h3 className="text-sm font-medium text-muted-foreground mb-1">Aguardando análise</h3>
         <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <ChartBar className="h-6 w-6 text-gray-500" />
+            <ChartBar className="h-5 w-5 text-gray-500" />
             <span className="font-medium text-gray-700 dark:text-gray-400">Configure a análise e pressione "Analisar"</span>
           </div>
         </div>
@@ -106,9 +106,9 @@ const AdvancedMarketAnalysis = () => {
       });
       
       return (
-        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-md border border-green-500 flex items-center justify-between">
+        <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg border border-green-500 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CircleArrowUp className="h-6 w-6 text-green-500 animate-pulse" />
+            <CircleArrowUp className="h-7 w-7 text-green-500 animate-pulse" />
             <span className="font-bold text-green-700 dark:text-green-400 text-xl">COMPRAR</span>
           </div>
           <div className="text-right">
@@ -127,9 +127,9 @@ const AdvancedMarketAnalysis = () => {
       });
       
       return (
-        <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-md border border-red-500 flex items-center justify-between">
+        <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-500 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CircleArrowDown className="h-6 w-6 text-red-500 animate-pulse" />
+            <CircleArrowDown className="h-7 w-7 text-red-500 animate-pulse" />
             <span className="font-bold text-red-700 dark:text-red-400 text-xl">VENDER</span>
           </div>
           <div className="text-right">
@@ -141,10 +141,10 @@ const AdvancedMarketAnalysis = () => {
     }
     
     return (
-      <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-700 flex items-center justify-between">
+      <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ChartBar className="h-6 w-6 text-gray-500" />
-          <span className="font-bold text-gray-700 dark:text-gray-400 text-xl">AGUARDAR</span>
+          <span className="font-bold text-gray-700 dark:text-gray-400 text-lg">AGUARDAR</span>
         </div>
         <div className="text-right">
           <div className="font-mono text-sm">Sem sinal claro</div>
@@ -159,15 +159,15 @@ const AdvancedMarketAnalysis = () => {
     if (!marketContextEnabled) return null;
     
     return (
-      <Alert className="mt-3" variant={hasManipulationSigns ? "warning" : "default"}>
+      <Alert className="mt-3 rounded-lg" variant={hasManipulationSigns ? "warning" : "default"}>
         <ChartCandlestick className="h-4 w-4" />
-        <AlertTitle className="flex items-center gap-2">
+        <AlertTitle className="flex items-center gap-2 text-sm">
           {marketPhase !== 'indefinida' ? 
             `Fase: ${marketPhase.charAt(0).toUpperCase() + marketPhase.slice(1)}` : 
             'Fase: Indefinida'}
           <span className="text-xs bg-primary/10 px-1 rounded">{marketStrength}</span>
         </AlertTitle>
-        <AlertDescription className="text-sm">
+        <AlertDescription className="text-xs">
           {hasManipulationSigns ? (
             <span className="font-medium">Alerta: Possível manipulação detectada. Use cautela extrema.</span>
           ) : (
@@ -184,7 +184,7 @@ const AdvancedMarketAnalysis = () => {
   };
 
   return (
-    <div className="space-y-2 my-3">
+    <div className="space-y-3 my-3 animate-fade-in">
       <h3 className="text-sm font-medium text-muted-foreground mb-1">Análise Ultra Rápida M1</h3>
       
       {/* Clear entry signal - no reading required */}
@@ -196,13 +196,13 @@ const AdvancedMarketAnalysis = () => {
       {/* Technical details - only if comprehensive analysis selected */}
       {marketAnalysisDepth === 'comprehensive' && analysisResults.volumeData && analysisResults.volatilityData && (
         <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-          <div className="p-1 border rounded flex items-center gap-1">
-            <span className={`w-2 h-2 rounded-full ${analysisResults.volumeData.abnormal ? 'bg-amber-500' : 'bg-green-500'}`}></span>
+          <div className="p-2 border rounded-lg flex items-center gap-1">
+            <span className={`w-3 h-3 rounded-full ${analysisResults.volumeData.abnormal ? 'bg-amber-500' : 'bg-green-500'}`}></span>
             <span>Volume: {analysisResults.volumeData.significance}</span>
           </div>
           
-          <div className="p-1 border rounded flex items-center gap-1">
-            <span className={`w-2 h-2 rounded-full ${analysisResults.volatilityData.isHigh ? 'bg-amber-500' : 'bg-green-500'}`}></span>
+          <div className="p-2 border rounded-lg flex items-center gap-1">
+            <span className={`w-3 h-3 rounded-full ${analysisResults.volatilityData.isHigh ? 'bg-amber-500' : 'bg-green-500'}`}></span>
             <span>Volatilidade: {analysisResults.volatilityData.historicalComparison}</span>
           </div>
         </div>
