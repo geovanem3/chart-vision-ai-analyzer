@@ -22,7 +22,9 @@ const GraphAnalyzer = () => {
     selectedRegion, 
     setSelectedRegion,
     timeframe,
-    setTimeframe
+    setTimeframe,
+    setIsAnalyzing,
+    isAnalyzing
   } = useAnalyzer();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("region");
@@ -58,6 +60,19 @@ const GraphAnalyzer = () => {
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
   };
+  
+  // Função para iniciar análise
+  const startAnalysis = () => {
+    if (capturedImage && selectedRegion) {
+      setIsAnalyzing(true);
+      // Simular um resultado de análise após um breve delay
+      setTimeout(() => {
+        // Aqui apenas simulamos a análise concluída
+        setIsAnalyzing(false);
+        // O resultado real seria definido por uma API ou processamento
+      }, 1500);
+    }
+  };
 
   return (
     <div className={`w-full ${isMobile ? 'px-2' : 'max-w-4xl'} mx-auto`}>
@@ -84,11 +99,11 @@ const GraphAnalyzer = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold`}>
-                {analysisResults ? 'Resultados da Análise' : 'Configurar Análise'}
+                {analysisResults ? 'Resultados da Análise' : (isAnalyzing ? 'Analisando...' : 'Configurar Análise')}
               </h2>
             </div>
             
-            {!analysisResults ? (
+            {!analysisResults && !isAnalyzing ? (
               <div className="flex items-center gap-2">
                 <div className="flex items-center bg-secondary/60 rounded-md px-2 py-1">
                   <Clock className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
@@ -116,7 +131,8 @@ const GraphAnalyzer = () => {
                     if (activeTab === "region") {
                       setActiveTab("controls");
                     } else {
-                      // Navigate to analysis
+                      // Iniciar análise
+                      startAnalysis();
                     }
                   }}
                 >
@@ -127,7 +143,7 @@ const GraphAnalyzer = () => {
             ) : null}
           </div>
           
-          {!analysisResults ? (
+          {!analysisResults && !isAnalyzing ? (
             <>
               {imageQuality && (
                 <Alert variant={imageQuality.isGoodQuality ? "default" : "destructive"} className="mb-3">
@@ -183,7 +199,21 @@ const GraphAnalyzer = () => {
               </Tabs>
             </>
           ) : (
-            <AnalysisResults />
+            <>
+              {/* Mostrar um indicador de carregamento durante a análise */}
+              {isAnalyzing && (
+                <div className="flex flex-col items-center justify-center p-8 bg-card/50 rounded-lg border border-border/30">
+                  <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
+                  <p className="text-lg font-medium">Analisando região selecionada...</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Processando padrões e indicadores técnicos
+                  </p>
+                </div>
+              )}
+              
+              {/* Mostrar resultados quando disponíveis */}
+              {!isAnalyzing && analysisResults && <AnalysisResults />}
+            </>
           )}
         </div>
       )}

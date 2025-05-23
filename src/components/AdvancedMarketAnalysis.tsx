@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -14,12 +14,44 @@ const AdvancedMarketAnalysis = () => {
     timeframe, 
     marketAnalysisDepth,
     marketContextEnabled,
-    selectedRegion
+    selectedRegion,
+    capturedImage,
+    isAnalyzing
   } = useAnalyzer();
   const { toast } = useToast();
 
+  // Verificar se há uma imagem capturada
+  if (!capturedImage) return null;
+  
+  // Verificar se a análise está sendo realizada
+  if (isAnalyzing) {
+    return (
+      <div className="space-y-2 my-3">
+        <h3 className="text-sm font-medium text-muted-foreground mb-1">Analisando dados...</h3>
+        <div className="p-4 border rounded-md bg-card">
+          <div className="flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-primary animate-pulse"></div>
+            <div className="ml-2">Processando análise de mercado</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Verificar se a análise está disponível antes de tentar renderizar
-  if (!analysisResults) return null;
+  if (!analysisResults) {
+    return (
+      <div className="space-y-2 my-3">
+        <h3 className="text-sm font-medium text-muted-foreground mb-1">Aguardando análise</h3>
+        <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <ChartBar className="h-6 w-6 text-gray-500" />
+            <span className="font-medium text-gray-700 dark:text-gray-400">Configure a análise e pressione "Analisar"</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Verificar o timeframe
   if (timeframe !== '1m') return null;
