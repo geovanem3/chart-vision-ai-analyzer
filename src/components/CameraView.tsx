@@ -1,8 +1,7 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle, ScanSearch, ScanFace } from 'lucide-react';
+import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle, ScanSearch, ScanFace, BarChart2, CandlestickChart } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis, isImageClearForAnalysis } from '@/utils/imagePreProcessing';
@@ -427,7 +426,7 @@ const CameraView = () => {
             <div className="flex flex-col items-center w-full">
               <span className="text-xs mb-1">Exemplo 1</span>
               <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
-                <ChartCandlestick className="h-6 w-6 text-muted-foreground" />
+                <CandlestickChart className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </Button>
