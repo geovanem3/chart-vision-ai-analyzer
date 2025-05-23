@@ -13,7 +13,8 @@ const AdvancedMarketAnalysis = () => {
     analysisResults, 
     timeframe, 
     marketAnalysisDepth,
-    marketContextEnabled
+    marketContextEnabled,
+    selectedRegion
   } = useAnalyzer();
   const { toast } = useToast();
 

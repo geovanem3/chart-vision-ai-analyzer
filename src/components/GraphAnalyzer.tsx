@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
 import ControlPanel from './ControlPanel';
@@ -46,6 +46,14 @@ const GraphAnalyzer = () => {
       setImageQuality(null);
     }
   }, [capturedImage, analysisResults]);
+
+  // Ensure selected region is maintained during analysis
+  useEffect(() => {
+    if (analysisResults && !analysisResults.manualRegion && selectedRegion) {
+      // Adiciona a informação da região selecionada aos resultados
+      analysisResults.manualRegion = true;
+    }
+  }, [analysisResults, selectedRegion]);
 
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');

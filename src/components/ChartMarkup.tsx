@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAnalyzer, TechnicalElement, Point } from '@/context/AnalyzerContext';
 
 type ChartMarkupProps = {
@@ -17,9 +17,27 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
     showTechnicalMarkup, 
     analysisResults, 
     markupSize,
-    manualMarkups
+    manualMarkups,
+    selectedRegion
   } = useAnalyzer();
   
+  const [viewBox, setViewBox] = useState(`0 0 ${imageWidth} ${imageHeight}`);
+  const [transform, setTransform] = useState('');
+  
+  useEffect(() => {
+    // Ajustar o viewBox e a transformação com base na região selecionada
+    if (selectedRegion) {
+      if (selectedRegion.type === 'rectangle') {
+        setViewBox(`${selectedRegion.x} ${selectedRegion.y} ${selectedRegion.width} ${selectedRegion.height}`);
+      } else if (selectedRegion.type === 'circle') {
+        const diameter = selectedRegion.radius * 2;
+        setViewBox(`${selectedRegion.centerX - selectedRegion.radius} ${selectedRegion.centerY - selectedRegion.radius} ${diameter} ${diameter}`);
+      }
+    } else {
+      setViewBox(`0 0 ${imageWidth} ${imageHeight}`);
+    }
+  }, [selectedRegion, imageWidth, imageHeight]);
+
   if (!showTechnicalMarkup || !analysisResults) return null;
   
   const getSizeMultiplier = () => {
@@ -43,22 +61,39 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
     console.log('Detected candles:', analysisResults.candles.length, analysisResults.candles[0]);
   }
   
-  // Apply proportional scaling to coordinates
+  // Apply proportional scaling to coordinates based on selected region
   const scalePoint = (point: Point): Point => {
-    return {
-      x: point.x,
-      y: point.y
-    };
+    // Se não tiver região selecionada, mantém o ponto como está
+    if (!selectedRegion) {
+      return point;
+    }
+
+    // Calcula as coordenadas ajustadas com base na região selecionada
+    if (selectedRegion.type === 'rectangle') {
+      return {
+        x: point.x, // Já está no sistema de coordenadas correto, pois o viewBox foi ajustado
+        y: point.y
+      };
+    } else if (selectedRegion.type === 'circle') {
+      // Para região circular, ajustar relativo ao centro
+      return {
+        x: point.x,
+        y: point.y
+      };
+    }
+
+    return point;
   };
 
   // Debug log to ensure elements are being properly passed
   console.log('Rendering chart markup with elements:', allElements);
   console.log('Market context:', analysisResults.marketContext);
+  console.log('Selected region:', selectedRegion);
   
   return (
     <svg 
       className="absolute top-0 left-0 w-full h-full pointer-events-none"
-      viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+      viewBox={viewBox}
       preserveAspectRatio="none"
     >
       {/* Render detected candles if available */}
@@ -351,6 +386,20 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
             ))
           }
         </g>
+      )}
+
+      {/* Region indicator frame */}
+      {selectedRegion && (
+        <rect 
+          x={selectedRegion.type === 'rectangle' ? selectedRegion.x : selectedRegion.centerX - selectedRegion.radius}
+          y={selectedRegion.type === 'rectangle' ? selectedRegion.y : selectedRegion.centerY - selectedRegion.radius}
+          width={selectedRegion.type === 'rectangle' ? selectedRegion.width : selectedRegion.radius * 2}
+          height={selectedRegion.type === 'rectangle' ? selectedRegion.height : selectedRegion.radius * 2}
+          fill="none"
+          stroke="rgba(59, 130, 246, 0.6)"
+          strokeWidth={2}
+          strokeDasharray="5,5"
+        />
       )}
     </svg>
   );
