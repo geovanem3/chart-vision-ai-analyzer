@@ -15,6 +15,7 @@ import { checkImageQuality } from '@/utils/imageProcessing';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
 
 const GraphAnalyzer = () => {
   const { 
@@ -25,10 +26,12 @@ const GraphAnalyzer = () => {
     timeframe,
     setTimeframe,
     setIsAnalyzing,
-    isAnalyzing
+    isAnalyzing,
+    setAnalysisResults
   } = useAnalyzer();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("region");
+  const { toast } = useToast();
   const [imageQuality, setImageQuality] = useState<{
     isGoodQuality: boolean;
     message: string;
@@ -66,12 +69,93 @@ const GraphAnalyzer = () => {
   const startAnalysis = () => {
     if (capturedImage && selectedRegion) {
       setIsAnalyzing(true);
+      
       // Simular um resultado de análise após um breve delay
       setTimeout(() => {
-        // Aqui apenas simulamos a análise concluída
-        setIsAnalyzing(false);
-        // O resultado real seria definido por uma API ou processamento
+        try {
+          // Criar um resultado de análise simulado
+          const simulatedResult = {
+            patterns: [
+              {
+                type: timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta',
+                confidence: 0.78,
+                description: 'Padrão de reversão identificado na região selecionada',
+                action: 'compra' as 'compra' | 'venda' | 'neutro',
+                isScalpingSignal: timeframe === '1m'
+              }
+            ],
+            timestamp: Date.now(),
+            imageUrl: capturedImage,
+            manualRegion: true,
+            preciseEntryAnalysis: {
+              exactMinute: '12:45',
+              entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
+              nextCandleExpectation: 'Alta provável com fechamento acima da máxima anterior',
+              priceAction: 'Forte pressão compradora após teste de suporte',
+              confirmationSignal: 'Volume crescente com velas de alta',
+              riskRewardRatio: 2.5,
+              entryInstructions: 'Entrar após confirmação da reversão com stop abaixo do suporte'
+            },
+            // Dados adicionais para evitar erros de tipo undefined
+            marketContext: {
+              phase: 'tendência_alta' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
+              strength: 'forte' as 'forte' | 'moderada' | 'fraca',
+              description: 'Mercado em tendência de alta com força moderada',
+              dominantTimeframe: '1m' as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w',
+              sentiment: 'otimista' as 'otimista' | 'pessimista' | 'neutro',
+              marketStructure: 'alta_altas' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
+              breakoutPotential: 'alto' as 'alto' | 'médio' | 'baixo',
+              momentumSignature: 'acelerando' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
+              liquidityPools: [
+                { level: 125.50, strength: 'alta' as 'alta' | 'média' | 'baixa' }
+              ]
+            },
+            volumeData: {
+              value: 1250000,
+              trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
+              abnormal: false,
+              significance: 'high' as 'high' | 'medium' | 'low',
+              relativeToAverage: 1.35,
+              distribution: 'accumulation' as 'accumulation' | 'distribution' | 'neutral',
+              divergence: false
+            },
+            volatilityData: {
+              value: 2.3,
+              trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
+              atr: 1.8,
+              percentageRange: 1.2,
+              isHigh: false,
+              historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
+            }
+          };
+          
+          // Atualizar o estado com o resultado simulado
+          setAnalysisResults(simulatedResult);
+          
+          // Feedback visual para o usuário
+          toast({
+            title: "Análise completa",
+            description: "Padrões identificados na região selecionada",
+            variant: "success",
+          });
+        } catch (error) {
+          console.error("Erro ao processar análise:", error);
+          toast({
+            title: "Erro na análise",
+            description: "Ocorreu um problema ao processar a análise. Tente novamente.",
+            variant: "destructive",
+          });
+        } finally {
+          // Sempre finalizar o estado de análise
+          setIsAnalyzing(false);
+        }
       }, 1500);
+    } else {
+      toast({
+        title: "Selecione uma região",
+        description: "Você precisa selecionar uma região do gráfico para análise",
+        variant: "warning",
+      });
     }
   };
 

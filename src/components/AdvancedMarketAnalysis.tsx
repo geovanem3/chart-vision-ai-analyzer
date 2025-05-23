@@ -4,7 +4,7 @@ import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   TrendingUp, TrendingDown, CircleArrowUp, CircleArrowDown, 
-  ChartBar, ChartCandlestick, SquareArrowUp, SquareArrowDown
+  ChartBar, CandlestickChart, SquareArrowUp, SquareArrowDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -84,7 +84,7 @@ const AdvancedMarketAnalysis = () => {
   // Safe access to precise entry analysis with proper type handling
   const preciseEntryAnalysis = analysisResults.preciseEntryAnalysis || {
     exactMinute: 'pendente',
-    entryType: '',
+    entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
     nextCandleExpectation: 'aguardando análise',
     priceAction: '',
     confirmationSignal: '',
