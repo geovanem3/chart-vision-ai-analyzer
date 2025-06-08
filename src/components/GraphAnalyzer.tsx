@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -55,7 +56,6 @@ const GraphAnalyzer = () => {
   // Ensure selected region is maintained during analysis
   useEffect(() => {
     if (analysisResults && !analysisResults.manualRegion && selectedRegion) {
-      // Adiciona a informação da região selecionada aos resultados
       const updatedResults = { ...analysisResults, manualRegion: true };
       setAnalysisResults(updatedResults);
     }
@@ -65,24 +65,20 @@ const GraphAnalyzer = () => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
   };
   
-  // Função para iniciar análise
   const startAnalysis = () => {
     if (!capturedImage || !selectedRegion) {
       toast({
         title: "Selecione uma região",
         description: "Você precisa selecionar uma região do gráfico para análise",
-        variant: "warning",
+        variant: "destructive",
       });
       return;
     }
     
-    // Iniciamos o estado de análise
     setIsAnalyzing(true);
     
-    // Simular um resultado de análise após um breve delay
     setTimeout(() => {
       try {
-        // Criar um resultado de análise simulado
         const simulatedResult = {
           patterns: [
             {
@@ -105,7 +101,6 @@ const GraphAnalyzer = () => {
             riskRewardRatio: 2.5,
             entryInstructions: 'Entrar após confirmação da reversão com stop abaixo do suporte'
           },
-          // Dados adicionais para evitar erros de tipo undefined
           marketContext: {
             phase: 'tendência_alta' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
             strength: 'forte' as 'forte' | 'moderada' | 'fraca',
@@ -138,14 +133,11 @@ const GraphAnalyzer = () => {
           }
         };
         
-        // Atualizar o estado com o resultado simulado
         setAnalysisResults(simulatedResult);
         
-        // Feedback visual para o usuário
         toast({
           title: "Análise completa",
           description: "Padrões identificados na região selecionada",
-          variant: "success",
         });
       } catch (error) {
         console.error("Erro ao processar análise:", error);
@@ -155,7 +147,6 @@ const GraphAnalyzer = () => {
           variant: "destructive",
         });
       } finally {
-        // Sempre finalizar o estado de análise
         setIsAnalyzing(false);
       }
     }, 1500);
@@ -168,12 +159,11 @@ const GraphAnalyzer = () => {
     transition: { duration: 0.3 }
   };
 
-  return (
-    <motion.div 
-      className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto`}
-      {...fadeAnimation}
-    >
-      {!capturedImage ? (
+  // Renderização principal baseada no estado
+  const renderMainContent = () => {
+    // Se não há imagem capturada, mostrar a câmera
+    if (!capturedImage) {
+      return (
         <>
           <div className="text-center mb-4">
             <h2 className="text-xl font-bold mb-2">Capturar Imagem</h2>
@@ -183,7 +173,12 @@ const GraphAnalyzer = () => {
           </div>
           <CameraView />
         </>
-      ) : (
+      );
+    }
+
+    // Se há resultados, mostrar apenas os resultados
+    if (analysisResults) {
+      return (
         <motion.div 
           className="space-y-3"
           initial={{ opacity: 0 }}
@@ -200,122 +195,160 @@ const GraphAnalyzer = () => {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-lg font-bold">
-                {analysisResults ? 'Resultados' : (isAnalyzing ? 'Analisando...' : 'Configurar')}
-              </h2>
+              <h2 className="text-lg font-bold">Resultados</h2>
             </div>
-            
-            {!analysisResults && !isAnalyzing ? (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center bg-secondary/60 rounded-md px-2 py-1">
-                  <Clock className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                  <Select value={timeframe} onValueChange={handleTimeframeChange}>
-                    <SelectTrigger className="h-6 w-12 text-xs border-0 p-0 pl-1 bg-transparent">
-                      <SelectValue placeholder="1m" />
-                    </SelectTrigger>
-                    <SelectContent side="bottom">
-                      <SelectItem value="1m">1m</SelectItem>
-                      <SelectItem value="5m">5m</SelectItem>
-                      <SelectItem value="15m">15m</SelectItem>
-                      <SelectItem value="30m">30m</SelectItem>
-                      <SelectItem value="1h">1h</SelectItem>
-                      <SelectItem value="4h">4h</SelectItem>
-                      <SelectItem value="1d">1d</SelectItem>
-                      <SelectItem value="1w">1w</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1"
-                  onClick={() => {
-                    if (activeTab === "region") {
-                      setActiveTab("controls");
-                    } else {
-                      // Iniciar análise
-                      startAnalysis();
-                    }
-                  }}
-                >
-                  {activeTab === "region" ? "Próximo" : "Analisar"}
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : null}
+          </div>
+          <AnalysisResults />
+        </motion.div>
+      );
+    }
+
+    // Se está analisando, mostrar loading
+    if (isAnalyzing) {
+      return (
+        <motion.div 
+          className="space-y-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={resetAnalysis}
+                className="mr-1"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-lg font-bold">Analisando...</h2>
+            </div>
           </div>
           
-          {/* Conteúdo principal com base no estado atual da aplicação */}
-          {!analysisResults && !isAnalyzing && (
-            <>
-              {imageQuality && (
-                <Alert variant={imageQuality.isGoodQuality ? "default" : "destructive"} className="mb-2 rounded-lg">
-                  <BarChart2 className="h-4 w-4" />
-                  <AlertTitle className="text-sm">Qualidade da Imagem</AlertTitle>
-                  <AlertDescription className="text-xs">
-                    {imageQuality.message}
-                    {imageQuality.details && (
-                      <ul className="mt-1 list-disc list-inside text-xs">
-                        <li>Resolução: {imageQuality.details.resolution}</li>
-                        <li>Contraste: {imageQuality.details.contrast}</li>
-                        <li>Ruído: {imageQuality.details.noise}</li>
-                      </ul>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              <Card className="p-0 overflow-hidden bg-card/50 rounded-lg shadow-sm">
-                <CardContent className="p-2">
-                  <div className="relative w-full overflow-hidden rounded-md">
-                    <img 
-                      src={capturedImage} 
-                      alt="Captured Chart" 
-                      className="w-full object-contain" 
-                    />
-                    <Button variant="secondary" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-80">
-                      <ZoomIn className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Tabs defaultValue="region" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 h-10">
-                  <TabsTrigger value="region" className="text-xs">Região do Gráfico</TabsTrigger>
-                  <TabsTrigger value="controls" className="text-xs">Análise Avançada</TabsTrigger>
-                </TabsList>
-                <TabsContent value="region" className="mt-2">
-                  <ChartRegionSelector />
-                </TabsContent>
-                <TabsContent value="controls" className="mt-2">
-                  <ControlPanel />
-                </TabsContent>
-              </Tabs>
-            </>
-          )}
-          
-          {/* Mostrar um indicador de carregamento durante a análise */}
-          {isAnalyzing && (
-            <div className="flex flex-col items-center justify-center p-6 bg-card/50 rounded-lg border border-border/30">
-              <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
-              <p className="text-base font-medium">Analisando região selecionada...</p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Processando padrões e indicadores técnicos
-              </p>
-            </div>
-          )}
-          
-          {/* Mostrar resultados quando disponíveis */}
-          {!isAnalyzing && analysisResults && (
-            <div className="mt-2">
-              <AnalysisResults />
-            </div>
-          )}
+          <div className="flex flex-col items-center justify-center p-6 bg-card/50 rounded-lg border border-border/30">
+            <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
+            <p className="text-base font-medium">Analisando região selecionada...</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Processando padrões e indicadores técnicos
+            </p>
+          </div>
         </motion.div>
-      )}
+      );
+    }
 
-      {/* Mobile Bottom Navigation */}
+    // Estado padrão: configuração da análise
+    return (
+      <motion.div 
+        className="space-y-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={resetAnalysis}
+              className="mr-1"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-bold">Configurar</h2>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-secondary/60 rounded-md px-2 py-1">
+              <Clock className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <Select value={timeframe} onValueChange={handleTimeframeChange}>
+                <SelectTrigger className="h-6 w-12 text-xs border-0 p-0 pl-1 bg-transparent">
+                  <SelectValue placeholder="1m" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  <SelectItem value="1m">1m</SelectItem>
+                  <SelectItem value="5m">5m</SelectItem>
+                  <SelectItem value="15m">15m</SelectItem>
+                  <SelectItem value="30m">30m</SelectItem>
+                  <SelectItem value="1h">1h</SelectItem>
+                  <SelectItem value="4h">4h</SelectItem>
+                  <SelectItem value="1d">1d</SelectItem>
+                  <SelectItem value="1w">1w</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1"
+              onClick={() => {
+                if (activeTab === "region") {
+                  setActiveTab("controls");
+                } else {
+                  startAnalysis();
+                }
+              }}
+            >
+              {activeTab === "region" ? "Próximo" : "Analisar"}
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+        
+        {imageQuality && (
+          <Alert variant={imageQuality.isGoodQuality ? "default" : "destructive"} className="mb-2 rounded-lg">
+            <BarChart2 className="h-4 w-4" />
+            <AlertTitle className="text-sm">Qualidade da Imagem</AlertTitle>
+            <AlertDescription className="text-xs">
+              {imageQuality.message}
+              {imageQuality.details && (
+                <ul className="mt-1 list-disc list-inside text-xs">
+                  <li>Resolução: {imageQuality.details.resolution}</li>
+                  <li>Contraste: {imageQuality.details.contrast}</li>
+                  <li>Ruído: {imageQuality.details.noise}</li>
+                </ul>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Card className="p-0 overflow-hidden bg-card/50 rounded-lg shadow-sm">
+          <CardContent className="p-2">
+            <div className="relative w-full overflow-hidden rounded-md">
+              <img 
+                src={capturedImage} 
+                alt="Captured Chart" 
+                className="w-full object-contain" 
+              />
+              <Button variant="secondary" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-80">
+                <ZoomIn className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Tabs defaultValue="region" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 h-10">
+            <TabsTrigger value="region" className="text-xs">Região do Gráfico</TabsTrigger>
+            <TabsTrigger value="controls" className="text-xs">Análise Avançada</TabsTrigger>
+          </TabsList>
+          <TabsContent value="region" className="mt-2">
+            <ChartRegionSelector />
+          </TabsContent>
+          <TabsContent value="controls" className="mt-2">
+            <ControlPanel />
+          </TabsContent>
+        </Tabs>
+      </motion.div>
+    );
+  };
+
+  return (
+    <motion.div 
+      className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto`}
+      {...fadeAnimation}
+    >
+      {renderMainContent()}
       <MobileBottomBar />
     </motion.div>
   );
