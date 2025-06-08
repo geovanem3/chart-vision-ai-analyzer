@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -16,6 +15,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { getMasterAnalysis } from '@/utils/masterTechniques';
 
 const GraphAnalyzer = () => {
   const { 
@@ -79,14 +79,19 @@ const GraphAnalyzer = () => {
     
     setTimeout(() => {
       try {
+        // Análise baseada nos mestres
+        const masterAnalysis = getMasterAnalysis(timeframe, timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta');
+        
         const simulatedResult = {
           patterns: [
             {
               type: timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta',
-              confidence: 0.78,
-              description: 'Padrão de reversão identificado na região selecionada',
-              action: 'compra' as 'compra' | 'venda' | 'neutro',
-              isScalpingSignal: timeframe === '1m'
+              confidence: masterAnalysis.bulkowski?.reliability || 0.78,
+              description: `Padrão identificado seguindo metodologia de Bulkowski: ${masterAnalysis.bulkowski?.name || 'Padrão de reversão'}`,
+              action: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'compra' : 
+                     masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'venda' : 'neutro' as 'compra' | 'venda' | 'neutro',
+              isScalpingSignal: timeframe === '1m',
+              recommendation: masterAnalysis.masterRecommendation
             }
           ],
           timestamp: Date.now(),
@@ -95,33 +100,39 @@ const GraphAnalyzer = () => {
           preciseEntryAnalysis: {
             exactMinute: '12:45',
             entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
-            nextCandleExpectation: 'Alta provável com fechamento acima da máxima anterior',
-            priceAction: 'Forte pressão compradora após teste de suporte',
-            confirmationSignal: 'Volume crescente com velas de alta',
-            riskRewardRatio: 2.5,
-            entryInstructions: 'Entrar após confirmação da reversão com stop abaixo do suporte'
+            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
+            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
+            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
+            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
+            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
           },
           marketContext: {
-            phase: 'tendência_alta' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
-            strength: 'forte' as 'forte' | 'moderada' | 'fraca',
-            description: 'Mercado em tendência de alta com força moderada',
-            dominantTimeframe: '1m' as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w',
-            sentiment: 'otimista' as 'otimista' | 'pessimista' | 'neutro',
-            marketStructure: 'alta_altas' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
-            breakoutPotential: 'alto' as 'alto' | 'médio' | 'baixo',
-            momentumSignature: 'acelerando' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
-            liquidityPools: [
-              { level: 125.50, strength: 'alta' as 'alta' | 'média' | 'baixa' }
-            ]
+            phase: masterAnalysis.murphy?.trendAnalysis.primary === 'bullish' ? 'tendência_alta' : 
+                   masterAnalysis.murphy?.trendAnalysis.primary === 'bearish' ? 'tendência_baixa' : 'lateral' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
+            strength: masterAnalysis.tripleScreen?.confidence > 0.8 ? 'forte' : 
+                     masterAnalysis.tripleScreen?.confidence > 0.6 ? 'moderada' : 'fraca' as 'forte' | 'moderada' | 'fraca',
+            description: `Análise integrada dos mestres: ${masterAnalysis.masterRecommendation.split('\n\n')[0]}`,
+            dominantTimeframe: timeframe,
+            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
+                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro' as 'otimista' | 'pessimista' | 'neutro',
+            marketStructure: masterAnalysis.murphy?.trendAnalysis.primary === 'bullish' ? 'alta_altas' : 
+                            masterAnalysis.murphy?.trendAnalysis.primary === 'bearish' ? 'baixa_baixas' : 'indefinida' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
+            breakoutPotential: masterAnalysis.bulkowski?.reliability > 0.7 ? 'alto' : 
+                              masterAnalysis.bulkowski?.reliability > 0.6 ? 'médio' : 'baixo' as 'alto' | 'médio' | 'baixo',
+            momentumSignature: masterAnalysis.murphy?.volumeAnalysis.trend === 'confirming' ? 'acelerando' : 'divergente' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
+            liquidityPools: masterAnalysis.murphy?.supportResistance.map(sr => ({
+              level: sr.level,
+              strength: sr.strength === 'strong' ? 'alta' : sr.strength === 'moderate' ? 'média' : 'baixa' as 'alta' | 'média' | 'baixa'
+            })) || []
           },
           volumeData: {
             value: 1250000,
-            trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
-            abnormal: false,
-            significance: 'high' as 'high' | 'medium' | 'low',
+            trend: masterAnalysis.murphy?.volumeAnalysis.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
+            abnormal: masterAnalysis.bulkowski?.volumeImportance === 'critical',
+            significance: masterAnalysis.murphy?.volumeAnalysis.significance || 'high' as 'high' | 'medium' | 'low',
             relativeToAverage: 1.35,
-            distribution: 'accumulation' as 'accumulation' | 'distribution' | 'neutral',
-            divergence: false
+            distribution: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'accumulation' : 'neutral' as 'accumulation' | 'distribution' | 'neutral',
+            divergence: masterAnalysis.murphy?.volumeAnalysis.trend === 'diverging'
           },
           volatilityData: {
             value: 2.3,
@@ -130,14 +141,15 @@ const GraphAnalyzer = () => {
             percentageRange: 1.2,
             isHigh: false,
             historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
-          }
+          },
+          masterAnalysis // Adicionando a análise dos mestres
         };
         
         setAnalysisResults(simulatedResult);
         
         toast({
-          title: "Análise completa",
-          description: "Padrões identificados na região selecionada",
+          title: "Análise dos Mestres Completa",
+          description: "Análise baseada em Bulkowski, Elder, Murphy e Edwards & Magee",
         });
       } catch (error) {
         console.error("Erro ao processar análise:", error);
@@ -151,7 +163,7 @@ const GraphAnalyzer = () => {
       }
     }, 1500);
   };
-
+  
   const fadeAnimation = {
     initial: { opacity: 0, y: 10 },
     animate: { opacity: 1, y: 0 },

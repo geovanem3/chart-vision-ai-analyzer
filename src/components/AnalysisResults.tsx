@@ -50,6 +50,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 
 const AnalysisResults = () => {
   const { 
@@ -662,8 +663,9 @@ const AnalysisResults = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full mb-4 grid grid-cols-3">
+        <TabsList className="w-full mb-4 grid grid-cols-4">
           <TabsTrigger value="resumo" className="text-sm">Resumo</TabsTrigger>
+          <TabsTrigger value="mestres" className="text-sm">Mestres</TabsTrigger>
           <TabsTrigger value="grafico" className="text-sm">Gráfico</TabsTrigger>
           <TabsTrigger value="detalhes" className="text-sm">Detalhes</TabsTrigger>
         </TabsList>
@@ -896,6 +898,21 @@ const AnalysisResults = () => {
               )}
             </div>
           )}
+        </TabsContent>
+        
+        <TabsContent value="mestres" className="space-y-4">
+          {/* @ts-ignore - masterAnalysis pode não existir em tipos antigos */}
+          <MasterAnalysisDisplay masterAnalysis={analysisResults.masterAnalysis} />
+          
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-semibold mb-2">Sobre os Mestres</h4>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p><strong>Thomas Bulkowski:</strong> Estatísticas baseadas em milhares de padrões analisados em "Encyclopedia of Chart Patterns"</p>
+              <p><strong>Alexander Elder:</strong> Sistema Triple Screen para confirmar sinais em múltiplos timeframes</p>
+              <p><strong>John Murphy:</strong> Análise de tendências e volume conforme "Technical Analysis of the Financial Markets"</p>
+              <p><strong>Edwards & Magee:</strong> Formações clássicas do livro "Technical Analysis of Stock Trends"</p>
+            </div>
+          </div>
         </TabsContent>
         
         <TabsContent value="grafico">
