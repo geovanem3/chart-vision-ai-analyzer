@@ -10,9 +10,16 @@ interface MasterAnalysisDisplayProps {
 }
 
 const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAnalysis }) => {
-  if (!masterAnalysis) return null;
+  console.log('MasterAnalysisDisplay received:', masterAnalysis);
+  
+  if (!masterAnalysis) {
+    console.log('No masterAnalysis data');
+    return null;
+  }
 
   const { bulkowski, tripleScreen, murphy, masterRecommendation } = masterAnalysis;
+  
+  console.log('Extracted data:', { bulkowski, tripleScreen, murphy, masterRecommendation });
 
   return (
     <Card className="mt-4 border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
@@ -34,19 +41,19 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
                 Bulkowski
               </h4>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {(bulkowski.reliability * 100).toFixed(0)}% confiável
+                {((bulkowski.reliability || 0) * 100).toFixed(0)}% confiável
               </Badge>
             </div>
-            <p className="text-sm text-blue-700 mb-2">{bulkowski.name}</p>
+            <p className="text-sm text-blue-700 mb-2">{bulkowski.name || 'Padrão identificado'}</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <span className="font-medium">Movimento médio:</span> {bulkowski.averageMove > 0 ? '+' : ''}{bulkowski.averageMove}%
+                <span className="font-medium">Movimento médio:</span> {(bulkowski.averageMove || 0) > 0 ? '+' : ''}{bulkowski.averageMove || 0}%
               </div>
               <div>
-                <span className="font-medium">Taxa de falha:</span> {(bulkowski.failureRate * 100).toFixed(0)}%
+                <span className="font-medium">Taxa de falha:</span> {((bulkowski.failureRate || 0) * 100).toFixed(0)}%
               </div>
             </div>
-            <Progress value={bulkowski.reliability * 100} className="mt-2 h-2" />
+            <Progress value={(bulkowski.reliability || 0) * 100} className="mt-2 h-2" />
           </div>
         )}
 
@@ -59,30 +66,30 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
                 Elder (Triple Screen)
               </h4>
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {(tripleScreen.confidence * 100).toFixed(0)}% confiança
+                {((tripleScreen.confidence || 0) * 100).toFixed(0)}% confiança
               </Badge>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="text-center">
                 <div className="font-medium">Longo Prazo</div>
-                <Badge variant={tripleScreen.longTermTrend === 'up' ? 'default' : 'secondary'} className="text-xs">
-                  {tripleScreen.longTermTrend}
+                <Badge variant={(tripleScreen.longTermTrend || '') === 'up' ? 'default' : 'secondary'} className="text-xs">
+                  {tripleScreen.longTermTrend || 'N/A'}
                 </Badge>
               </div>
               <div className="text-center">
                 <div className="font-medium">Oscilador</div>
-                <Badge variant={tripleScreen.mediumTermOscillator === 'buy' ? 'default' : 'secondary'} className="text-xs">
-                  {tripleScreen.mediumTermOscillator}
+                <Badge variant={(tripleScreen.mediumTermOscillator || '') === 'buy' ? 'default' : 'secondary'} className="text-xs">
+                  {tripleScreen.mediumTermOscillator || 'N/A'}
                 </Badge>
               </div>
               <div className="text-center">
                 <div className="font-medium">Entrada</div>
-                <Badge variant={tripleScreen.shortTermEntry !== 'wait' ? 'default' : 'secondary'} className="text-xs">
-                  {tripleScreen.shortTermEntry}
+                <Badge variant={(tripleScreen.shortTermEntry || '') !== 'wait' ? 'default' : 'secondary'} className="text-xs">
+                  {tripleScreen.shortTermEntry || 'N/A'}
                 </Badge>
               </div>
             </div>
-            <Progress value={tripleScreen.confidence * 100} className="mt-2 h-2" />
+            <Progress value={(tripleScreen.confidence || 0) * 100} className="mt-2 h-2" />
           </div>
         )}
 
@@ -95,18 +102,18 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
                 Murphy
               </h4>
               <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                {murphy.supportResistance.length} S/R
+                {(murphy.supportResistance || []).length} S/R
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs mb-2">
               <div>
-                <span className="font-medium">Tendência primária:</span> {murphy.trendAnalysis.primary}
+                <span className="font-medium">Tendência primária:</span> {murphy.trendAnalysis?.primary || 'N/A'}
               </div>
               <div>
-                <span className="font-medium">Volume:</span> {murphy.volumeAnalysis.trend}
+                <span className="font-medium">Volume:</span> {murphy.volumeAnalysis?.trend || 'N/A'}
               </div>
             </div>
-            {murphy.supportResistance.length > 0 && (
+            {murphy.supportResistance && murphy.supportResistance.length > 0 && (
               <div className="text-xs">
                 <span className="font-medium">Níveis chave:</span>
                 {murphy.supportResistance.map((level, idx) => (
@@ -120,12 +127,21 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
         )}
 
         {/* Master Recommendation */}
-        <div className="p-4 bg-gradient-to-r from-amber-100 to-orange-100 rounded-lg border-2 border-amber-300">
-          <h4 className="font-bold text-amber-800 mb-2">Recomendação Integrada dos Mestres</h4>
-          <div className="text-sm text-amber-800 whitespace-pre-line">
-            {masterRecommendation}
+        {masterRecommendation && (
+          <div className="p-4 bg-gradient-to-r from-amber-100 to-orange-100 rounded-lg border-2 border-amber-300">
+            <h4 className="font-bold text-amber-800 mb-2">Recomendação Integrada dos Mestres</h4>
+            <div className="text-sm text-amber-800 whitespace-pre-line">
+              {masterRecommendation}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Fallback when no data */}
+        {!bulkowski && !tripleScreen && !murphy && !masterRecommendation && (
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+            <p className="text-gray-600">Dados de análise dos mestres não disponíveis</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
