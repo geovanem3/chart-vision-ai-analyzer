@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
 import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
 import AdvancedMarketAnalysis from '@/components/AdvancedMarketAnalysis';
+import UserMenu from '@/components/UserMenu';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
   ImageOff, Zap, TrendingUp, ChartCandlestick, BarChartHorizontal,
@@ -89,11 +91,14 @@ const Index = () => {
                 <BarChart2 className="h-5 w-5 text-primary" />
                 <h1 className="text-lg font-bold tracking-tight">Chart Vision AI</h1>
               </div>
-              {!isMobile && (
-                <div className="text-xs text-muted-foreground">
-                  Análise Técnica Precisa
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                {!isMobile && (
+                  <div className="text-xs text-muted-foreground">
+                    Análise Técnica Precisa
+                  </div>
+                )}
+                <UserMenu />
+              </div>
             </div>
           </motion.header>
           
