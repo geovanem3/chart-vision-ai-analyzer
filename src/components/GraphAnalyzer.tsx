@@ -202,6 +202,7 @@ const GraphAnalyzer = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
+          key="analysis-results"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -229,6 +230,7 @@ const GraphAnalyzer = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
+          key="analyzing"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -262,6 +264,7 @@ const GraphAnalyzer = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
+        key="configuration"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center">

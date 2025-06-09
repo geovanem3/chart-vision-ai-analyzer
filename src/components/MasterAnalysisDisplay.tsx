@@ -47,7 +47,7 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
             <p className="text-sm text-blue-700 mb-2">{bulkowski.name || 'Padrão identificado'}</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <span className="font-medium">Movimento médio:</span> {(bulkowski.averageMove || 0) > 0 ? '+' : ''}{bulkowski.averageMove || 0}%
+                <span className="font-medium">Movimento médio:</span> {(bulkowski.averageMove || 0) > 0 ? '+' : ''}{(bulkowski.averageMove || 0).toFixed(1)}%
               </div>
               <div>
                 <span className="font-medium">Taxa de falha:</span> {((bulkowski.failureRate || 0) * 100).toFixed(0)}%
@@ -116,7 +116,7 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
             {murphy.supportResistance && murphy.supportResistance.length > 0 && (
               <div className="text-xs">
                 <span className="font-medium">Níveis chave:</span>
-                {murphy.supportResistance.map((level, idx) => (
+                {murphy.supportResistance.slice(0, 3).map((level, idx) => (
                   <Badge key={idx} variant="outline" className="ml-1 text-xs">
                     {level.level} ({level.type})
                   </Badge>
