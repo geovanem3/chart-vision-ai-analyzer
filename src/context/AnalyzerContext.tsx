@@ -96,6 +96,7 @@ export type AnalysisResult = {
   marketContext?: MarketContext; // Enhanced market context understanding
   warnings?: string[]; // Warnings about potential false signals
   preciseEntryAnalysis?: PreciseEntryAnalysis; // Added for precise entry timing
+  masterAnalysis?: any; // Added for master analysis
 };
 
 // New type for technical indicators for enhanced M1 strategy
