@@ -182,7 +182,7 @@ const GraphAnalyzer = () => {
     // Se não há imagem capturada, mostrar a câmera
     if (!capturedImage) {
       return (
-        <>
+        <div className="w-full">
           <div className="text-center mb-4">
             <h2 className="text-xl font-bold mb-2">Capturar Imagem</h2>
             <p className="text-sm text-muted-foreground">
@@ -190,7 +190,7 @@ const GraphAnalyzer = () => {
             </p>
           </div>
           <CameraView />
-        </>
+        </div>
       );
     }
 
@@ -198,7 +198,7 @@ const GraphAnalyzer = () => {
     if (analysisResults) {
       return (
         <motion.div 
-          className="space-y-3"
+          className="space-y-3 w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
@@ -217,7 +217,9 @@ const GraphAnalyzer = () => {
               <h2 className="text-lg font-bold">Resultados</h2>
             </div>
           </div>
-          <AnalysisResults />
+          <div className="w-full overflow-hidden">
+            <AnalysisResults />
+          </div>
         </motion.div>
       );
     }
@@ -226,7 +228,7 @@ const GraphAnalyzer = () => {
     if (isAnalyzing) {
       return (
         <motion.div 
-          className="space-y-3"
+          className="space-y-3 w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
@@ -260,7 +262,7 @@ const GraphAnalyzer = () => {
     // Estado padrão: configuração da análise
     return (
       <motion.div 
-        className="space-y-3"
+        className="space-y-3 w-full"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -365,13 +367,10 @@ const GraphAnalyzer = () => {
   };
 
   return (
-    <motion.div 
-      className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto`}
-      {...fadeAnimation}
-    >
+    <div className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto overflow-hidden`}>
       {renderMainContent()}
       <MobileBottomBar />
-    </motion.div>
+    </div>
   );
 };
 

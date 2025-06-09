@@ -22,7 +22,7 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
   console.log('Extracted data:', { bulkowski, tripleScreen, murphy, masterRecommendation });
 
   return (
-    <Card className="mt-4 border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
+    <Card className="mt-4 border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 w-full">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-amber-800">
           <BookOpen className="h-5 w-5" />
@@ -41,7 +41,7 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
                 Bulkowski
               </h4>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {((bulkowski.reliability || 0) * 100).toFixed(0)}% confiável
+                {Math.round((bulkowski.reliability || 0) * 100)}% confiável
               </Badge>
             </div>
             <p className="text-sm text-blue-700 mb-2">{bulkowski.name || 'Padrão identificado'}</p>
@@ -50,7 +50,7 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
                 <span className="font-medium">Movimento médio:</span> {(bulkowski.averageMove || 0) > 0 ? '+' : ''}{(bulkowski.averageMove || 0).toFixed(1)}%
               </div>
               <div>
-                <span className="font-medium">Taxa de falha:</span> {((bulkowski.failureRate || 0) * 100).toFixed(0)}%
+                <span className="font-medium">Taxa de falha:</span> {Math.round((bulkowski.failureRate || 0) * 100)}%
               </div>
             </div>
             <Progress value={(bulkowski.reliability || 0) * 100} className="mt-2 h-2" />
@@ -66,7 +66,7 @@ const MasterAnalysisDisplay: React.FC<MasterAnalysisDisplayProps> = ({ masterAna
                 Elder (Triple Screen)
               </h4>
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {((tripleScreen.confidence || 0) * 100).toFixed(0)}% confiança
+                {Math.round((tripleScreen.confidence || 0) * 100)}% confiança
               </Badge>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
