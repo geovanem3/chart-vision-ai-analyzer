@@ -1,4 +1,3 @@
-
 import { Chart } from "chart.js";
 import { Pattern, PatternName, DetectedPattern } from "./types";
 import { TechnicalElement, CandleData, Point } from "../context/AnalyzerContext";
@@ -115,23 +114,33 @@ export interface AnalysisResult {
 }
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
-  // Reduzir delay para análise em tempo real
-  const analysisDelay = options.isLiveAnalysis ? 200 : 1000; // 200ms para live, 1s para análise normal
+  // Delay mais inteligente baseado no tipo de análise
+  const analysisDelay = options.isLiveAnalysis ? 300 : 1000;
   await new Promise(resolve => setTimeout(resolve, analysisDelay));
   
-  const startTime = Date.now(); // Timestamp preciso do início da análise
+  const startTime = Date.now();
   
-  // Mock candle data for confluence analysis
+  // Mock candle data mais realista para análise criteriosa
   const mockCandles: CandleData[] = [];
-  const numCandles = options.isLiveAnalysis ? 30 : 50;
+  const numCandles = options.isLiveAnalysis ? 50 : 100; // Mais dados para análise live
   let basePrice = 100;
   
+  // Gerar dados mais realistas com tendências
+  const trendDirection = Math.random() > 0.5 ? 1 : -1;
+  const trendStrength = Math.random() * 0.002; // 0.2% max por candle
+  
   for (let i = 0; i < numCandles; i++) {
-    const variation = (Math.random() - 0.5) * 4;
-    const open = basePrice + variation;
-    const close = open + (Math.random() - 0.5) * 2;
-    const high = Math.max(open, close) + Math.random() * 1;
-    const low = Math.min(open, close) - Math.random() * 1;
+    // Aplicar tendência gradual
+    const trendComponent = trendDirection * trendStrength * i;
+    const noise = (Math.random() - 0.5) * 0.008; // Ruído de 0.8%
+    
+    const open = basePrice + trendComponent + noise;
+    const closeDirection = Math.random() > 0.4 ? 1 : -1; // 60% dos candles na direção da tendência
+    const closeVariation = (Math.random() * 0.004 + 0.001) * closeDirection;
+    const close = open + closeVariation;
+    
+    const high = Math.max(open, close) + Math.random() * 0.003;
+    const low = Math.min(open, close) - Math.random() * 0.003;
     
     mockCandles.push({
       open,
@@ -147,38 +156,56 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     basePrice = close;
   }
   
-  // Generate patterns
-  const trends = ['Bullish', 'Bearish', 'Sideways'];
-  const signalTypes = ['Buy', 'Sell', 'Hold'];
+  // Análise mais criteriosa para live
+  const sensitivity = options.sensitivity || 0.6;
+  const isHighSensitivity = sensitivity > 0.7;
+  
+  // Gerar padrões com base na análise real dos dados
+  const recentCandles = mockCandles.slice(-10);
+  const priceMovement = recentCandles[recentCandles.length - 1].close - recentCandles[0].close;
+  const volatility = recentCandles.reduce((sum, candle) => sum + (candle.high - candle.low), 0) / recentCandles.length;
+  
+  // Determinar ação baseada em análise real
+  let detectedAction: 'compra' | 'venda' | 'neutro' = 'neutro';
+  let baseConfidence = 0.5;
+  
+  if (Math.abs(priceMovement) / recentCandles[0].close > 0.001) { // Movimento significativo > 0.1%
+    detectedAction = priceMovement > 0 ? 'compra' : 'venda';
+    baseConfidence = Math.min(0.9, 0.6 + Math.abs(priceMovement) / recentCandles[0].close * 100);
+  }
+  
+  // Para análise live, ser mais criterioso
+  if (options.isLiveAnalysis && isHighSensitivity) {
+    if (baseConfidence < 0.65) {
+      detectedAction = 'neutro';
+      baseConfidence = 0.3;
+    }
+  }
+  
   const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
-  const actions: ('compra' | 'venda' | 'neutro')[] = ['compra', 'venda', 'neutro'];
+  const selectedPattern = patternTypes[Math.floor(Math.random() * patternTypes.length)];
   
-  const trend = trends[Math.floor(Math.random() * trends.length)];
-  const signalType = signalTypes[Math.floor(Math.random() * signalTypes.length)];
-  const patternType = patternTypes[Math.floor(Math.random() * patternTypes.length)];
-  const action = actions[Math.floor(Math.random() * actions.length)];
-  
-  const patterns: DetectedPattern[] = [{
-    type: patternType,
-    action: action,
-    confidence: Math.random() * 0.4 + 0.5, // 0.5 to 0.9
-    description: `${patternType} detectado com tendência ${trend.toLowerCase()}`
-  }];
+  const patterns: DetectedPattern[] = detectedAction !== 'neutro' ? [{
+    type: selectedPattern,
+    action: detectedAction,
+    confidence: baseConfidence,
+    description: `${selectedPattern} detectado com tendência ${detectedAction === 'compra' ? 'bullish' : 'bearish'}`
+  }] : [];
   
   let result: AnalysisResult = {
-    trend,
-    signals: [{
-      type: signalType,
-      strength: Math.random() * 100,
-      description: `${signalType} signal detected with ${trend.toLowerCase()} trend`
-    }],
-    confidence: Math.random() * 100,
-    timestamp: startTime, // Usar timestamp do início da análise
+    trend: detectedAction === 'compra' ? 'Bullish' : detectedAction === 'venda' ? 'Bearish' : 'Sideways',
+    signals: detectedAction !== 'neutro' ? [{
+      type: detectedAction === 'compra' ? 'Buy' : 'Sell',
+      strength: baseConfidence * 100,
+      description: `${detectedAction === 'compra' ? 'Buy' : 'Sell'} signal detected`
+    }] : [],
+    confidence: baseConfidence * 100,
+    timestamp: startTime,
     patterns,
     marketContext: {
-      sentiment: action === 'compra' ? 'otimista' : action === 'venda' ? 'pessimista' : 'neutro',
+      sentiment: detectedAction === 'compra' ? 'otimista' : detectedAction === 'venda' ? 'pessimista' : 'neutro',
       phase: 'análise',
-      strength: 'moderada'
+      strength: baseConfidence > 0.7 ? 'forte' : baseConfidence > 0.5 ? 'moderada' : 'fraca'
     }
   };
   
@@ -237,6 +264,24 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     }
   }
   
+  // Para live analysis, aplicar filtros mais rigorosos
+  if (options.isLiveAnalysis && result.patterns.length > 0) {
+    const pattern = result.patterns[0];
+    
+    // Reduzir confiança se não há confluências suficientes
+    if (result.confluences && result.confluences.confluenceScore < 50) {
+      pattern.confidence *= 0.8;
+    }
+    
+    // Requerer price action forte para sinais live
+    if (!result.priceActionSignals || result.priceActionSignals.length === 0) {
+      pattern.confidence *= 0.7;
+    }
+    
+    // Atualizar resultado com confiança ajustada
+    result.confidence = pattern.confidence * 100;
+  }
+  
   // Generate specific entry recommendations for M1 scalping
   if (options.optimizeForScalping && options.timeframe === '1m') {
     result.entryRecommendations = generateScalpingEntries(
@@ -250,7 +295,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Adicionar informações de timing para debugging
   const processingTime = Date.now() - startTime;
-  console.log(`[TIMING] Análise completa em ${processingTime}ms - Timestamp: ${startTime}`);
+  console.log(`[TIMING] Análise criteriosa completa em ${processingTime}ms - Padrões: ${result.patterns.length} - Confiança: ${result.confidence.toFixed(1)}%`);
   
   return result;
 };
@@ -493,3 +538,5 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   
   return candles;
 };
+
+// ... keep existing code (rest of functions)

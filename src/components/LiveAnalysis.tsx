@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
+import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, Eye } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
@@ -13,8 +13,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface LiveAnalysisResult {
   timestamp: number;
-  captureTime: number; // Novo: timestamp da captura
-  analysisTime: number; // Novo: timestamp do fim da análise
+  captureTime: number;
+  analysisTime: number;
   confidence: number;
   signal: 'compra' | 'venda' | 'neutro';
   patterns: string[];
@@ -29,7 +29,9 @@ interface LiveAnalysisResult {
   institutionalBias?: string;
   entryRecommendations?: any[];
   riskReward?: number;
-  latency?: number; // Novo: latência total da análise
+  latency?: number;
+  chartAnalysisQuality?: 'excelente' | 'boa' | 'regular' | 'ruim';
+  visualConfirmation?: boolean;
 }
 
 const LiveAnalysis = () => {
@@ -38,7 +40,7 @@ const LiveAnalysis = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(1000); // Reduzido para 1 segundo
+  const [analysisInterval, setAnalysisInterval] = useState(3000); // Aumentado para 3 segundos
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -49,7 +51,9 @@ const LiveAnalysis = () => {
   const [priceActionDetails, setPriceActionDetails] = useState<any>(null);
   const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
   const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
-  const [lastSignalTime, setLastSignalTime] = useState<number>(0); // Para evitar sinais duplicados
+  const [lastSignalTime, setLastSignalTime] = useState<number>(0);
+  const [analysisCount, setAnalysisCount] = useState<number>(0);
+  const [chartDetectionEnabled, setChartDetectionEnabled] = useState(true);
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -105,15 +109,66 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar com timing otimizado
+  // Função melhorada para detectar se há realmente um gráfico na imagem
+  const detectChartInImage = (canvas: HTMLCanvasElement): { hasChart: boolean; quality: 'excelente' | 'boa' | 'regular' | 'ruim' } => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { hasChart: false, quality: 'ruim' };
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    let linePixels = 0;
+    let colorVariations = new Set<string>();
+    let contrastCount = 0;
+    
+    // Analisar pixels para detectar padrões de gráfico
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      
+      // Detectar variações de cor (indicativo de dados visuais)
+      const colorKey = `${Math.floor(r/10)}-${Math.floor(g/10)}-${Math.floor(b/10)}`;
+      colorVariations.add(colorKey);
+      
+      // Detectar contrastes (bordas de candles, linhas)
+      if (i > 4) {
+        const prevR = data[i - 4];
+        const prevG = data[i - 3];
+        const prevB = data[i - 2];
+        
+        const contrast = Math.abs(r - prevR) + Math.abs(g - prevG) + Math.abs(b - prevB);
+        if (contrast > 100) contrastCount++;
+      }
+    }
+    
+    const totalPixels = data.length / 4;
+    const colorDiversity = colorVariations.size;
+    const contrastRatio = contrastCount / totalPixels;
+    
+    // Critérios para detectar gráfico
+    const hasChart = colorDiversity > 50 && contrastRatio > 0.02;
+    
+    let quality: 'excelente' | 'boa' | 'regular' | 'ruim' = 'ruim';
+    if (hasChart) {
+      if (colorDiversity > 200 && contrastRatio > 0.08) quality = 'excelente';
+      else if (colorDiversity > 150 && contrastRatio > 0.05) quality = 'boa';
+      else if (colorDiversity > 100 && contrastRatio > 0.03) quality = 'regular';
+    }
+    
+    return { hasChart, quality };
+  };
+
+  // Capturar frame e analisar com validação inteligente
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
     const captureStartTime = Date.now();
-    console.log(`[TIMING] Iniciando captura em ${new Date(captureStartTime).toLocaleTimeString()}.${captureStartTime % 1000}`);
+    console.log(`[ANÁLISE ${analysisCount + 1}] Iniciando captura inteligente`);
 
     try {
       setIsAnalyzing(true);
+      setAnalysisCount(prev => prev + 1);
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -124,18 +179,46 @@ const LiveAnalysis = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      // Capturar frame atual - timestamp preciso
+      // Capturar frame atual
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const captureTime = Date.now();
       
-      // Converter para base64 de forma mais rápida
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.6); // Reduzida qualidade para velocidade
+      // VALIDAÇÃO 1: Detectar se há realmente um gráfico
+      const chartDetection = detectChartInImage(canvas);
       
-      // Pular enhancement em análise live para reduzir latência
-      const imageToAnalyze = imageUrl; // Usar diretamente sem enhancement
+      if (chartDetectionEnabled && !chartDetection.hasChart) {
+        console.log(`[ANÁLISE ${analysisCount + 1}] Nenhum gráfico detectado - pulando análise`);
+        
+        setCurrentAnalysis({
+          timestamp: captureTime,
+          captureTime,
+          analysisTime: Date.now(),
+          confidence: 0,
+          signal: 'neutro',
+          patterns: [],
+          trend: 'lateral',
+          signalQuality: 'ruim',
+          chartAnalysisQuality: chartDetection.quality,
+          visualConfirmation: false,
+          latency: Date.now() - captureStartTime
+        });
+        return;
+      }
       
-      // Analisar com configuração otimizada para velocidade
-      const analysisResult = await analyzeChart(imageToAnalyze, {
+      // VALIDAÇÃO 2: Aguardar tempo mínimo entre sinais válidos
+      const timeSinceLastSignal = captureTime - lastSignalTime;
+      const minimumInterval = 15000; // 15 segundos mínimo entre sinais
+      
+      if (timeSinceLastSignal < minimumInterval) {
+        console.log(`[ANÁLISE ${analysisCount + 1}] Muito próximo do último sinal (${timeSinceLastSignal}ms) - aguardando`);
+        return;
+      }
+
+      // Converter para base64 com qualidade adequada
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Analisar com configuração criteriosa
+      const analysisResult = await analyzeChart(imageUrl, {
         timeframe: '1m',
         optimizeForScalping: true,
         scalpingStrategy,
@@ -144,16 +227,32 @@ const LiveAnalysis = () => {
         marketContextEnabled,
         marketAnalysisDepth,
         enableCandleDetection: true,
-        isLiveAnalysis: true, // Flag importante para otimização
+        isLiveAnalysis: true,
         useConfluences: true,
         enablePriceAction: true,
-        enableMarketContext: true
+        enableMarketContext: true,
+        sensitivity: 0.8 // Aumentar sensibilidade para ser mais criterioso
       });
 
       const analysisEndTime = Date.now();
       const totalLatency = analysisEndTime - captureStartTime;
       
-      console.log(`[TIMING] Análise completa: Captura=${captureTime - captureStartTime}ms, Análise=${analysisEndTime - captureTime}ms, Total=${totalLatency}ms`);
+      console.log(`[ANÁLISE ${analysisCount + 1}] Gráfico detectado (${chartDetection.quality}) - Latência: ${totalLatency}ms`);
+
+      // VALIDAÇÃO 3: Filtros de qualidade para sinais
+      let shouldGenerateSignal = false;
+      let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
+      
+      // Critérios mais rigorosos para gerar sinal
+      const hasValidPatterns = analysisResult.patterns.length > 0 && analysisResult.patterns[0].action !== 'neutro';
+      const hasGoodConfluence = (analysisResult.confluences?.confluenceScore || 0) > 60;
+      const hasStrongPriceAction = (analysisResult.priceActionSignals?.length || 0) > 0 && 
+                                  (analysisResult.priceActionSignals?.[0]?.confidence || 0) > 0.7;
+      const hasValidEntry = (analysisResult.entryRecommendations?.length || 0) > 0;
+      
+      // Deve ter pelo menos 2 dos 4 critérios
+      const validCriteria = [hasValidPatterns, hasGoodConfluence, hasStrongPriceAction, hasValidEntry].filter(Boolean).length;
+      shouldGenerateSignal = validCriteria >= 2 && finalConfidence > 0.6;
 
       // Armazenar detalhes das confluências e price action
       setConfluenceDetails(analysisResult.confluences);
@@ -164,44 +263,25 @@ const LiveAnalysis = () => {
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
       // Processar resultado para formato live
-      let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
-      let signalQuality = 'normal';
-      let riskReward = 2.0;
-      
-      // Melhor confiança vem das recomendações de entrada
-      if (analysisResult.entryRecommendations && analysisResult.entryRecommendations.length > 0) {
-        const bestEntry = analysisResult.entryRecommendations[0];
-        finalConfidence = bestEntry.confidence;
-        riskReward = bestEntry.riskReward;
-        
-        if (bestEntry.confidence > 0.8) {
+      let signalQuality = 'regular';
+      if (shouldGenerateSignal) {
+        if (validCriteria >= 3 && finalConfidence > 0.8) {
           signalQuality = 'excelente';
-        } else if (bestEntry.confidence > 0.7) {
-          signalQuality = 'forte';
-        } else if (bestEntry.confidence > 0.6) {
+        } else if (validCriteria >= 3 || finalConfidence > 0.75) {
           signalQuality = 'boa';
         }
-      } else if (analysisResult.validatedSignals && analysisResult.validatedSignals.length > 0) {
-        const validatedSignal = analysisResult.validatedSignals[0];
-        finalConfidence = validatedSignal.validation.confidence;
-        
-        if (validatedSignal.validation.isValid && validatedSignal.validation.confidence > 0.8) {
-          signalQuality = 'forte';
-        } else if (validatedSignal.validation.isValid && validatedSignal.validation.confidence > 0.6) {
-          signalQuality = 'boa';
-        } else if (!validatedSignal.validation.isValid) {
-          signalQuality = 'fraca';
-        }
+      } else {
+        signalQuality = 'ruim';
       }
 
       const liveResult: LiveAnalysisResult = {
-        timestamp: analysisResult.timestamp, // Usar timestamp da análise
+        timestamp: analysisResult.timestamp,
         captureTime,
         analysisTime: analysisEndTime,
         latency: totalLatency,
         confidence: finalConfidence,
-        signal: analysisResult.patterns[0]?.action || 'neutro',
-        patterns: analysisResult.patterns.map(p => p.type),
+        signal: shouldGenerateSignal ? (analysisResult.patterns[0]?.action || 'neutro') : 'neutro',
+        patterns: shouldGenerateSignal ? analysisResult.patterns.map(p => p.type) : [],
         trend: analysisResult.detailedMarketContext?.marketStructure.trend || 'lateral',
         signalQuality,
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
@@ -210,39 +290,35 @@ const LiveAnalysis = () => {
         priceActionSignals: analysisResult.priceActionSignals?.slice(0, 2) || [],
         marketPhase: analysisResult.detailedMarketContext?.phase || 'indefinida',
         institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
-        entryRecommendations: analysisResult.entryRecommendations?.slice(0, 2) || [],
-        riskReward
+        entryRecommendations: shouldGenerateSignal ? (analysisResult.entryRecommendations?.slice(0, 2) || []) : [],
+        riskReward: analysisResult.entryRecommendations?.[0]?.riskReward || 2.0,
+        chartAnalysisQuality: chartDetection.quality,
+        visualConfirmation: chartDetection.hasChart
       };
 
       setCurrentAnalysis(liveResult);
-      setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
+      setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]);
 
-      // Notificar apenas sinais de alta qualidade com controle de duplicatas
-      const timeSinceLastSignal = captureTime - lastSignalTime;
-      const isNewSignal = timeSinceLastSignal > 5000; // Mínimo 5s entre notificações
-      
-      if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca' && isNewSignal) {
+      // VALIDAÇÃO 4: Notificar apenas sinais de alta qualidade com intervalo adequado
+      if (shouldGenerateSignal && signalQuality !== 'ruim' && liveResult.signal !== 'neutro') {
         setLastSignalTime(captureTime);
         
-        const latencyText = totalLatency < 1000 ? `${totalLatency}ms` : `${(totalLatency/1000).toFixed(1)}s`;
-        const paText = liveResult.priceActionSignals.length > 0 ? 
-          ` | PA: ${liveResult.priceActionSignals[0].type}` : '';
-        const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
+        const qualityEmoji = signalQuality === 'excelente' ? '🔥' : signalQuality === 'boa' ? '⚡' : '📊';
         
         toast({
           variant: liveResult.signal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${liveResult.signal.toUpperCase()}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Latência: ${latencyText} | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
-          duration: 8000,
+          title: `${qualityEmoji} SINAL ${signalQuality.toUpperCase()} - ${liveResult.signal.toUpperCase()}`,
+          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Confluência: ${Math.round(liveResult.confluenceScore)}% | Fase: ${liveResult.marketPhase}`,
+          duration: 10000,
         });
       }
 
     } catch (error) {
-      console.error('Erro na análise em tempo real:', error);
+      console.error('Erro na análise inteligente:', error);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast, lastSignalTime]);
+  }, [isAnalyzing, analysisCount, chartDetectionEnabled, lastSignalTime, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
 
   // Iniciar análise em tempo real com timing otimizado
   const startLiveAnalysis = async () => {
@@ -306,12 +382,12 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Cabeçalho de controles com opções de timing */}
+      {/* Cabeçalho com controles inteligentes */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Activity className="h-5 w-5" />
-            Análise Live M1 - Sincronização Otimizada
+            <Eye className="h-5 w-5" />
+            Análise Inteligente M1 - Detecção Visual
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
@@ -322,6 +398,14 @@ const LiveAnalysis = () => {
                 {currentAnalysis.latency < 1000 ? `${currentAnalysis.latency}ms` : `${(currentAnalysis.latency/1000).toFixed(1)}s`}
               </Badge>
             )}
+            {currentAnalysis?.chartAnalysisQuality && (
+              <Badge 
+                variant={currentAnalysis.chartAnalysisQuality === 'excelente' || currentAnalysis.chartAnalysisQuality === 'boa' ? 'default' : 'destructive'}
+                className="ml-2 text-xs"
+              >
+                {currentAnalysis.chartAnalysisQuality}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -329,12 +413,12 @@ const LiveAnalysis = () => {
             {!isLiveActive ? (
               <Button onClick={startLiveAnalysis} className="gap-2">
                 <Play className="w-4 h-4" />
-                Iniciar Live M1
+                Iniciar Análise Inteligente
               </Button>
             ) : (
               <Button onClick={stopLiveAnalysis} variant="destructive" className="gap-2">
                 <Pause className="w-4 h-4" />
-                Parar Live
+                Parar Análise
               </Button>
             )}
             
@@ -354,33 +438,29 @@ const LiveAnalysis = () => {
               disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
-              <option value={500}>0.5 segundo (ULTRA RÁPIDO)</option>
-              <option value={1000}>1 segundo (RÁPIDO)</option>
-              <option value={2000}>2 segundos</option>
-              <option value={3000}>3 segundos</option>
+              <option value={3000}>3 segundos (INTELIGENTE)</option>
+              <option value={5000}>5 segundos</option>
+              <option value={10000}>10 segundos</option>
+              <option value={15000}>15 segundos (CONSERVADOR)</option>
             </select>
 
-            {priceActionDetails && (
-              <Button 
-                variant="outline" 
-                onClick={() => setShowPriceActionDetails(!showPriceActionDetails)}
-                className="gap-2"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Price Action
-              </Button>
-            )}
+            <Button
+              variant={chartDetectionEnabled ? "default" : "outline"}
+              onClick={() => setChartDetectionEnabled(!chartDetectionEnabled)}
+              className="gap-2 text-xs"
+            >
+              <Eye className="w-3 h-3" />
+              {chartDetectionEnabled ? 'Detecção ON' : 'Detecção OFF'}
+            </Button>
 
-            {confluenceDetails && (
-              <Button 
-                variant="outline" 
-                onClick={() => setShowConfluenceDetails(!showConfluenceDetails)}
-                className="gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                Confluências
-              </Button>
-            )}
+            {/* ... keep existing code (other buttons) */}
+          </div>
+          
+          {/* Status da análise */}
+          <div className="mt-3 text-sm text-muted-foreground">
+            Análises realizadas: {analysisCount} | 
+            Último sinal: {lastSignalTime > 0 ? new Date(lastSignalTime).toLocaleTimeString() : 'Nenhum'} |
+            Detecção visual: {chartDetectionEnabled ? 'Ativa' : 'Desativada'}
           </div>
         </CardContent>
       </Card>
@@ -393,7 +473,7 @@ const LiveAnalysis = () => {
         </Alert>
       )}
 
-      {/* Video feed com overlay aprimorado incluindo timing */}
+      {/* Video feed com overlay melhorado */}
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
         <video 
           ref={videoRef}
@@ -407,7 +487,8 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando em tempo real...</p>
+              <p className="text-sm">Analisando gráfico...</p>
+              <p className="text-xs text-gray-300">Análise #{analysisCount}</p>
             </div>
           </div>
         )}
@@ -432,35 +513,34 @@ const LiveAnalysis = () => {
                       </Badge>
                       {currentAnalysis.signalQuality && (
                         <Badge 
-                          variant={currentAnalysis.signalQuality === 'excelente' || currentAnalysis.signalQuality === 'forte' ? 'default' : 
+                          variant={currentAnalysis.signalQuality === 'excelente' ? 'default' : 
                                    currentAnalysis.signalQuality === 'boa' ? 'secondary' : 'destructive'}
                           className="text-xs"
                         >
                           {currentAnalysis.signalQuality}
                         </Badge>
                       )}
-                      {currentAnalysis.latency && (
-                        <Badge variant="outline" className="text-xs text-cyan-300">
-                          {currentAnalysis.latency < 1000 ? `${currentAnalysis.latency}ms` : `${(currentAnalysis.latency/1000).toFixed(1)}s`}
-                        </Badge>
-                      )}
+                      <Badge 
+                        variant={currentAnalysis.visualConfirmation ? 'default' : 'destructive'}
+                        className="text-xs"
+                      >
+                        {currentAnalysis.visualConfirmation ? '👁️ VISTO' : '❌ SEM GRÁFICO'}
+                      </Badge>
                     </div>
                     <p className="text-xs">
-                      Confiança: {Math.round(currentAnalysis.confidence * 100)}%
-                    </p>
-                    <p className="text-xs text-green-300">
-                      R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
+                      Confiança: {Math.round(currentAnalysis.confidence * 100)}% | 
+                      Confluência: {Math.round(currentAnalysis.confluenceScore || 0)}%
                     </p>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-yellow-300">
-                      Fase: {currentAnalysis.marketPhase}
+                      Qualidade: {currentAnalysis.chartAnalysisQuality}
                     </div>
                     <div className="text-xs text-blue-300">
-                      Bias: {currentAnalysis.institutionalBias}
+                      Fase: {currentAnalysis.marketPhase}
                     </div>
                     <div className="text-xs text-gray-300">
-                      {new Date(currentAnalysis.captureTime).toLocaleTimeString()}.{currentAnalysis.captureTime % 1000}
+                      #{analysisCount}
                     </div>
                   </div>
                 </div>
@@ -720,3 +800,5 @@ const LiveAnalysis = () => {
 };
 
 export default LiveAnalysis;
+
+</edits_to_apply>
