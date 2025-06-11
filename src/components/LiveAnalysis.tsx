@@ -13,6 +13,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface LiveAnalysisResult {
   timestamp: number;
+  captureTime: number; // Novo: timestamp da captura
+  analysisTime: number; // Novo: timestamp do fim da análise
   confidence: number;
   signal: 'compra' | 'venda' | 'neutro';
   patterns: string[];
@@ -27,6 +29,7 @@ interface LiveAnalysisResult {
   institutionalBias?: string;
   entryRecommendations?: any[];
   riskReward?: number;
+  latency?: number; // Novo: latência total da análise
 }
 
 const LiveAnalysis = () => {
@@ -35,7 +38,7 @@ const LiveAnalysis = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(3000); // 3 segundos por padrão
+  const [analysisInterval, setAnalysisInterval] = useState(1000); // Reduzido para 1 segundo
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -46,6 +49,7 @@ const LiveAnalysis = () => {
   const [priceActionDetails, setPriceActionDetails] = useState<any>(null);
   const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
   const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
+  const [lastSignalTime, setLastSignalTime] = useState<number>(0); // Para evitar sinais duplicados
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -101,9 +105,12 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar com confluências e price action
+  // Capturar frame e analisar com timing otimizado
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
+
+    const captureStartTime = Date.now();
+    console.log(`[TIMING] Iniciando captura em ${new Date(captureStartTime).toLocaleTimeString()}.${captureStartTime % 1000}`);
 
     try {
       setIsAnalyzing(true);
@@ -117,17 +124,18 @@ const LiveAnalysis = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      // Capturar frame atual
+      // Capturar frame atual - timestamp preciso
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const captureTime = Date.now();
       
-      // Converter para base64
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // Converter para base64 de forma mais rápida
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.6); // Reduzida qualidade para velocidade
       
-      // Melhorar imagem para análise
-      const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
+      // Pular enhancement em análise live para reduzir latência
+      const imageToAnalyze = imageUrl; // Usar diretamente sem enhancement
       
-      // Analisar com todas as funcionalidades ativadas
-      const analysisResult = await analyzeChart(enhancedImageUrl, {
+      // Analisar com configuração otimizada para velocidade
+      const analysisResult = await analyzeChart(imageToAnalyze, {
         timeframe: '1m',
         optimizeForScalping: true,
         scalpingStrategy,
@@ -136,11 +144,16 @@ const LiveAnalysis = () => {
         marketContextEnabled,
         marketAnalysisDepth,
         enableCandleDetection: true,
-        isLiveAnalysis: true,
+        isLiveAnalysis: true, // Flag importante para otimização
         useConfluences: true,
         enablePriceAction: true,
         enableMarketContext: true
       });
+
+      const analysisEndTime = Date.now();
+      const totalLatency = analysisEndTime - captureStartTime;
+      
+      console.log(`[TIMING] Análise completa: Captura=${captureTime - captureStartTime}ms, Análise=${analysisEndTime - captureTime}ms, Total=${totalLatency}ms`);
 
       // Armazenar detalhes das confluências e price action
       setConfluenceDetails(analysisResult.confluences);
@@ -182,7 +195,10 @@ const LiveAnalysis = () => {
       }
 
       const liveResult: LiveAnalysisResult = {
-        timestamp: Date.now(),
+        timestamp: analysisResult.timestamp, // Usar timestamp da análise
+        captureTime,
+        analysisTime: analysisEndTime,
+        latency: totalLatency,
         confidence: finalConfidence,
         signal: analysisResult.patterns[0]?.action || 'neutro',
         patterns: analysisResult.patterns.map(p => p.type),
@@ -201,8 +217,14 @@ const LiveAnalysis = () => {
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
 
-      // Notificar apenas sinais de alta qualidade com price action
-      if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca') {
+      // Notificar apenas sinais de alta qualidade com controle de duplicatas
+      const timeSinceLastSignal = captureTime - lastSignalTime;
+      const isNewSignal = timeSinceLastSignal > 5000; // Mínimo 5s entre notificações
+      
+      if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca' && isNewSignal) {
+        setLastSignalTime(captureTime);
+        
+        const latencyText = totalLatency < 1000 ? `${totalLatency}ms` : `${(totalLatency/1000).toFixed(1)}s`;
         const paText = liveResult.priceActionSignals.length > 0 ? 
           ` | PA: ${liveResult.priceActionSignals[0].type}` : '';
         const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
@@ -210,7 +232,7 @@ const LiveAnalysis = () => {
         toast({
           variant: liveResult.signal === 'compra' ? "default" : "destructive",
           title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${liveResult.signal.toUpperCase()}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
+          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Latência: ${latencyText} | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
           duration: 8000,
         });
       }
@@ -220,17 +242,19 @@ const LiveAnalysis = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
+  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast, lastSignalTime]);
 
-  // Iniciar análise em tempo real
+  // Iniciar análise em tempo real com timing otimizado
   const startLiveAnalysis = async () => {
     await startCamera();
     setIsLiveActive(true);
+    setLastSignalTime(Date.now()); // Reset do controle de sinais
     
-    // Aguardar um pouco para a câmera inicializar
+    // Aguardar menos tempo para a câmera inicializar
     setTimeout(() => {
+      console.log(`[TIMING] Iniciando análise live com intervalo de ${analysisInterval}ms`);
       intervalRef.current = setInterval(captureAndAnalyze, analysisInterval);
-    }, 1000);
+    }, 500); // Reduzido de 1000ms para 500ms
 
     toast({
       variant: "default",
@@ -282,15 +306,20 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Cabeçalho de controles */}
+      {/* Cabeçalho de controles com opções de timing */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live M1 - Price Action & Confluências
+            Análise Live M1 - Sincronização Otimizada
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
+              </Badge>
+            )}
+            {currentAnalysis?.latency && (
+              <Badge variant="outline" className="ml-2 text-xs">
+                {currentAnalysis.latency < 1000 ? `${currentAnalysis.latency}ms` : `${(currentAnalysis.latency/1000).toFixed(1)}s`}
               </Badge>
             )}
           </CardTitle>
@@ -325,10 +354,10 @@ const LiveAnalysis = () => {
               disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
-              <option value={1000}>1 segundo</option>
+              <option value={500}>0.5 segundo (ULTRA RÁPIDO)</option>
+              <option value={1000}>1 segundo (RÁPIDO)</option>
               <option value={2000}>2 segundos</option>
               <option value={3000}>3 segundos</option>
-              <option value={5000}>5 segundos</option>
             </select>
 
             {priceActionDetails && (
@@ -364,7 +393,7 @@ const LiveAnalysis = () => {
         </Alert>
       )}
 
-      {/* Video feed com overlay aprimorado */}
+      {/* Video feed com overlay aprimorado incluindo timing */}
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
         <video 
           ref={videoRef}
@@ -378,7 +407,7 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando Price Action + Confluências...</p>
+              <p className="text-sm">Analisando em tempo real...</p>
             </div>
           </div>
         )}
@@ -410,6 +439,11 @@ const LiveAnalysis = () => {
                           {currentAnalysis.signalQuality}
                         </Badge>
                       )}
+                      {currentAnalysis.latency && (
+                        <Badge variant="outline" className="text-xs text-cyan-300">
+                          {currentAnalysis.latency < 1000 ? `${currentAnalysis.latency}ms` : `${(currentAnalysis.latency/1000).toFixed(1)}s`}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}%
@@ -426,7 +460,7 @@ const LiveAnalysis = () => {
                       Bias: {currentAnalysis.institutionalBias}
                     </div>
                     <div className="text-xs text-gray-300">
-                      {new Date(currentAnalysis.timestamp).toLocaleTimeString()}
+                      {new Date(currentAnalysis.captureTime).toLocaleTimeString()}.{currentAnalysis.captureTime % 1000}
                     </div>
                   </div>
                 </div>

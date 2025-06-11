@@ -1,3 +1,4 @@
+
 import { Chart } from "chart.js";
 import { Pattern, PatternName, DetectedPattern } from "./types";
 import { TechnicalElement, CandleData, Point } from "../context/AnalyzerContext";
@@ -114,8 +115,11 @@ export interface AnalysisResult {
 }
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
-  // Simulate analysis delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Reduzir delay para análise em tempo real
+  const analysisDelay = options.isLiveAnalysis ? 200 : 1000; // 200ms para live, 1s para análise normal
+  await new Promise(resolve => setTimeout(resolve, analysisDelay));
+  
+  const startTime = Date.now(); // Timestamp preciso do início da análise
   
   // Mock candle data for confluence analysis
   const mockCandles: CandleData[] = [];
@@ -169,7 +173,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       description: `${signalType} signal detected with ${trend.toLowerCase()} trend`
     }],
     confidence: Math.random() * 100,
-    timestamp: Date.now(),
+    timestamp: startTime, // Usar timestamp do início da análise
     patterns,
     marketContext: {
       sentiment: action === 'compra' ? 'otimista' : action === 'venda' ? 'pessimista' : 'neutro',
@@ -243,6 +247,10 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       result.detailedMarketContext
     );
   }
+  
+  // Adicionar informações de timing para debugging
+  const processingTime = Date.now() - startTime;
+  console.log(`[TIMING] Análise completa em ${processingTime}ms - Timestamp: ${startTime}`);
   
   return result;
 };
