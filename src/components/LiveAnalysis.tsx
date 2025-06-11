@@ -322,7 +322,7 @@ const LiveAnalysis = () => {
             <select 
               value={analysisInterval} 
               onChange={(e) => setAnalysisInterval(Number(e.target.value))}
-              disabled={isLiveAnalysis}
+              disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
               <option value={1000}>1 segundo</option>

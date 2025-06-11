@@ -258,63 +258,65 @@ const generateScalpingEntries = (
   const entries: AnalysisResult['entryRecommendations'] = [];
   const currentPrice = candles[candles.length - 1]?.close || 100;
   
-  // Combine pattern signals with price action
-  patterns.forEach(pattern => {
-    const alignedPASignals = priceActionSignals.filter(pa => 
-      (pattern.action === 'compra' && pa.direction === 'alta') ||
-      (pattern.action === 'venda' && pa.direction === 'baixa')
-    );
-    
-    if (alignedPASignals.length > 0) {
-      const bestPASignal = alignedPASignals.sort((a, b) => b.confidence - a.confidence)[0];
+  // Combine pattern signals with price action - filter out 'neutro' actions
+  patterns
+    .filter(pattern => pattern.action !== 'neutro')
+    .forEach(pattern => {
+      const alignedPASignals = priceActionSignals.filter(pa => 
+        (pattern.action === 'compra' && pa.direction === 'alta') ||
+        (pattern.action === 'venda' && pa.direction === 'baixa')
+      );
       
-      let entryPrice = currentPrice;
-      let stopLoss = currentPrice;
-      let takeProfit = currentPrice;
-      let riskReward = 2.0;
-      
-      if (bestPASignal.entryZone) {
-        entryPrice = bestPASignal.entryZone.optimal;
+      if (alignedPASignals.length > 0) {
+        const bestPASignal = alignedPASignals.sort((a, b) => b.confidence - a.confidence)[0];
         
-        if (pattern.action === 'compra') {
-          stopLoss = entryPrice - (entryPrice * 0.002); // 0.2% stop
-          takeProfit = entryPrice + (entryPrice * 0.004); // 0.4% target
-        } else {
-          stopLoss = entryPrice + (entryPrice * 0.002);
-          takeProfit = entryPrice - (entryPrice * 0.004);
+        let entryPrice = currentPrice;
+        let stopLoss = currentPrice;
+        let takeProfit = currentPrice;
+        let riskReward = 2.0;
+        
+        if (bestPASignal.entryZone) {
+          entryPrice = bestPASignal.entryZone.optimal;
+          
+          if (pattern.action === 'compra') {
+            stopLoss = entryPrice - (entryPrice * 0.002); // 0.2% stop
+            takeProfit = entryPrice + (entryPrice * 0.004); // 0.4% target
+          } else {
+            stopLoss = entryPrice + (entryPrice * 0.002);
+            takeProfit = entryPrice - (entryPrice * 0.004);
+          }
+          
+          riskReward = bestPASignal.riskReward || 2.0;
         }
         
-        riskReward = bestPASignal.riskReward || 2.0;
+        const confidence = (pattern.confidence + bestPASignal.confidence) / 2;
+        
+        let reasoning = `${pattern.type} + ${bestPASignal.type} (${bestPASignal.strength})`;
+        
+        // Add confluence reasoning
+        if (confluences && confluences.confluenceScore > 60) {
+          reasoning += ` | Confluência: ${Math.round(confluences.confluenceScore)}%`;
+        }
+        
+        // Add market context reasoning
+        if (marketContext) {
+          reasoning += ` | Contexto: ${marketContext.phase} - ${marketContext.institutionalBias}`;
+          reasoning += ` | Estrutura: ${marketContext.marketStructure.trend}`;
+        }
+        
+        entries.push({
+          type: 'scalping_entry',
+          action: pattern.action,
+          entryPrice,
+          stopLoss,
+          takeProfit,
+          confidence,
+          reasoning,
+          timeframe: '1m',
+          riskReward
+        });
       }
-      
-      const confidence = (pattern.confidence + bestPASignal.confidence) / 2;
-      
-      let reasoning = `${pattern.type} + ${bestPASignal.type} (${bestPASignal.strength})`;
-      
-      // Add confluence reasoning
-      if (confluences && confluences.confluenceScore > 60) {
-        reasoning += ` | Confluência: ${Math.round(confluences.confluenceScore)}%`;
-      }
-      
-      // Add market context reasoning
-      if (marketContext) {
-        reasoning += ` | Contexto: ${marketContext.phase} - ${marketContext.institutionalBias}`;
-        reasoning += ` | Estrutura: ${marketContext.marketStructure.trend}`;
-      }
-      
-      entries.push({
-        type: 'scalping_entry',
-        action: pattern.action,
-        entryPrice,
-        stopLoss,
-        takeProfit,
-        confidence,
-        reasoning,
-        timeframe: '1m',
-        riskReward
-      });
-    }
-  });
+    });
   
   // Add pure price action entries for high-confidence signals
   priceActionSignals
@@ -482,3 +484,5 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   
   return candles;
 };
+
+}

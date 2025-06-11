@@ -289,7 +289,7 @@ const detectLiquiditySweeps = (candles: CandleData[]): PriceActionSignal[] => {
 export const analyzeMarketContext = (candles: CandleData[]): MarketContextAnalysis => {
   if (candles.length < 20) {
     return {
-      phase: 'indefinida',
+      phase: 'consolidação',
       sentiment: 'neutro',
       volatilityState: 'normal',
       liquidityCondition: 'normal',
