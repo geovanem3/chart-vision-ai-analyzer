@@ -485,5 +485,3 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   
   return candles;
 };
-
-}
