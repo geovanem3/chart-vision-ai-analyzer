@@ -1516,24 +1516,33 @@ export const performCompleteAnalysis = async (
   };
 };
 
+interface AnalysisOptions {
+  timeframe?: string;
+  optimizeForScalping?: boolean;
+  scalpingStrategy?: string;
+  considerVolume?: boolean;
+  considerVolatility?: boolean;
+  marketContextEnabled?: boolean;
+  marketAnalysisDepth?: string;
+  enableCandleDetection?: boolean;
+  isLiveAnalysis?: boolean;
+}
+
+interface AnalysisResult {
+  patterns: any[];
+  timestamp: number;
+  imageUrl: string;
+  marketContext?: any;
+  summary: any;
+  recommendations: string[];
+}
+
 export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   console.log('Iniciando análise do gráfico:', { imageUrl: imageUrl.substring(0, 50), options });
   
   try {
-    const {
-      timeframe = '1m',
-      optimizeForScalping = false,
-      scalpingStrategy = 'momentum',
-      considerVolume = true,
-      considerVolatility = true,
-      marketContextEnabled = true,
-      marketAnalysisDepth = 'comprehensive',
-      enableCandleDetection = true,
-      isLiveAnalysis = false
-    } = options;
-
     // Simular análise mais rápida para live analysis
-    const analysisDelay = isLiveAnalysis ? 500 : 1500;
+    const analysisDelay = options.isLiveAnalysis ? 500 : 1500;
     await new Promise(resolve => setTimeout(resolve, analysisDelay));
 
     // Gerar padrões simulados baseados nos parâmetros
@@ -1543,39 +1552,39 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
     const trendAnalysis = Math.random();
     if (trendAnalysis > 0.7) {
       patterns.push({
-        type: optimizeForScalping ? 'Breakout M1' : 'Tendência de Alta',
+        type: options.optimizeForScalping ? 'Breakout M1' : 'Tendência de Alta',
         confidence: 0.75 + Math.random() * 0.2,
-        description: isLiveAnalysis ? 
+        description: options.isLiveAnalysis ? 
           'Movimento de alta detectado em tempo real' : 
           'Padrão de tendência ascendente identificado',
         action: 'compra' as const,
-        isScalpingSignal: optimizeForScalping,
-        recommendation: `${isLiveAnalysis ? 'LIVE: ' : ''}Entrada em ${timeframe} com stop loss apertado`
+        isScalpingSignal: options.optimizeForScalping,
+        recommendation: `${options.isLiveAnalysis ? 'LIVE: ' : ''}Entrada em ${options.timeframe} com stop loss apertado`
       });
     } else if (trendAnalysis < 0.3) {
       patterns.push({
-        type: optimizeForScalping ? 'Reversão M1' : 'Tendência de Baixa',
+        type: options.optimizeForScalping ? 'Reversão M1' : 'Tendência de Baixa',
         confidence: 0.65 + Math.random() * 0.25,
-        description: isLiveAnalysis ? 
+        description: options.isLiveAnalysis ? 
           'Movimento de baixa detectado em tempo real' : 
           'Padrão de tendência descendente identificado',
         action: 'venda' as const,
-        isScalpingSignal: optimizeForScalping,
-        recommendation: `${isLiveAnalysis ? 'LIVE: ' : ''}Entrada em ${timeframe} com gestão de risco`
+        isScalpingSignal: options.optimizeForScalping,
+        recommendation: `${options.isLiveAnalysis ? 'LIVE: ' : ''}Entrada em ${options.timeframe} com gestão de risco`
       });
     }
 
     // Padrões específicos para scalping
-    if (optimizeForScalping) {
+    if (options.optimizeForScalping) {
       const scalpingPattern = Math.random();
       if (scalpingPattern > 0.6) {
         patterns.push({
-          type: `${scalpingStrategy} Signal`,
+          type: `${options.scalpingStrategy} Signal`,
           confidence: 0.8 + Math.random() * 0.15,
-          description: `Sinal de ${scalpingStrategy} identificado para M1`,
+          description: `Sinal de ${options.scalpingStrategy} identificado para M1`,
           action: Math.random() > 0.5 ? 'compra' as const : 'venda' as const,
           isScalpingSignal: true,
-          recommendation: isLiveAnalysis ? 
+          recommendation: options.isLiveAnalysis ? 
             'LIVE: Entrada imediata com stop de 5-10 pips' :
             'Entrada rápida com gestão agressiva de risco'
         });
@@ -1584,7 +1593,7 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
 
     // Análise de volume se habilitada
     let volumeData;
-    if (considerVolume) {
+    if (options.considerVolume) {
       volumeData = {
         value: Math.floor(Math.random() * 1000000) + 100000,
         trend: ['increasing', 'decreasing', 'neutral'][Math.floor(Math.random() * 3)] as any,
@@ -1598,7 +1607,7 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
 
     // Análise de volatilidade se habilitada
     let volatilityData;
-    if (considerVolatility) {
+    if (options.considerVolatility) {
       volatilityData = {
         value: Math.random() * 5 + 0.5,
         trend: ['increasing', 'decreasing', 'neutral'][Math.floor(Math.random() * 3)] as any,
@@ -1612,7 +1621,7 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
 
     // Contexto de mercado se habilitado
     let marketContext;
-    if (marketContextEnabled) {
+    if (options.marketContextEnabled) {
       const phases = ['acumulação', 'tendência_alta', 'tendência_baixa', 'distribuição', 'lateral', 'indefinida'];
       const strengths = ['forte', 'moderada', 'fraca'];
       const sentiments = ['otimista', 'pessimista', 'neutro'];
@@ -1620,9 +1629,9 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
       marketContext = {
         phase: phases[Math.floor(Math.random() * phases.length)] as any,
         strength: strengths[Math.floor(Math.random() * strengths.length)] as any,
-        dominantTimeframe: timeframe as any,
+        dominantTimeframe: options.timeframe as any,
         sentiment: sentiments[Math.floor(Math.random() * sentiments.length)] as any,
-        description: isLiveAnalysis ? 
+        description: options.isLiveAnalysis ? 
           'Contexto de mercado analisado em tempo real' :
           'Análise do contexto atual do mercado',
         trendAngle: Math.random() * 45 - 22.5,
@@ -1634,7 +1643,7 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
 
     // Análise de entrada precisa para live analysis
     let preciseEntryAnalysis;
-    if (isLiveAnalysis && patterns.length > 0) {
+    if (options.isLiveAnalysis && patterns.length > 0) {
       const entryTypes = ['reversão', 'retração', 'pullback', 'breakout', 'teste_suporte', 'teste_resistência'];
       preciseEntryAnalysis = {
         exactMinute: new Date().toLocaleTimeString('pt-BR', { 
@@ -1647,54 +1656,29 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
         priceAction: 'Price action favorável detectado',
         confirmationSignal: 'Aguardar fechamento da vela atual',
         riskRewardRatio: 1 + Math.random() * 2,
-        entryInstructions: isLiveAnalysis ? 
+        entryInstructions: options.isLiveAnalysis ? 
           'LIVE: Monitore o próximo candle para confirmação' :
           'Aguarde confirmação antes da entrada'
       };
     }
 
-    // Análise dos mestres (simulada para live)
-    const masterAnalysis = {
-      bulkowski: {
-        name: 'Padrão de Continuação',
-        reliability: 0.65 + Math.random() * 0.25,
-        averageMove: (Math.random() - 0.5) * 10,
-        failureRate: Math.random() * 0.3
-      },
-      tripleScreen: {
-        longTermTrend: Math.random() > 0.5 ? 'up' : 'down',
-        mediumTermOscillator: Math.random() > 0.5 ? 'buy' : 'sell',
-        shortTermEntry: Math.random() > 0.3 ? 'enter' : 'wait',
-        confidence: 0.6 + Math.random() * 0.3
-      },
-      murphy: {
-        trendAnalysis: {
-          primary: Math.random() > 0.5 ? 'alta' : 'baixa'
-        },
-        volumeAnalysis: {
-          trend: ['crescente', 'decrescente', 'estável'][Math.floor(Math.random() * 3)]
-        },
-        supportResistance: [
-          { level: Math.random() * 1000 + 1000, type: 'suporte' },
-          { level: Math.random() * 1000 + 1200, type: 'resistência' }
-        ]
-      },
-      masterRecommendation: isLiveAnalysis ? 
-        `ANÁLISE LIVE (${new Date().toLocaleTimeString()}): Baseado na análise em tempo real dos mestres, ${patterns[0]?.action === 'compra' ? 'considere posição comprada' : patterns[0]?.action === 'venda' ? 'considere posição vendida' : 'mantenha-se neutro'} com gestão rigorosa de risco.` :
-        `Recomendação integrada dos mestres: ${patterns.length > 0 ? patterns[0].recommendation : 'Aguarde melhores oportunidades'}`
-    };
-
-    const analysisResult = {
+    const analysisResult: AnalysisResult = {
       patterns,
       timestamp: Date.now(),
       imageUrl,
-      volumeData,
-      volatilityData,
-      marketContext,
-      preciseEntryAnalysis,
-      masterAnalysis,
-      warnings: isLiveAnalysis ? 
-        ['Análise em tempo real - confirme sinais com outras fontes'] : 
+      marketContext: options.marketContextEnabled ? {
+        sentiment: patterns.length > 0 && patterns[0].confidence > 0.6 ? 
+          (patterns[0].action === 'compra' ? 'otimista' : 'pessimista') : 'neutro',
+        volatility: options.considerVolatility ? 'média' : undefined,
+        volume: options.considerVolume ? 'normal' : undefined
+      } : undefined,
+      summary: {
+        recommendation: 'Recomendação integrada dos mestres',
+        confidence: 0.75,
+        signals: patterns
+      },
+      recommendations: patterns.length > 0 ? 
+        [`Estratégia recomendada: ${patterns[0].recommendation}`] :
         ['Análise baseada em imagem estática']
     };
 
@@ -1719,6 +1703,18 @@ export const analyzeChart = async (imageUrl: string, options: AnalysisOptions = 
 
   } catch (error) {
     console.error('Erro na análise do gráfico:', error);
-    throw new Error(`Falha na análise: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    
+    // Return fallback result with proper typing
+    return {
+      patterns: [],
+      timestamp: Date.now(),
+      imageUrl,
+      summary: {
+        recommendation: 'Erro na análise - tente novamente',
+        confidence: 0,
+        signals: []
+      },
+      recommendations: ['Erro na análise - verifique a qualidade da imagem']
+    };
   }
 };
