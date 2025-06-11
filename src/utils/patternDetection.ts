@@ -262,9 +262,10 @@ const generateScalpingEntries = (
   patterns
     .filter(pattern => pattern.action !== 'neutro')
     .forEach(pattern => {
+      const validAction = pattern.action as 'compra' | 'venda'; // Type assertion after filtering
       const alignedPASignals = priceActionSignals.filter(pa => 
-        (pattern.action === 'compra' && pa.direction === 'alta') ||
-        (pattern.action === 'venda' && pa.direction === 'baixa')
+        (validAction === 'compra' && pa.direction === 'alta') ||
+        (validAction === 'venda' && pa.direction === 'baixa')
       );
       
       if (alignedPASignals.length > 0) {
@@ -278,7 +279,7 @@ const generateScalpingEntries = (
         if (bestPASignal.entryZone) {
           entryPrice = bestPASignal.entryZone.optimal;
           
-          if (pattern.action === 'compra') {
+          if (validAction === 'compra') {
             stopLoss = entryPrice - (entryPrice * 0.002); // 0.2% stop
             takeProfit = entryPrice + (entryPrice * 0.004); // 0.4% target
           } else {
@@ -306,7 +307,7 @@ const generateScalpingEntries = (
         
         entries.push({
           type: 'scalping_entry',
-          action: pattern.action,
+          action: validAction,
           entryPrice,
           stopLoss,
           takeProfit,
@@ -323,7 +324,7 @@ const generateScalpingEntries = (
     .filter(pa => pa.confidence > 0.75 && pa.entryZone)
     .forEach(paSignal => {
       const entryPrice = paSignal.entryZone!.optimal;
-      const action = paSignal.direction === 'alta' ? 'compra' : 'venda';
+      const action: 'compra' | 'venda' = paSignal.direction === 'alta' ? 'compra' : 'venda';
       
       let stopLoss = entryPrice;
       let takeProfit = entryPrice;
@@ -484,3 +485,5 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   
   return candles;
 };
+
+}
