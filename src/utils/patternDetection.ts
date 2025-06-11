@@ -1,6 +1,7 @@
 
 import { Chart } from "chart.js";
-import { Pattern, PatternName, TechnicalElement, CandleData, DetectedPattern } from "./types";
+import { Pattern, PatternName, DetectedPattern } from "./types";
+import { TechnicalElement, CandleData, Point } from "../context/AnalyzerContext";
 
 // Function to detect a specific pattern in the chart data
 export const detectPattern = (chart: Chart, pattern: Pattern): boolean => {
@@ -168,27 +169,41 @@ export const generateTechnicalMarkup = (patterns: DetectedPattern[], width: numb
   
   patterns.forEach((pattern, index) => {
     if (pattern.coordinates) {
+      const centerPoint: Point = {
+        x: pattern.coordinates.x + pattern.coordinates.width / 2,
+        y: pattern.coordinates.y + pattern.coordinates.height / 2
+      };
+      
       elements.push({
-        type: 'pattern',
-        x: pattern.coordinates.x,
-        y: pattern.coordinates.y,
+        type: 'rectangle',
+        position: centerPoint,
         width: pattern.coordinates.width,
         height: pattern.coordinates.height,
         color: pattern.action === 'compra' ? '#22c55e' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
-        confidence: pattern.confidence
+        thickness: 2
+      });
+      
+      elements.push({
+        type: 'label',
+        position: { x: centerPoint.x, y: centerPoint.y - pattern.coordinates.height / 2 - 10 },
+        text: pattern.type,
+        color: pattern.action === 'compra' ? '#22c55e' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
+        backgroundColor: '#ffffff'
       });
     }
   });
   
   // Add some trend lines
+  const trendLinePoints: Point[] = [
+    { x: 0, y: height * 0.3 },
+    { x: width, y: height * 0.3 }
+  ];
+  
   elements.push({
-    type: 'trendline',
-    x: 0,
-    y: height * 0.3,
-    width: width,
-    height: 2,
+    type: 'line',
+    points: trendLinePoints,
     color: '#3b82f6',
-    confidence: 0.8
+    thickness: 2
   });
   
   return elements;
@@ -208,14 +223,21 @@ export const detectCandles = async (imageData: string, width: number, height: nu
     const high = Math.max(open, close) + Math.random() * 10;
     const low = Math.min(open, close) - Math.random() * 10;
     
+    const candleWidth = width / numCandles * 0.8;
+    const candleHeight = Math.abs(close - open) * 2;
+    
     candles.push({
-      x: (i / numCandles) * width,
-      y: (1 - (high - 40) / 120) * height, // Normalize to image coordinates
       open,
       close,
       high,
       low,
-      type: close > open ? 'bullish' : close < open ? 'bearish' : 'doji'
+      color: close > open ? 'verde' : 'vermelho',
+      position: {
+        x: (i / numCandles) * width,
+        y: (1 - (high - 40) / 120) * height
+      },
+      width: candleWidth,
+      height: candleHeight
     });
   }
   
