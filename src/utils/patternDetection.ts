@@ -6,6 +6,12 @@ import {
   validateSignalWithConfluences,
   ConfluenceAnalysis 
 } from "./confluenceAnalysis";
+import { 
+  analyzePriceAction, 
+  analyzeMarketContext, 
+  PriceActionSignal, 
+  MarketContextAnalysis 
+} from "./priceActionAnalysis";
 
 // Function to detect a specific pattern in the chart data
 export const detectPattern = (chart: Chart, pattern: Pattern): boolean => {
@@ -63,6 +69,8 @@ export interface AnalysisOptions {
   enableCandleDetection?: boolean;
   isLiveAnalysis?: boolean;
   useConfluences?: boolean;
+  enablePriceAction?: boolean;
+  enableMarketContext?: boolean;
 }
 
 export interface AnalysisResult {
@@ -81,6 +89,8 @@ export interface AnalysisResult {
     strength: string;
   };
   confluences?: ConfluenceAnalysis;
+  priceActionSignals?: PriceActionSignal[];
+  detailedMarketContext?: MarketContextAnalysis;
   validatedSignals?: Array<{
     pattern: DetectedPattern;
     validation: {
@@ -90,6 +100,17 @@ export interface AnalysisResult {
       warnings: string[];
     };
   }>;
+  entryRecommendations?: Array<{
+    type: 'scalping_entry' | 'swing_entry';
+    action: 'compra' | 'venda';
+    entryPrice: number;
+    stopLoss: number;
+    takeProfit: number;
+    confidence: number;
+    reasoning: string;
+    timeframe: string;
+    riskReward: number;
+  }>;
 }
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
@@ -98,7 +119,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Mock candle data for confluence analysis
   const mockCandles: CandleData[] = [];
-  const numCandles = 50;
+  const numCandles = options.isLiveAnalysis ? 30 : 50;
   let basePrice = 100;
   
   for (let i = 0; i < numCandles; i++) {
@@ -157,6 +178,33 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     }
   };
   
+  // Add price action analysis for M1 timeframe
+  if (options.enablePriceAction !== false && (options.timeframe === '1m' || options.isLiveAnalysis)) {
+    const priceActionSignals = analyzePriceAction(mockCandles);
+    result.priceActionSignals = priceActionSignals;
+    
+    // Adjust confidence based on price action
+    if (priceActionSignals.length > 0) {
+      const avgPAConfidence = priceActionSignals.reduce((sum, signal) => sum + signal.confidence, 0) / priceActionSignals.length;
+      result.confidence = Math.round((result.confidence + avgPAConfidence * 100) / 2);
+    }
+  }
+  
+  // Add detailed market context analysis
+  if (options.enableMarketContext !== false) {
+    const detailedMarketContext = analyzeMarketContext(mockCandles);
+    result.detailedMarketContext = detailedMarketContext;
+    
+    // Update market context based on detailed analysis
+    result.marketContext = {
+      sentiment: detailedMarketContext.sentiment === 'muito_otimista' || detailedMarketContext.sentiment === 'otimista' ? 'otimista' :
+                detailedMarketContext.sentiment === 'muito_pessimista' || detailedMarketContext.sentiment === 'pessimista' ? 'pessimista' : 'neutro',
+      phase: detailedMarketContext.phase,
+      strength: detailedMarketContext.marketStructure.strength > 70 ? 'forte' : 
+               detailedMarketContext.marketStructure.strength > 40 ? 'moderada' : 'fraca'
+    };
+  }
+  
   // Add confluence analysis if enabled
   if (options.useConfluences !== false) {
     const confluenceAnalysis = performConfluenceAnalysis(mockCandles, patterns);
@@ -185,7 +233,127 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     }
   }
   
+  // Generate specific entry recommendations for M1 scalping
+  if (options.optimizeForScalping && options.timeframe === '1m') {
+    result.entryRecommendations = generateScalpingEntries(
+      mockCandles, 
+      patterns, 
+      result.priceActionSignals || [], 
+      result.confluences,
+      result.detailedMarketContext
+    );
+  }
+  
   return result;
+};
+
+// Generate specific scalping entry recommendations
+const generateScalpingEntries = (
+  candles: CandleData[],
+  patterns: DetectedPattern[],
+  priceActionSignals: PriceActionSignal[],
+  confluences?: ConfluenceAnalysis,
+  marketContext?: MarketContextAnalysis
+): AnalysisResult['entryRecommendations'] => {
+  const entries: AnalysisResult['entryRecommendations'] = [];
+  const currentPrice = candles[candles.length - 1]?.close || 100;
+  
+  // Combine pattern signals with price action
+  patterns.forEach(pattern => {
+    const alignedPASignals = priceActionSignals.filter(pa => 
+      (pattern.action === 'compra' && pa.direction === 'alta') ||
+      (pattern.action === 'venda' && pa.direction === 'baixa')
+    );
+    
+    if (alignedPASignals.length > 0) {
+      const bestPASignal = alignedPASignals.sort((a, b) => b.confidence - a.confidence)[0];
+      
+      let entryPrice = currentPrice;
+      let stopLoss = currentPrice;
+      let takeProfit = currentPrice;
+      let riskReward = 2.0;
+      
+      if (bestPASignal.entryZone) {
+        entryPrice = bestPASignal.entryZone.optimal;
+        
+        if (pattern.action === 'compra') {
+          stopLoss = entryPrice - (entryPrice * 0.002); // 0.2% stop
+          takeProfit = entryPrice + (entryPrice * 0.004); // 0.4% target
+        } else {
+          stopLoss = entryPrice + (entryPrice * 0.002);
+          takeProfit = entryPrice - (entryPrice * 0.004);
+        }
+        
+        riskReward = bestPASignal.riskReward || 2.0;
+      }
+      
+      const confidence = (pattern.confidence + bestPASignal.confidence) / 2;
+      
+      let reasoning = `${pattern.type} + ${bestPASignal.type} (${bestPASignal.strength})`;
+      
+      // Add confluence reasoning
+      if (confluences && confluences.confluenceScore > 60) {
+        reasoning += ` | Confluência: ${Math.round(confluences.confluenceScore)}%`;
+      }
+      
+      // Add market context reasoning
+      if (marketContext) {
+        reasoning += ` | Contexto: ${marketContext.phase} - ${marketContext.institutionalBias}`;
+        reasoning += ` | Estrutura: ${marketContext.marketStructure.trend}`;
+      }
+      
+      entries.push({
+        type: 'scalping_entry',
+        action: pattern.action,
+        entryPrice,
+        stopLoss,
+        takeProfit,
+        confidence,
+        reasoning,
+        timeframe: '1m',
+        riskReward
+      });
+    }
+  });
+  
+  // Add pure price action entries for high-confidence signals
+  priceActionSignals
+    .filter(pa => pa.confidence > 0.75 && pa.entryZone)
+    .forEach(paSignal => {
+      const entryPrice = paSignal.entryZone!.optimal;
+      const action = paSignal.direction === 'alta' ? 'compra' : 'venda';
+      
+      let stopLoss = entryPrice;
+      let takeProfit = entryPrice;
+      
+      if (action === 'compra') {
+        stopLoss = entryPrice - (entryPrice * 0.0015); // Tighter stop for PA signals
+        takeProfit = entryPrice + (entryPrice * 0.003);
+      } else {
+        stopLoss = entryPrice + (entryPrice * 0.0015);
+        takeProfit = entryPrice - (entryPrice * 0.003);
+      }
+      
+      let reasoning = `Price Action puro: ${paSignal.description}`;
+      
+      if (marketContext) {
+        reasoning += ` | Alinhado com ${marketContext.institutionalBias} institucional`;
+      }
+      
+      entries.push({
+        type: 'scalping_entry',
+        action,
+        entryPrice,
+        stopLoss,
+        takeProfit,
+        confidence: paSignal.confidence,
+        reasoning,
+        timeframe: '1m',
+        riskReward: paSignal.riskReward || 2.0
+      });
+    });
+  
+  return entries.slice(0, 3); // Limit to top 3 recommendations
 };
 
 // Function to interpret the detected pattern

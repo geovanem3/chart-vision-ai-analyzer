@@ -22,6 +22,11 @@ interface LiveAnalysisResult {
   confluenceScore?: number;
   supportResistance?: any[];
   criticalLevels?: any[];
+  priceActionSignals?: any[];
+  marketPhase?: string;
+  institutionalBias?: string;
+  entryRecommendations?: any[];
+  riskReward?: number;
 }
 
 const LiveAnalysis = () => {
@@ -38,7 +43,10 @@ const LiveAnalysis = () => {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [confluenceDetails, setConfluenceDetails] = useState<any>(null);
   const [showConfluenceDetails, setShowConfluenceDetails] = useState(false);
-  
+  const [priceActionDetails, setPriceActionDetails] = useState<any>(null);
+  const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
+  const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
+
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { 
@@ -93,7 +101,7 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar com confluências
+  // Capturar frame e analisar com confluências e price action
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
@@ -118,10 +126,10 @@ const LiveAnalysis = () => {
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
       
-      // Analisar com confluências ativadas
+      // Analisar com todas as funcionalidades ativadas
       const analysisResult = await analyzeChart(enhancedImageUrl, {
-        timeframe,
-        optimizeForScalping,
+        timeframe: '1m',
+        optimizeForScalping: true,
         scalpingStrategy,
         considerVolume,
         considerVolatility,
@@ -129,18 +137,38 @@ const LiveAnalysis = () => {
         marketAnalysisDepth,
         enableCandleDetection: true,
         isLiveAnalysis: true,
-        useConfluences: true // Ativar análise de confluências
+        useConfluences: true,
+        enablePriceAction: true,
+        enableMarketContext: true
       });
 
-      // Armazenar detalhes das confluências
+      // Armazenar detalhes das confluências e price action
       setConfluenceDetails(analysisResult.confluences);
+      setPriceActionDetails({
+        signals: analysisResult.priceActionSignals || [],
+        marketContext: analysisResult.detailedMarketContext
+      });
+      setEntryRecommendations(analysisResult.entryRecommendations || []);
 
       // Processar resultado para formato live
       let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
       let signalQuality = 'normal';
+      let riskReward = 2.0;
       
-      // Se temos validação de confluências, usar ela
-      if (analysisResult.validatedSignals && analysisResult.validatedSignals.length > 0) {
+      // Melhor confiança vem das recomendações de entrada
+      if (analysisResult.entryRecommendations && analysisResult.entryRecommendations.length > 0) {
+        const bestEntry = analysisResult.entryRecommendations[0];
+        finalConfidence = bestEntry.confidence;
+        riskReward = bestEntry.riskReward;
+        
+        if (bestEntry.confidence > 0.8) {
+          signalQuality = 'excelente';
+        } else if (bestEntry.confidence > 0.7) {
+          signalQuality = 'forte';
+        } else if (bestEntry.confidence > 0.6) {
+          signalQuality = 'boa';
+        }
+      } else if (analysisResult.validatedSignals && analysisResult.validatedSignals.length > 0) {
         const validatedSignal = analysisResult.validatedSignals[0];
         finalConfidence = validatedSignal.validation.confidence;
         
@@ -158,27 +186,32 @@ const LiveAnalysis = () => {
         confidence: finalConfidence,
         signal: analysisResult.patterns[0]?.action || 'neutro',
         patterns: analysisResult.patterns.map(p => p.type),
-        trend: analysisResult.marketContext?.sentiment === 'otimista' ? 'alta' : 
-               analysisResult.marketContext?.sentiment === 'pessimista' ? 'baixa' : 'lateral',
+        trend: analysisResult.detailedMarketContext?.marketStructure.trend || 'lateral',
         signalQuality,
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
         supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
-        criticalLevels: analysisResult.confluences?.criticalLevels || []
+        criticalLevels: analysisResult.confluences?.criticalLevels || [],
+        priceActionSignals: analysisResult.priceActionSignals?.slice(0, 2) || [],
+        marketPhase: analysisResult.detailedMarketContext?.phase || 'indefinida',
+        institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
+        entryRecommendations: analysisResult.entryRecommendations?.slice(0, 2) || [],
+        riskReward
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
 
-      // Notificar apenas sinais com boa confluência
+      // Notificar apenas sinais de alta qualidade com price action
       if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca') {
-        const confluenceText = analysisResult.confluences ? 
-          ` | Score Confluência: ${Math.round(analysisResult.confluences.confluenceScore)}%` : '';
+        const paText = liveResult.priceActionSignals.length > 0 ? 
+          ` | PA: ${liveResult.priceActionSignals[0].type}` : '';
+        const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
         
         toast({
           variant: liveResult.signal === 'compra' ? "default" : "destructive",
-          title: `🚨 Sinal ${signalQuality.toUpperCase()} de ${liveResult.signal.toUpperCase()}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}%${confluenceText} | Padrões: ${liveResult.patterns.join(', ')}`,
-          duration: 6000,
+          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${liveResult.signal.toUpperCase()}`,
+          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
+          duration: 8000,
         });
       }
 
@@ -187,7 +220,7 @@ const LiveAnalysis = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, timeframe, optimizeForScalping, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
+  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
 
   // Iniciar análise em tempo real
   const startLiveAnalysis = async () => {
@@ -254,7 +287,7 @@ const LiveAnalysis = () => {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live com Confluências
+            Análise Live M1 - Price Action & Confluências
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
@@ -267,7 +300,7 @@ const LiveAnalysis = () => {
             {!isLiveActive ? (
               <Button onClick={startLiveAnalysis} className="gap-2">
                 <Play className="w-4 h-4" />
-                Iniciar Live
+                Iniciar Live M1
               </Button>
             ) : (
               <Button onClick={stopLiveAnalysis} variant="destructive" className="gap-2">
@@ -289,15 +322,25 @@ const LiveAnalysis = () => {
             <select 
               value={analysisInterval} 
               onChange={(e) => setAnalysisInterval(Number(e.target.value))}
-              disabled={isLiveActive}
+              disabled={isLiveAnalysis}
               className="px-3 py-2 border rounded-md text-sm"
             >
               <option value={1000}>1 segundo</option>
               <option value={2000}>2 segundos</option>
               <option value={3000}>3 segundos</option>
               <option value={5000}>5 segundos</option>
-              <option value={10000}>10 segundos</option>
             </select>
+
+            {priceActionDetails && (
+              <Button 
+                variant="outline" 
+                onClick={() => setShowPriceActionDetails(!showPriceActionDetails)}
+                className="gap-2"
+              >
+                <TrendingUp className="w-4 h-4" />
+                Price Action
+              </Button>
+            )}
 
             {confluenceDetails && (
               <Button 
@@ -321,7 +364,7 @@ const LiveAnalysis = () => {
         </Alert>
       )}
 
-      {/* Video feed */}
+      {/* Video feed com overlay aprimorado */}
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
         <video 
           ref={videoRef}
@@ -335,7 +378,7 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando confluências...</p>
+              <p className="text-sm">Analisando Price Action + Confluências...</p>
             </div>
           </div>
         )}
@@ -347,7 +390,7 @@ const LiveAnalysis = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="bg-black/80 border-amber-200">
+            <Card className="bg-black/90 border-amber-200">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between text-white mb-2">
                   <div>
@@ -360,7 +403,7 @@ const LiveAnalysis = () => {
                       </Badge>
                       {currentAnalysis.signalQuality && (
                         <Badge 
-                          variant={currentAnalysis.signalQuality === 'forte' ? 'default' : 
+                          variant={currentAnalysis.signalQuality === 'excelente' || currentAnalysis.signalQuality === 'forte' ? 'default' : 
                                    currentAnalysis.signalQuality === 'boa' ? 'secondary' : 'destructive'}
                           className="text-xs"
                         >
@@ -371,27 +414,36 @@ const LiveAnalysis = () => {
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}%
                     </p>
-                    {currentAnalysis.confluenceScore !== undefined && (
-                      <p className="text-xs text-yellow-300">
-                        Score Confluência: {Math.round(currentAnalysis.confluenceScore)}%
-                      </p>
-                    )}
+                    <p className="text-xs text-green-300">
+                      R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1 text-xs">
-                      <TrendingUp className="w-3 h-3" />
-                      {currentAnalysis.trend}
+                    <div className="text-xs text-yellow-300">
+                      Fase: {currentAnalysis.marketPhase}
                     </div>
-                    <p className="text-xs text-gray-300">
+                    <div className="text-xs text-blue-300">
+                      Bias: {currentAnalysis.institutionalBias}
+                    </div>
+                    <div className="text-xs text-gray-300">
                       {new Date(currentAnalysis.timestamp).toLocaleTimeString()}
-                    </p>
+                    </div>
                   </div>
                 </div>
                 
-                {/* Níveis críticos */}
-                {currentAnalysis.criticalLevels && currentAnalysis.criticalLevels.length > 0 && (
-                  <div className="text-xs text-blue-300">
-                    Níveis: {currentAnalysis.criticalLevels.map(level => level.toFixed(4)).join(', ')}
+                {/* Price Action Signals */}
+                {currentAnalysis.priceActionSignals && currentAnalysis.priceActionSignals.length > 0 && (
+                  <div className="text-xs text-purple-300 mb-1">
+                    PA: {currentAnalysis.priceActionSignals.map((pa: any) => pa.type).join(', ')}
+                  </div>
+                )}
+                
+                {/* Entry Recommendations */}
+                {currentAnalysis.entryRecommendations && currentAnalysis.entryRecommendations.length > 0 && (
+                  <div className="text-xs text-green-400">
+                    Entrada: {currentAnalysis.entryRecommendations[0].entryPrice?.toFixed(4)} | 
+                    SL: {currentAnalysis.entryRecommendations[0].stopLoss?.toFixed(4)} | 
+                    TP: {currentAnalysis.entryRecommendations[0].takeProfit?.toFixed(4)}
                   </div>
                 )}
               </CardContent>
@@ -401,6 +453,118 @@ const LiveAnalysis = () => {
 
         <canvas ref={canvasRef} className="hidden" />
       </div>
+
+      {/* Detalhes do Price Action */}
+      {showPriceActionDetails && priceActionDetails && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Análise de Price Action M1</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Sinais de Price Action */}
+            {priceActionDetails.signals && priceActionDetails.signals.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Sinais Detectados</h4>
+                <div className="space-y-2">
+                  {priceActionDetails.signals.slice(0, 3).map((signal: any, index: number) => (
+                    <div key={index} className="border rounded p-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`font-medium ${signal.direction === 'alta' ? 'text-green-600' : 'text-red-600'}`}>
+                          {signal.type} - {signal.direction}
+                        </span>
+                        <Badge variant={signal.strength === 'forte' ? 'default' : 'secondary'}>
+                          {signal.strength}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {signal.description}
+                      </div>
+                      <div className="text-xs text-blue-600 mt-1">
+                        Confiança: {Math.round(signal.confidence * 100)}% | R:R {signal.riskReward?.toFixed(1)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contexto de Mercado Detalhado */}
+            {priceActionDetails.marketContext && (
+              <div>
+                <h4 className="font-semibold mb-2">Contexto de Mercado</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium">Fase:</span> {priceActionDetails.marketContext.phase}
+                  </div>
+                  <div>
+                    <span className="font-medium">Sentimento:</span> {priceActionDetails.marketContext.sentiment}
+                  </div>
+                  <div>
+                    <span className="font-medium">Volatilidade:</span> {priceActionDetails.marketContext.volatilityState}
+                  </div>
+                  <div>
+                    <span className="font-medium">Liquidez:</span> {priceActionDetails.marketContext.liquidityCondition}
+                  </div>
+                  <div>
+                    <span className="font-medium">Bias Institucional:</span> {priceActionDetails.marketContext.institutionalBias}
+                  </div>
+                  <div>
+                    <span className="font-medium">Horário:</span> {priceActionDetails.marketContext.timeOfDay}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recomendações de Entrada */}
+      {entryRecommendations.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Recomendações de Entrada M1</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {entryRecommendations.map((entry: any, index: number) => (
+                <div key={index} className="border rounded-lg p-3 bg-muted/30">
+                  <div className="flex justify-between items-center mb-2">
+                    <Badge 
+                      variant={entry.action === 'compra' ? 'default' : 'destructive'}
+                      className="text-sm"
+                    >
+                      {entry.action.toUpperCase()}
+                    </Badge>
+                    <span className="text-sm font-medium">
+                      Confiança: {Math.round(entry.confidence * 100)}%
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                    <div>
+                      <span className="font-medium">Entrada:</span> {entry.entryPrice?.toFixed(4)}
+                    </div>
+                    <div>
+                      <span className="font-medium">Stop:</span> {entry.stopLoss?.toFixed(4)}
+                    </div>
+                    <div>
+                      <span className="font-medium">Alvo:</span> {entry.takeProfit?.toFixed(4)}
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground mb-1">
+                    R:R {entry.riskReward?.toFixed(1)} | Timeframe: {entry.timeframe}
+                  </div>
+                  
+                  <div className="text-xs">
+                    <span className="font-medium">Análise:</span> {entry.reasoning}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Detalhes das confluências */}
       {showConfluenceDetails && confluenceDetails && (
