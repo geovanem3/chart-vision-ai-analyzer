@@ -1,7 +1,11 @@
-
 import { Chart } from "chart.js";
 import { Pattern, PatternName, DetectedPattern } from "./types";
 import { TechnicalElement, CandleData, Point } from "../context/AnalyzerContext";
+import { 
+  performConfluenceAnalysis, 
+  validateSignalWithConfluences,
+  ConfluenceAnalysis 
+} from "./confluenceAnalysis";
 
 // Function to detect a specific pattern in the chart data
 export const detectPattern = (chart: Chart, pattern: Pattern): boolean => {
@@ -58,6 +62,7 @@ export interface AnalysisOptions {
   marketAnalysisDepth?: string;
   enableCandleDetection?: boolean;
   isLiveAnalysis?: boolean;
+  useConfluences?: boolean;
 }
 
 export interface AnalysisResult {
@@ -75,13 +80,49 @@ export interface AnalysisResult {
     phase: string;
     strength: string;
   };
+  confluences?: ConfluenceAnalysis;
+  validatedSignals?: Array<{
+    pattern: DetectedPattern;
+    validation: {
+      isValid: boolean;
+      confidence: number;
+      reasons: string[];
+      warnings: string[];
+    };
+  }>;
 }
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   // Simulate analysis delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Mock analysis result for live analysis
+  // Mock candle data for confluence analysis
+  const mockCandles: CandleData[] = [];
+  const numCandles = 50;
+  let basePrice = 100;
+  
+  for (let i = 0; i < numCandles; i++) {
+    const variation = (Math.random() - 0.5) * 4;
+    const open = basePrice + variation;
+    const close = open + (Math.random() - 0.5) * 2;
+    const high = Math.max(open, close) + Math.random() * 1;
+    const low = Math.min(open, close) - Math.random() * 1;
+    
+    mockCandles.push({
+      open,
+      close,
+      high,
+      low,
+      color: close > open ? 'verde' : 'vermelho',
+      position: { x: i * 10, y: 300 - (close - 95) * 20 },
+      width: 8,
+      height: Math.abs(close - open) * 20
+    });
+    
+    basePrice = close;
+  }
+  
+  // Generate patterns
   const trends = ['Bullish', 'Bearish', 'Sideways'];
   const signalTypes = ['Buy', 'Sell', 'Hold'];
   const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
@@ -95,11 +136,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const patterns: DetectedPattern[] = [{
     type: patternType,
     action: action,
-    confidence: Math.random(),
+    confidence: Math.random() * 0.4 + 0.5, // 0.5 to 0.9
     description: `${patternType} detectado com tendência ${trend.toLowerCase()}`
   }];
   
-  return {
+  let result: AnalysisResult = {
     trend,
     signals: [{
       type: signalType,
@@ -115,6 +156,36 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       strength: 'moderada'
     }
   };
+  
+  // Add confluence analysis if enabled
+  if (options.useConfluences !== false) {
+    const confluenceAnalysis = performConfluenceAnalysis(mockCandles, patterns);
+    result.confluences = confluenceAnalysis;
+    
+    // Validate signals with confluences
+    const currentPrice = mockCandles[mockCandles.length - 1]?.close || 100;
+    const validatedSignals = patterns.map(pattern => ({
+      pattern,
+      validation: validateSignalWithConfluences(pattern, confluenceAnalysis, currentPrice)
+    }));
+    
+    result.validatedSignals = validatedSignals;
+    
+    // Update overall confidence based on confluences
+    const avgValidationConfidence = validatedSignals.reduce((sum, vs) => sum + vs.validation.confidence, 0) / validatedSignals.length;
+    result.confidence = Math.round(avgValidationConfidence * 100);
+    
+    // Update market context based on confluence score
+    if (confluenceAnalysis.confluenceScore > 70) {
+      result.marketContext!.strength = 'forte';
+    } else if (confluenceAnalysis.confluenceScore > 40) {
+      result.marketContext!.strength = 'moderada';
+    } else {
+      result.marketContext!.strength = 'fraca';
+    }
+  }
+  
+  return result;
 };
 
 // Function to interpret the detected pattern

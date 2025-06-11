@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +18,10 @@ interface LiveAnalysisResult {
   patterns: string[];
   price?: string;
   trend: 'alta' | 'baixa' | 'lateral';
+  signalQuality?: string;
+  confluenceScore?: number;
+  supportResistance?: any[];
+  criticalLevels?: any[];
 }
 
 const LiveAnalysis = () => {
@@ -33,6 +36,8 @@ const LiveAnalysis = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [confluenceDetails, setConfluenceDetails] = useState<any>(null);
+  const [showConfluenceDetails, setShowConfluenceDetails] = useState(false);
   
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -88,7 +93,7 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar
+  // Capturar frame e analisar com confluências
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
@@ -113,7 +118,7 @@ const LiveAnalysis = () => {
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
       
-      // Analisar com toda a inteligência do robô
+      // Analisar com confluências ativadas
       const analysisResult = await analyzeChart(enhancedImageUrl, {
         timeframe,
         optimizeForScalping,
@@ -123,29 +128,57 @@ const LiveAnalysis = () => {
         marketContextEnabled,
         marketAnalysisDepth,
         enableCandleDetection: true,
-        isLiveAnalysis: true
+        isLiveAnalysis: true,
+        useConfluences: true // Ativar análise de confluências
       });
 
+      // Armazenar detalhes das confluências
+      setConfluenceDetails(analysisResult.confluences);
+
       // Processar resultado para formato live
+      let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
+      let signalQuality = 'normal';
+      
+      // Se temos validação de confluências, usar ela
+      if (analysisResult.validatedSignals && analysisResult.validatedSignals.length > 0) {
+        const validatedSignal = analysisResult.validatedSignals[0];
+        finalConfidence = validatedSignal.validation.confidence;
+        
+        if (validatedSignal.validation.isValid && validatedSignal.validation.confidence > 0.8) {
+          signalQuality = 'forte';
+        } else if (validatedSignal.validation.isValid && validatedSignal.validation.confidence > 0.6) {
+          signalQuality = 'boa';
+        } else if (!validatedSignal.validation.isValid) {
+          signalQuality = 'fraca';
+        }
+      }
+
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
-        confidence: analysisResult.patterns[0]?.confidence || 0,
+        confidence: finalConfidence,
         signal: analysisResult.patterns[0]?.action || 'neutro',
         patterns: analysisResult.patterns.map(p => p.type),
         trend: analysisResult.marketContext?.sentiment === 'otimista' ? 'alta' : 
-               analysisResult.marketContext?.sentiment === 'pessimista' ? 'baixa' : 'lateral'
+               analysisResult.marketContext?.sentiment === 'pessimista' ? 'baixa' : 'lateral',
+        signalQuality,
+        confluenceScore: analysisResult.confluences?.confluenceScore || 0,
+        supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
+        criticalLevels: analysisResult.confluences?.criticalLevels || []
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
 
-      // Notificar sinais importantes
-      if (liveResult.confidence > 0.7 && liveResult.signal !== 'neutro') {
+      // Notificar apenas sinais com boa confluência
+      if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca') {
+        const confluenceText = analysisResult.confluences ? 
+          ` | Score Confluência: ${Math.round(analysisResult.confluences.confluenceScore)}%` : '';
+        
         toast({
           variant: liveResult.signal === 'compra' ? "default" : "destructive",
-          title: `🚨 Sinal de ${liveResult.signal.toUpperCase()}`,
-          description: `Confiança: ${Math.round(liveResult.confidence * 100)}% | Padrões: ${liveResult.patterns.join(', ')}`,
-          duration: 5000,
+          title: `🚨 Sinal ${signalQuality.toUpperCase()} de ${liveResult.signal.toUpperCase()}`,
+          description: `Confiança: ${Math.round(finalConfidence * 100)}%${confluenceText} | Padrões: ${liveResult.patterns.join(', ')}`,
+          duration: 6000,
         });
       }
 
@@ -221,7 +254,7 @@ const LiveAnalysis = () => {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live
+            Análise Live com Confluências
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
@@ -265,6 +298,17 @@ const LiveAnalysis = () => {
               <option value={5000}>5 segundos</option>
               <option value={10000}>10 segundos</option>
             </select>
+
+            {confluenceDetails && (
+              <Button 
+                variant="outline" 
+                onClick={() => setShowConfluenceDetails(!showConfluenceDetails)}
+                className="gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Confluências
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -291,7 +335,7 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando...</p>
+              <p className="text-sm">Analisando confluências...</p>
             </div>
           </div>
         )}
@@ -305,18 +349,33 @@ const LiveAnalysis = () => {
           >
             <Card className="bg-black/80 border-amber-200">
               <CardContent className="p-3">
-                <div className="flex items-center justify-between text-white">
+                <div className="flex items-center justify-between text-white mb-2">
                   <div>
-                    <Badge 
-                      variant={currentAnalysis.signal === 'compra' ? 'default' : 
-                               currentAnalysis.signal === 'venda' ? 'destructive' : 'secondary'}
-                      className="mb-1"
-                    >
-                      {currentAnalysis.signal.toUpperCase()}
-                    </Badge>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge 
+                        variant={currentAnalysis.signal === 'compra' ? 'default' : 
+                                 currentAnalysis.signal === 'venda' ? 'destructive' : 'secondary'}
+                      >
+                        {currentAnalysis.signal.toUpperCase()}
+                      </Badge>
+                      {currentAnalysis.signalQuality && (
+                        <Badge 
+                          variant={currentAnalysis.signalQuality === 'forte' ? 'default' : 
+                                   currentAnalysis.signalQuality === 'boa' ? 'secondary' : 'destructive'}
+                          className="text-xs"
+                        >
+                          {currentAnalysis.signalQuality}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}%
                     </p>
+                    {currentAnalysis.confluenceScore !== undefined && (
+                      <p className="text-xs text-yellow-300">
+                        Score Confluência: {Math.round(currentAnalysis.confluenceScore)}%
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1 text-xs">
@@ -328,6 +387,13 @@ const LiveAnalysis = () => {
                     </p>
                   </div>
                 </div>
+                
+                {/* Níveis críticos */}
+                {currentAnalysis.criticalLevels && currentAnalysis.criticalLevels.length > 0 && (
+                  <div className="text-xs text-blue-300">
+                    Níveis: {currentAnalysis.criticalLevels.map(level => level.toFixed(4)).join(', ')}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -336,7 +402,72 @@ const LiveAnalysis = () => {
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* Histórico de resultados */}
+      {/* Detalhes das confluências */}
+      {showConfluenceDetails && confluenceDetails && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Análise de Confluências</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Score geral */}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">
+                {Math.round(confluenceDetails.confluenceScore)}%
+              </div>
+              <div className="text-sm text-muted-foreground">Score de Confluência</div>
+            </div>
+
+            {/* Suportes e Resistências */}
+            {confluenceDetails.supportResistance && confluenceDetails.supportResistance.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Suportes e Resistências</h4>
+                <div className="space-y-1">
+                  {confluenceDetails.supportResistance.slice(0, 3).map((level: any, index: number) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span className={level.type === 'support' ? 'text-green-600' : 'text-red-600'}>
+                        {level.type === 'support' ? 'Suporte' : 'Resistência'} {level.strength}
+                      </span>
+                      <span>{level.price.toFixed(4)} ({level.confidence.toFixed(0)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Estrutura de mercado */}
+            {confluenceDetails.marketStructure && (
+              <div>
+                <h4 className="font-semibold mb-2">Estrutura de Mercado</h4>
+                <div className="text-sm">
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    confluenceDetails.marketStructure.structure === 'bullish' ? 'bg-green-100 text-green-800' :
+                    confluenceDetails.marketStructure.structure === 'bearish' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {confluenceDetails.marketStructure.structure.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Price Action */}
+            {confluenceDetails.priceAction && (
+              <div>
+                <h4 className="font-semibold mb-2">Price Action</h4>
+                <div className="flex justify-between text-sm">
+                  <span>Tendência: {confluenceDetails.priceAction.trend}</span>
+                  <span>Momentum: {confluenceDetails.priceAction.momentum}</span>
+                </div>
+                <div className="text-sm">
+                  Força: {Math.round(confluenceDetails.priceAction.strength)}%
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Histórico de resultados com confluências */}
       {liveResults.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -365,6 +496,11 @@ const LiveAnalysis = () => {
                       <span className="text-xs text-muted-foreground">
                         {Math.round(result.confidence * 100)}%
                       </span>
+                      {result.confluenceScore !== undefined && (
+                        <span className="text-xs text-blue-600">
+                          C:{Math.round(result.confluenceScore)}%
+                        </span>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-muted-foreground">
