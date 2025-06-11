@@ -1,5 +1,6 @@
+
 import { Chart } from "chart.js";
-import { Pattern, PatternName } from "./types";
+import { Pattern, PatternName, TechnicalElement, CandleData, DetectedPattern } from "./types";
 
 // Function to detect a specific pattern in the chart data
 export const detectPattern = (chart: Chart, pattern: Pattern): boolean => {
@@ -48,6 +49,14 @@ export interface AnalysisOptions {
   sensitivity?: number;
   timeframe?: string;
   indicators?: string[];
+  optimizeForScalping?: boolean;
+  scalpingStrategy?: string;
+  considerVolume?: boolean;
+  considerVolatility?: boolean;
+  marketContextEnabled?: boolean;
+  marketAnalysisDepth?: string;
+  enableCandleDetection?: boolean;
+  isLiveAnalysis?: boolean;
 }
 
 export interface AnalysisResult {
@@ -59,6 +68,12 @@ export interface AnalysisResult {
   }>;
   confidence: number;
   timestamp: number;
+  patterns: DetectedPattern[];
+  marketContext?: {
+    sentiment: 'otimista' | 'pessimista' | 'neutro';
+    phase: string;
+    strength: string;
+  };
 }
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
@@ -68,9 +83,20 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   // Mock analysis result for live analysis
   const trends = ['Bullish', 'Bearish', 'Sideways'];
   const signalTypes = ['Buy', 'Sell', 'Hold'];
+  const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
+  const actions: ('compra' | 'venda' | 'neutro')[] = ['compra', 'venda', 'neutro'];
   
   const trend = trends[Math.floor(Math.random() * trends.length)];
   const signalType = signalTypes[Math.floor(Math.random() * signalTypes.length)];
+  const patternType = patternTypes[Math.floor(Math.random() * patternTypes.length)];
+  const action = actions[Math.floor(Math.random() * actions.length)];
+  
+  const patterns: DetectedPattern[] = [{
+    type: patternType,
+    action: action,
+    confidence: Math.random(),
+    description: `${patternType} detectado com tendência ${trend.toLowerCase()}`
+  }];
   
   return {
     trend,
@@ -80,7 +106,13 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       description: `${signalType} signal detected with ${trend.toLowerCase()} trend`
     }],
     confidence: Math.random() * 100,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    patterns,
+    marketContext: {
+      sentiment: action === 'compra' ? 'otimista' : action === 'venda' ? 'pessimista' : 'neutro',
+      phase: 'análise',
+      strength: 'moderada'
+    }
   };
 };
 
@@ -96,4 +128,96 @@ export const interpretPattern = (patternName: PatternName): string => {
         default:
             return "Unknown pattern detected.";
     }
+};
+
+// Function to detect multiple patterns in an image
+export const detectPatterns = async (imageData: string): Promise<DetectedPattern[]> => {
+  // Simulate pattern detection
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo', 'Cunha'];
+  const actions: ('compra' | 'venda' | 'neutro')[] = ['compra', 'venda', 'neutro'];
+  
+  const numPatterns = Math.floor(Math.random() * 3) + 1; // 1-3 patterns
+  const patterns: DetectedPattern[] = [];
+  
+  for (let i = 0; i < numPatterns; i++) {
+    const patternType = patternTypes[Math.floor(Math.random() * patternTypes.length)];
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    
+    patterns.push({
+      type: patternType,
+      action: action,
+      confidence: Math.random() * 0.8 + 0.2, // 0.2 to 1.0
+      description: `${patternType} detectado com ação recomendada: ${action}`,
+      coordinates: {
+        x: Math.random() * 800,
+        y: Math.random() * 600,
+        width: Math.random() * 200 + 50,
+        height: Math.random() * 200 + 50
+      }
+    });
+  }
+  
+  return patterns;
+};
+
+// Function to generate technical markup elements
+export const generateTechnicalMarkup = (patterns: DetectedPattern[], width: number, height: number): TechnicalElement[] => {
+  const elements: TechnicalElement[] = [];
+  
+  patterns.forEach((pattern, index) => {
+    if (pattern.coordinates) {
+      elements.push({
+        type: 'pattern',
+        x: pattern.coordinates.x,
+        y: pattern.coordinates.y,
+        width: pattern.coordinates.width,
+        height: pattern.coordinates.height,
+        color: pattern.action === 'compra' ? '#22c55e' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
+        confidence: pattern.confidence
+      });
+    }
+  });
+  
+  // Add some trend lines
+  elements.push({
+    type: 'trendline',
+    x: 0,
+    y: height * 0.3,
+    width: width,
+    height: 2,
+    color: '#3b82f6',
+    confidence: 0.8
+  });
+  
+  return elements;
+};
+
+// Function to detect candles in an image
+export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
+  // Simulate candle detection
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  const numCandles = Math.floor(Math.random() * 20) + 10; // 10-30 candles
+  const candles: CandleData[] = [];
+  
+  for (let i = 0; i < numCandles; i++) {
+    const open = Math.random() * 100 + 50;
+    const close = open + (Math.random() - 0.5) * 20;
+    const high = Math.max(open, close) + Math.random() * 10;
+    const low = Math.min(open, close) - Math.random() * 10;
+    
+    candles.push({
+      x: (i / numCandles) * width,
+      y: (1 - (high - 40) / 120) * height, // Normalize to image coordinates
+      open,
+      close,
+      high,
+      low,
+      type: close > open ? 'bullish' : close < open ? 'bearish' : 'doji'
+    });
+  }
+  
+  return candles;
 };
