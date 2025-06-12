@@ -44,7 +44,7 @@ const LiveAnalysis = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(8000); // Aumentado para 8 segundos para análise mais rigorosa
+  const [analysisInterval, setAnalysisInterval] = useState(8000);
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -59,8 +59,8 @@ const LiveAnalysis = () => {
   const [lastSignalType, setLastSignalType] = useState<'compra' | 'venda' | null>(null);
   const [analysisCount, setAnalysisCount] = useState<number>(0);
   const [chartDetectionEnabled, setChartDetectionEnabled] = useState(true);
-  const [signalCooldown, setSignalCooldown] = useState(90000); // Aumentado para 90 segundos
-  const [minSignalQuality, setMinSignalQuality] = useState<'muito_forte'>('muito_forte'); // Apenas sinais muito fortes
+  const [signalCooldown, setSignalCooldown] = useState(90000);
+  const [minSignalQuality, setMinSignalQuality] = useState<'muito_forte'>('muito_forte');
   const [consecutiveNoChartCount, setConsecutiveNoChartCount] = useState(0);
   const [pixelAnalysisHistory, setPixelAnalysisHistory] = useState<ChartPixelAnalysis[]>([]);
 
@@ -214,7 +214,7 @@ const LiveAnalysis = () => {
     
     if (score >= 90) {
       signalStrength = 'muito_forte';
-      executionWindow = 120; // 2 minutos para sinais muito fortes
+      executionWindow = 120;
     } else if (score >= 75) {
       signalStrength = 'forte';
       executionWindow = 90;
@@ -296,7 +296,7 @@ const LiveAnalysis = () => {
       }
 
       // Converter para base64
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.95); // Qualidade máxima
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.95);
       
       // VALIDAÇÃO 3: Análise técnica com máxima rigorosidade
       const analysisResult = await analyzeChart(imageUrl, {
@@ -312,7 +312,7 @@ const LiveAnalysis = () => {
         useConfluences: true,
         enablePriceAction: true,
         enableMarketContext: true,
-        sensitivity: 0.95 // Máxima sensibilidade para ser ultra-criterioso
+        sensitivity: 0.95
       });
 
       const analysisEndTime = Date.now();
@@ -337,7 +337,7 @@ const LiveAnalysis = () => {
       
       // VALIDAÇÃO 5: Evitar sinais opostos consecutivos
       if (finalSignal !== 'neutro' && lastSignalType && finalSignal !== lastSignalType) {
-        const oppositeSignalCooldown = signalCooldown * 2; // Dobro do tempo para sinais opostos
+        const oppositeSignalCooldown = signalCooldown * 2;
         if (timeSinceLastSignal < oppositeSignalCooldown) {
           console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] 🚫 Bloqueando sinal oposto - cooldown estendido`);
           return;
@@ -407,7 +407,7 @@ const LiveAnalysis = () => {
   const startLiveAnalysis = async () => {
     await startCamera();
     setIsLiveActive(true);
-    setLastSignalTime(0); // Reset completo
+    setLastSignalTime(0);
     setLastSignalType(null);
     setConsecutiveNoChartCount(0);
     
@@ -574,7 +574,7 @@ const LiveAnalysis = () => {
             <div className="mt-2">
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4" />
-                <span>Próximo sinal em: {Math.max(0, Math.ceil((signalCooldown - (Date.now() - lastSignalTime)) / 1000)}s</span>
+                <span>Próximo sinal em: {Math.max(0, Math.ceil((signalCooldown - (Date.now() - lastSignalTime)) / 1000))}s</span>
               </div>
             </div>
           )}
