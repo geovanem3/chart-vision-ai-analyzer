@@ -210,13 +210,24 @@ const LiveAnalysis = () => {
         }
       }
 
+      // Fix the trend mapping from English to Portuguese
+      let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
+      const rawTrend = analysisResult.detailedMarketContext?.marketStructure?.trend;
+      
+      if (rawTrend === 'bullish') {
+        mappedTrend = 'alta';
+      } else if (rawTrend === 'bearish') {
+        mappedTrend = 'baixa';
+      } else {
+        mappedTrend = 'lateral';
+      }
+
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
         confidence: finalConfidence,
         signal: mainSignal,
         patterns: analysisResult.patterns.map(p => p.type),
-        trend: analysisResult.detailedMarketContext?.marketStructure.trend === 'bullish' ? 'alta' :
-               analysisResult.detailedMarketContext?.marketStructure.trend === 'bearish' ? 'baixa' : 'lateral',
+        trend: mappedTrend,
         signalQuality,
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
         supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
