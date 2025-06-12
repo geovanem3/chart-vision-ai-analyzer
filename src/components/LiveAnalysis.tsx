@@ -212,7 +212,7 @@ const LiveAnalysis = () => {
 
       // Fix the trend mapping from English to Portuguese
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
-      const rawTrend = analysisResult.detailedMarketContext?.marketStructure?.trend;
+      const rawTrend = analysisResult.detailedMarketContext?.marketStructure?.trend as string | undefined;
       
       if (rawTrend === 'bullish') {
         mappedTrend = 'alta';
