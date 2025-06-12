@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, Eye } from 'lucide-react';
+import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, Eye, Clock, Filter } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
@@ -32,6 +32,8 @@ interface LiveAnalysisResult {
   latency?: number;
   chartAnalysisQuality?: 'excelente' | 'boa' | 'regular' | 'ruim';
   visualConfirmation?: boolean;
+  executionWindow?: number; // Tempo em segundos para executar o sinal
+  signalStrength?: 'muito_forte' | 'forte' | 'moderada' | 'fraca';
 }
 
 const LiveAnalysis = () => {
@@ -40,7 +42,7 @@ const LiveAnalysis = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(3000); // Aumentado para 3 segundos
+  const [analysisInterval, setAnalysisInterval] = useState(5000); // Aumentado para 5 segundos
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -52,8 +54,12 @@ const LiveAnalysis = () => {
   const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
   const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
   const [lastSignalTime, setLastSignalTime] = useState<number>(0);
+  const [lastSignalType, setLastSignalType] = useState<'compra' | 'venda' | null>(null);
   const [analysisCount, setAnalysisCount] = useState<number>(0);
   const [chartDetectionEnabled, setChartDetectionEnabled] = useState(true);
+  const [signalCooldown, setSignalCooldown] = useState(60000); // 60 segundos de cooldown
+  const [minSignalQuality, setMinSignalQuality] = useState<'forte' | 'muito_forte'>('forte');
+  const [consecutiveNoChartCount, setConsecutiveNoChartCount] = useState(0);
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -109,10 +115,14 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Função melhorada para detectar se há realmente um gráfico na imagem
-  const detectChartInImage = (canvas: HTMLCanvasElement): { hasChart: boolean; quality: 'excelente' | 'boa' | 'regular' | 'ruim' } => {
+  // Função melhorada para detectar gráfico com mais precisão
+  const detectChartInImage = (canvas: HTMLCanvasElement): { 
+    hasChart: boolean; 
+    quality: 'excelente' | 'boa' | 'regular' | 'ruim';
+    confidence: number;
+  } => {
     const ctx = canvas.getContext('2d');
-    if (!ctx) return { hasChart: false, quality: 'ruim' };
+    if (!ctx) return { hasChart: false, quality: 'ruim', confidence: 0 };
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
@@ -120,6 +130,8 @@ const LiveAnalysis = () => {
     let linePixels = 0;
     let colorVariations = new Set<string>();
     let contrastCount = 0;
+    let horizontalLines = 0;
+    let verticalLines = 0;
     
     // Analisar pixels para detectar padrões de gráfico
     for (let i = 0; i < data.length; i += 4) {
@@ -128,7 +140,7 @@ const LiveAnalysis = () => {
       const b = data[i + 2];
       
       // Detectar variações de cor (indicativo de dados visuais)
-      const colorKey = `${Math.floor(r/10)}-${Math.floor(g/10)}-${Math.floor(b/10)}`;
+      const colorKey = `${Math.floor(r/15)}-${Math.floor(g/15)}-${Math.floor(b/15)}`;
       colorVariations.add(colorKey);
       
       // Detectar contrastes (bordas de candles, linhas)
@@ -138,33 +150,168 @@ const LiveAnalysis = () => {
         const prevB = data[i - 2];
         
         const contrast = Math.abs(r - prevR) + Math.abs(g - prevG) + Math.abs(b - prevB);
-        if (contrast > 100) contrastCount++;
+        if (contrast > 80) contrastCount++;
       }
+    }
+    
+    // Detectar linhas horizontais e verticais (grid do gráfico)
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Verificar linhas horizontais a cada 10% da altura
+    for (let y = Math.floor(height * 0.1); y < height; y += Math.floor(height * 0.1)) {
+      let linePixelCount = 0;
+      for (let x = 0; x < width; x += 5) {
+        const pixelIndex = (y * width + x) * 4;
+        const r = data[pixelIndex];
+        const g = data[pixelIndex + 1];
+        const b = data[pixelIndex + 2];
+        
+        // Detectar pixels que podem ser parte de uma linha
+        if (r + g + b < 600) { // Pixels mais escuros
+          linePixelCount++;
+        }
+      }
+      if (linePixelCount > width * 0.3) horizontalLines++;
+    }
+    
+    // Verificar linhas verticais a cada 10% da largura
+    for (let x = Math.floor(width * 0.1); x < width; x += Math.floor(width * 0.1)) {
+      let linePixelCount = 0;
+      for (let y = 0; y < height; y += 5) {
+        const pixelIndex = (y * width + x) * 4;
+        const r = data[pixelIndex];
+        const g = data[pixelIndex + 1];
+        const b = data[pixelIndex + 2];
+        
+        if (r + g + b < 600) {
+          linePixelCount++;
+        }
+      }
+      if (linePixelCount > height * 0.3) verticalLines++;
     }
     
     const totalPixels = data.length / 4;
     const colorDiversity = colorVariations.size;
     const contrastRatio = contrastCount / totalPixels;
+    const gridLinesRatio = (horizontalLines + verticalLines) / 20; // Máximo esperado de 20 linhas
     
-    // Critérios para detectar gráfico
-    const hasChart = colorDiversity > 50 && contrastRatio > 0.02;
+    // Critérios mais rigorosos para detectar gráfico
+    const hasChart = colorDiversity > 80 && contrastRatio > 0.025 && gridLinesRatio > 0.2;
+    
+    // Calcular confiança baseada em múltiplos fatores
+    let confidence = 0;
+    confidence += Math.min(50, colorDiversity * 0.5); // Máximo 50 pontos
+    confidence += Math.min(25, contrastRatio * 1000); // Máximo 25 pontos  
+    confidence += Math.min(25, gridLinesRatio * 125); // Máximo 25 pontos
     
     let quality: 'excelente' | 'boa' | 'regular' | 'ruim' = 'ruim';
     if (hasChart) {
-      if (colorDiversity > 200 && contrastRatio > 0.08) quality = 'excelente';
-      else if (colorDiversity > 150 && contrastRatio > 0.05) quality = 'boa';
-      else if (colorDiversity > 100 && contrastRatio > 0.03) quality = 'regular';
+      if (confidence > 85) quality = 'excelente';
+      else if (confidence > 70) quality = 'boa';
+      else if (confidence > 50) quality = 'regular';
     }
     
-    return { hasChart, quality };
+    return { hasChart, quality, confidence };
   };
 
-  // Capturar frame e analisar com validação inteligente
+  // Função para validar qualidade do sinal
+  const validateSignalQuality = (
+    analysisResult: any, 
+    chartQuality: 'excelente' | 'boa' | 'regular' | 'ruim'
+  ): {
+    isValid: boolean;
+    signalStrength: 'muito_forte' | 'forte' | 'moderada' | 'fraca';
+    executionWindow: number;
+    reasons: string[];
+  } => {
+    const reasons: string[] = [];
+    let score = 0;
+    
+    // Critério 1: Qualidade do gráfico detectado
+    if (chartQuality === 'excelente') {
+      score += 25;
+      reasons.push('Gráfico detectado com excelente qualidade');
+    } else if (chartQuality === 'boa') {
+      score += 20;
+      reasons.push('Gráfico detectado com boa qualidade');
+    } else if (chartQuality === 'regular') {
+      score += 10;
+      reasons.push('Gráfico detectado com qualidade regular');
+    } else {
+      return { isValid: false, signalStrength: 'fraca', executionWindow: 0, reasons: ['Qualidade do gráfico insuficiente'] };
+    }
+    
+    // Critério 2: Confluência de múltiplos fatores
+    const hasValidPattern = analysisResult.patterns.length > 0 && analysisResult.patterns[0].action !== 'neutro';
+    const hasGoodConfluence = (analysisResult.confluences?.confluenceScore || 0) > 65;
+    const hasStrongPriceAction = (analysisResult.priceActionSignals?.length || 0) > 0;
+    const hasValidEntry = (analysisResult.entryRecommendations?.length || 0) > 0;
+    
+    const confluenceCount = [hasValidPattern, hasGoodConfluence, hasStrongPriceAction, hasValidEntry].filter(Boolean).length;
+    
+    if (confluenceCount >= 3) {
+      score += 30;
+      reasons.push(`Confluência excelente (${confluenceCount}/4 critérios)`);
+    } else if (confluenceCount >= 2) {
+      score += 20;
+      reasons.push(`Confluência boa (${confluenceCount}/4 critérios)`);
+    } else {
+      score += 5;
+      reasons.push(`Confluência fraca (${confluenceCount}/4 critérios)`);
+    }
+    
+    // Critério 3: Confiança do padrão principal
+    const mainPatternConfidence = analysisResult.patterns[0]?.confidence || 0;
+    if (mainPatternConfidence > 0.8) {
+      score += 25;
+      reasons.push(`Padrão com alta confiança (${Math.round(mainPatternConfidence * 100)}%)`);
+    } else if (mainPatternConfidence > 0.65) {
+      score += 15;
+      reasons.push(`Padrão com boa confiança (${Math.round(mainPatternConfidence * 100)}%)`);
+    } else {
+      score += 5;
+      reasons.push(`Padrão com baixa confiança (${Math.round(mainPatternConfidence * 100)}%)`);
+    }
+    
+    // Critério 4: Score de confluência técnica
+    const confluenceScore = analysisResult.confluences?.confluenceScore || 0;
+    if (confluenceScore > 75) {
+      score += 20;
+      reasons.push(`Score de confluência alto (${Math.round(confluenceScore)}%)`);
+    } else if (confluenceScore > 60) {
+      score += 10;
+      reasons.push(`Score de confluência moderado (${Math.round(confluenceScore)}%)`);
+    }
+    
+    // Determinar força do sinal e janela de execução
+    let signalStrength: 'muito_forte' | 'forte' | 'moderada' | 'fraca' = 'fraca';
+    let executionWindow = 30; // segundos padrão
+    
+    if (score >= 90) {
+      signalStrength = 'muito_forte';
+      executionWindow = 90; // 1.5 minutos para sinais muito fortes
+    } else if (score >= 75) {
+      signalStrength = 'forte';
+      executionWindow = 60; // 1 minuto para sinais fortes
+    } else if (score >= 60) {
+      signalStrength = 'moderada';
+      executionWindow = 45; // 45 segundos para sinais moderados
+    }
+    
+    // Aplicar filtro de qualidade mínima
+    const isValid = (minSignalQuality === 'muito_forte' && signalStrength === 'muito_forte') ||
+                   (minSignalQuality === 'forte' && ['muito_forte', 'forte'].includes(signalStrength));
+    
+    return { isValid, signalStrength, executionWindow, reasons };
+  };
+
+  // Capturar frame e analisar com validação super rigorosa
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
     const captureStartTime = Date.now();
-    console.log(`[ANÁLISE ${analysisCount + 1}] Iniciando captura inteligente`);
+    console.log(`[ANÁLISE ${analysisCount + 1}] Iniciando análise rigorosa`);
 
     try {
       setIsAnalyzing(true);
@@ -183,11 +330,12 @@ const LiveAnalysis = () => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const captureTime = Date.now();
       
-      // VALIDAÇÃO 1: Detectar se há realmente um gráfico
+      // VALIDAÇÃO 1: Detectar qualidade do gráfico
       const chartDetection = detectChartInImage(canvas);
       
       if (chartDetectionEnabled && !chartDetection.hasChart) {
-        console.log(`[ANÁLISE ${analysisCount + 1}] Nenhum gráfico detectado - pulando análise`);
+        console.log(`[ANÁLISE ${analysisCount + 1}] Gráfico não detectado - confiança: ${chartDetection.confidence.toFixed(1)}%`);
+        setConsecutiveNoChartCount(prev => prev + 1);
         
         setCurrentAnalysis({
           timestamp: captureTime,
@@ -200,24 +348,26 @@ const LiveAnalysis = () => {
           signalQuality: 'ruim',
           chartAnalysisQuality: chartDetection.quality,
           visualConfirmation: false,
-          latency: Date.now() - captureStartTime
+          latency: Date.now() - captureStartTime,
+          signalStrength: 'fraca'
         });
         return;
       }
+
+      setConsecutiveNoChartCount(0);
       
-      // VALIDAÇÃO 2: Aguardar tempo mínimo entre sinais válidos
+      // VALIDAÇÃO 2: Controle de cooldown inteligente
       const timeSinceLastSignal = captureTime - lastSignalTime;
-      const minimumInterval = 15000; // 15 segundos mínimo entre sinais
       
-      if (timeSinceLastSignal < minimumInterval) {
-        console.log(`[ANÁLISE ${analysisCount + 1}] Muito próximo do último sinal (${timeSinceLastSignal}ms) - aguardando`);
+      if (timeSinceLastSignal < signalCooldown) {
+        console.log(`[ANÁLISE ${analysisCount + 1}] Em cooldown - ${Math.round((signalCooldown - timeSinceLastSignal) / 1000)}s restantes`);
         return;
       }
 
-      // Converter para base64 com qualidade adequada
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // Converter para base64
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.85);
       
-      // Analisar com configuração criteriosa
+      // Analisar com máxima rigorosidade
       const analysisResult = await analyzeChart(imageUrl, {
         timeframe: '1m',
         optimizeForScalping: true,
@@ -231,30 +381,18 @@ const LiveAnalysis = () => {
         useConfluences: true,
         enablePriceAction: true,
         enableMarketContext: true,
-        sensitivity: 0.8 // Aumentar sensibilidade para ser mais criterioso
+        sensitivity: 0.9 // Máxima sensibilidade para ser ultra-criterioso
       });
 
       const analysisEndTime = Date.now();
       const totalLatency = analysisEndTime - captureStartTime;
       
-      console.log(`[ANÁLISE ${analysisCount + 1}] Gráfico detectado (${chartDetection.quality}) - Latência: ${totalLatency}ms`);
-
-      // VALIDAÇÃO 3: Filtros de qualidade para sinais
-      let shouldGenerateSignal = false;
-      let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
+      // VALIDAÇÃO 3: Validar qualidade do sinal
+      const signalValidation = validateSignalQuality(analysisResult, chartDetection.quality);
       
-      // Critérios mais rigorosos para gerar sinal
-      const hasValidPatterns = analysisResult.patterns.length > 0 && analysisResult.patterns[0].action !== 'neutro';
-      const hasGoodConfluence = (analysisResult.confluences?.confluenceScore || 0) > 60;
-      const hasStrongPriceAction = (analysisResult.priceActionSignals?.length || 0) > 0 && 
-                                  (analysisResult.priceActionSignals?.[0]?.confidence || 0) > 0.7;
-      const hasValidEntry = (analysisResult.entryRecommendations?.length || 0) > 0;
-      
-      // Deve ter pelo menos 2 dos 4 critérios
-      const validCriteria = [hasValidPatterns, hasGoodConfluence, hasStrongPriceAction, hasValidEntry].filter(Boolean).length;
-      shouldGenerateSignal = validCriteria >= 2 && finalConfidence > 0.6;
+      console.log(`[ANÁLISE ${analysisCount + 1}] Gráfico: ${chartDetection.quality} | Sinal: ${signalValidation.signalStrength} | Válido: ${signalValidation.isValid}`);
 
-      // Armazenar detalhes das confluências e price action
+      // Armazenar detalhes
       setConfluenceDetails(analysisResult.confluences);
       setPriceActionDetails({
         signals: analysisResult.priceActionSignals || [],
@@ -262,16 +400,17 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Processar resultado para formato live
-      let signalQuality = 'regular';
-      if (shouldGenerateSignal) {
-        if (validCriteria >= 3 && finalConfidence > 0.8) {
-          signalQuality = 'excelente';
-        } else if (validCriteria >= 3 || finalConfidence > 0.75) {
-          signalQuality = 'boa';
+      // Determinar sinal final
+      const finalSignal = signalValidation.isValid ? 
+        (analysisResult.patterns[0]?.action || 'neutro') : 'neutro';
+      
+      // VALIDAÇÃO 4: Evitar sinais opostos muito próximos
+      if (finalSignal !== 'neutro' && lastSignalType && finalSignal !== lastSignalType) {
+        const oppositeSignalCooldown = signalCooldown * 1.5; // 50% mais tempo para sinais opostos
+        if (timeSinceLastSignal < oppositeSignalCooldown) {
+          console.log(`[ANÁLISE ${analysisCount + 1}] Bloqueando sinal oposto - cooldown estendido`);
+          return;
         }
-      } else {
-        signalQuality = 'ruim';
       }
 
       const liveResult: LiveAnalysisResult = {
@@ -279,63 +418,72 @@ const LiveAnalysis = () => {
         captureTime,
         analysisTime: analysisEndTime,
         latency: totalLatency,
-        confidence: finalConfidence,
-        signal: shouldGenerateSignal ? (analysisResult.patterns[0]?.action || 'neutro') : 'neutro',
-        patterns: shouldGenerateSignal ? analysisResult.patterns.map(p => p.type) : [],
+        confidence: signalValidation.isValid ? (analysisResult.patterns[0]?.confidence || 0) : 0,
+        signal: finalSignal,
+        patterns: signalValidation.isValid ? analysisResult.patterns.map(p => p.type) : [],
         trend: analysisResult.detailedMarketContext?.marketStructure.trend || 'lateral',
-        signalQuality,
+        signalQuality: signalValidation.isValid ? 'boa' : 'ruim',
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
         supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
         criticalLevels: analysisResult.confluences?.criticalLevels || [],
         priceActionSignals: analysisResult.priceActionSignals?.slice(0, 2) || [],
         marketPhase: analysisResult.detailedMarketContext?.phase || 'indefinida',
         institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
-        entryRecommendations: shouldGenerateSignal ? (analysisResult.entryRecommendations?.slice(0, 2) || []) : [],
+        entryRecommendations: signalValidation.isValid ? (analysisResult.entryRecommendations?.slice(0, 2) || []) : [],
         riskReward: analysisResult.entryRecommendations?.[0]?.riskReward || 2.0,
         chartAnalysisQuality: chartDetection.quality,
-        visualConfirmation: chartDetection.hasChart
+        visualConfirmation: chartDetection.hasChart,
+        executionWindow: signalValidation.executionWindow,
+        signalStrength: signalValidation.signalStrength
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]);
 
-      // VALIDAÇÃO 4: Notificar apenas sinais de alta qualidade com intervalo adequado
-      if (shouldGenerateSignal && signalQuality !== 'ruim' && liveResult.signal !== 'neutro') {
+      // NOTIFICAÇÃO: Apenas para sinais válidos e de qualidade
+      if (signalValidation.isValid && finalSignal !== 'neutro') {
         setLastSignalTime(captureTime);
+        setLastSignalType(finalSignal as 'compra' | 'venda');
         
-        const qualityEmoji = signalQuality === 'excelente' ? '🔥' : signalQuality === 'boa' ? '⚡' : '📊';
+        const strengthEmoji = {
+          'muito_forte': '🔥',
+          'forte': '⚡',
+          'moderada': '📊',
+          'fraca': '⚠️'
+        }[signalValidation.signalStrength];
         
         toast({
-          variant: liveResult.signal === 'compra' ? "default" : "destructive",
-          title: `${qualityEmoji} SINAL ${signalQuality.toUpperCase()} - ${liveResult.signal.toUpperCase()}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Confluência: ${Math.round(liveResult.confluenceScore)}% | Fase: ${liveResult.marketPhase}`,
-          duration: 10000,
+          variant: finalSignal === 'compra' ? "default" : "destructive",
+          title: `${strengthEmoji} ENTRADA ${signalValidation.signalStrength.toUpperCase()} - ${finalSignal.toUpperCase()}`,
+          description: `Janela: ${signalValidation.executionWindow}s | Confiança: ${Math.round(liveResult.confidence * 100)}% | Confluência: ${Math.round(liveResult.confluenceScore)}%`,
+          duration: signalValidation.executionWindow * 1000, // Duração baseada na janela de execução
         });
       }
 
     } catch (error) {
-      console.error('Erro na análise inteligente:', error);
+      console.error('Erro na análise rigorosa:', error);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, analysisCount, chartDetectionEnabled, lastSignalTime, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
+  }, [isAnalyzing, analysisCount, chartDetectionEnabled, lastSignalTime, lastSignalType, signalCooldown, minSignalQuality, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
 
-  // Iniciar análise em tempo real com timing otimizado
+  // Iniciar análise em tempo real
   const startLiveAnalysis = async () => {
     await startCamera();
     setIsLiveActive(true);
-    setLastSignalTime(Date.now()); // Reset do controle de sinais
+    setLastSignalTime(0); // Reset completo
+    setLastSignalType(null);
+    setConsecutiveNoChartCount(0);
     
-    // Aguardar menos tempo para a câmera inicializar
     setTimeout(() => {
-      console.log(`[TIMING] Iniciando análise live com intervalo de ${analysisInterval}ms`);
+      console.log(`[TIMING] Iniciando análise rigorosa com intervalo de ${analysisInterval}ms`);
       intervalRef.current = setInterval(captureAndAnalyze, analysisInterval);
-    }, 500); // Reduzido de 1000ms para 500ms
+    }, 1000);
 
     toast({
       variant: "default",
-      title: "✅ Análise Live Iniciada",
-      description: `Analisando gráficos a cada ${analysisInterval / 1000} segundos`,
+      title: "🎯 Análise Rigorosa Iniciada",
+      description: `Filtro: ${minSignalQuality} | Cooldown: ${signalCooldown/1000}s | Qualidade: ${chartDetectionEnabled ? 'ON' : 'OFF'}`,
     });
   };
 
@@ -349,11 +497,13 @@ const LiveAnalysis = () => {
     setIsLiveActive(false);
     stopCamera();
     setCurrentAnalysis(null);
+    setLastSignalTime(0);
+    setLastSignalType(null);
 
     toast({
       variant: "default",
-      title: "⏹️ Análise Live Parada",
-      description: "Análise em tempo real foi interrompida",
+      title: "⏹️ Análise Parada",
+      description: "Sistema resetado e pronto para nova sessão",
     });
   };
 
@@ -382,38 +532,36 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Cabeçalho com controles inteligentes */}
+      {/* Cabeçalho com controles avançados */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Eye className="h-5 w-5" />
-            Análise Inteligente M1 - Detecção Visual
+            Análise M1 Ultra-Rigorosa
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
               </Badge>
             )}
-            {currentAnalysis?.latency && (
-              <Badge variant="outline" className="ml-2 text-xs">
-                {currentAnalysis.latency < 1000 ? `${currentAnalysis.latency}ms` : `${(currentAnalysis.latency/1000).toFixed(1)}s`}
-              </Badge>
-            )}
-            {currentAnalysis?.chartAnalysisQuality && (
+            {currentAnalysis?.signalStrength && (
               <Badge 
-                variant={currentAnalysis.chartAnalysisQuality === 'excelente' || currentAnalysis.chartAnalysisQuality === 'boa' ? 'default' : 'destructive'}
+                variant={
+                  currentAnalysis.signalStrength === 'muito_forte' ? 'default' :
+                  currentAnalysis.signalStrength === 'forte' ? 'secondary' : 'destructive'
+                }
                 className="ml-2 text-xs"
               >
-                {currentAnalysis.chartAnalysisQuality}
+                {currentAnalysis.signalStrength.replace('_', ' ').toUpperCase()}
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             {!isLiveActive ? (
               <Button onClick={startLiveAnalysis} className="gap-2">
                 <Play className="w-4 h-4" />
-                Iniciar Análise Inteligente
+                Iniciar Análise Rigorosa
               </Button>
             ) : (
               <Button onClick={stopLiveAnalysis} variant="destructive" className="gap-2">
@@ -438,10 +586,32 @@ const LiveAnalysis = () => {
               disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
-              <option value={3000}>3 segundos (INTELIGENTE)</option>
-              <option value={5000}>5 segundos</option>
-              <option value={10000}>10 segundos</option>
-              <option value={15000}>15 segundos (CONSERVADOR)</option>
+              <option value={5000}>5s (RIGOROSO)</option>
+              <option value={8000}>8s (BALANCEADO)</option>
+              <option value={10000}>10s (CONSERVADOR)</option>
+              <option value={15000}>15s (ULTRA-CONSERVADOR)</option>
+            </select>
+
+            <select 
+              value={signalCooldown} 
+              onChange={(e) => setSignalCooldown(Number(e.target.value))}
+              disabled={isLiveActive}
+              className="px-3 py-2 border rounded-md text-sm"
+            >
+              <option value={30000}>30s Cooldown</option>
+              <option value={60000}>60s Cooldown (PADRÃO)</option>
+              <option value={90000}>90s Cooldown</option>
+              <option value={120000}>120s Cooldown (ULTRA)</option>
+            </select>
+
+            <select 
+              value={minSignalQuality} 
+              onChange={(e) => setMinSignalQuality(e.target.value as 'forte' | 'muito_forte')}
+              disabled={isLiveActive}
+              className="px-3 py-2 border rounded-md text-sm"
+            >
+              <option value="forte">Sinais FORTES+</option>
+              <option value="muito_forte">Apenas MUITO FORTES</option>
             </select>
 
             <Button
@@ -452,16 +622,25 @@ const LiveAnalysis = () => {
               <Eye className="w-3 h-3" />
               {chartDetectionEnabled ? 'Detecção ON' : 'Detecção OFF'}
             </Button>
-
-            {/* ... keep existing code (other buttons) */}
           </div>
           
-          {/* Status da análise */}
-          <div className="mt-3 text-sm text-muted-foreground">
-            Análises realizadas: {analysisCount} | 
-            Último sinal: {lastSignalTime > 0 ? new Date(lastSignalTime).toLocaleTimeString() : 'Nenhum'} |
-            Detecção visual: {chartDetectionEnabled ? 'Ativa' : 'Desativada'}
+          {/* Status detalhado */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-muted-foreground">
+            <div>Análises: {analysisCount}</div>
+            <div>Último sinal: {lastSignalTime > 0 ? new Date(lastSignalTime).toLocaleTimeString() : 'Nenhum'}</div>
+            <div>Cooldown: {signalCooldown / 1000}s</div>
+            <div>Filtro: {minSignalQuality}</div>
           </div>
+          
+          {/* Contador de cooldown */}
+          {isLiveActive && lastSignalTime > 0 && (
+            <div className="mt-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4" />
+                <span>Próximo sinal em: {Math.max(0, Math.ceil((signalCooldown - (Date.now() - lastSignalTime)) / 1000))}s</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -470,6 +649,17 @@ const LiveAnalysis = () => {
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>{cameraError}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Aviso sobre detecção consecutiva */}
+      {consecutiveNoChartCount > 3 && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Gráfico não detectado em {consecutiveNoChartCount} análises consecutivas. 
+            Posicione a câmera melhor no gráfico ou ajuste a iluminação.
+          </AlertDescription>
         </Alert>
       )}
 
@@ -487,7 +677,7 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando gráfico...</p>
+              <p className="text-sm">Analisando com rigor...</p>
               <p className="text-xs text-gray-300">Análise #{analysisCount}</p>
             </div>
           </div>
@@ -500,7 +690,7 @@ const LiveAnalysis = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="bg-black/90 border-amber-200">
+            <Card className="bg-black/95 border-amber-200">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between text-white mb-2">
                   <div>
@@ -511,21 +701,26 @@ const LiveAnalysis = () => {
                       >
                         {currentAnalysis.signal.toUpperCase()}
                       </Badge>
-                      {currentAnalysis.signalQuality && (
+                      {currentAnalysis.signalStrength && (
                         <Badge 
-                          variant={currentAnalysis.signalQuality === 'excelente' ? 'default' : 
-                                   currentAnalysis.signalQuality === 'boa' ? 'secondary' : 'destructive'}
+                          variant={currentAnalysis.signalStrength === 'muito_forte' ? 'default' : 
+                                   currentAnalysis.signalStrength === 'forte' ? 'secondary' : 'destructive'}
                           className="text-xs"
                         >
-                          {currentAnalysis.signalQuality}
+                          {currentAnalysis.signalStrength.replace('_', ' ').toUpperCase()}
                         </Badge>
                       )}
                       <Badge 
                         variant={currentAnalysis.visualConfirmation ? 'default' : 'destructive'}
                         className="text-xs"
                       >
-                        {currentAnalysis.visualConfirmation ? '👁️ VISTO' : '❌ SEM GRÁFICO'}
+                        {currentAnalysis.visualConfirmation ? '👁️ DETECTADO' : '❌ SEM GRÁFICO'}
                       </Badge>
+                      {currentAnalysis.executionWindow && (
+                        <Badge variant="outline" className="text-xs">
+                          ⏱️ {currentAnalysis.executionWindow}s
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}% | 
@@ -534,7 +729,7 @@ const LiveAnalysis = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-yellow-300">
-                      Qualidade: {currentAnalysis.chartAnalysisQuality}
+                      Visual: {currentAnalysis.chartAnalysisQuality}
                     </div>
                     <div className="text-xs text-blue-300">
                       Fase: {currentAnalysis.marketPhase}
@@ -544,6 +739,13 @@ const LiveAnalysis = () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* Janela de execução */}
+                {currentAnalysis.executionWindow && currentAnalysis.signal !== 'neutro' && (
+                  <div className="text-xs text-orange-300 mb-1 font-semibold">
+                    ⚡ EXECUTE EM {currentAnalysis.executionWindow} SEGUNDOS
+                  </div>
+                )}
                 
                 {/* Price Action Signals */}
                 {currentAnalysis.priceActionSignals && currentAnalysis.priceActionSignals.length > 0 && (
@@ -555,9 +757,9 @@ const LiveAnalysis = () => {
                 {/* Entry Recommendations */}
                 {currentAnalysis.entryRecommendations && currentAnalysis.entryRecommendations.length > 0 && (
                   <div className="text-xs text-green-400">
-                    Entrada: {currentAnalysis.entryRecommendations[0].entryPrice?.toFixed(4)} | 
-                    SL: {currentAnalysis.entryRecommendations[0].stopLoss?.toFixed(4)} | 
-                    TP: {currentAnalysis.entryRecommendations[0].takeProfit?.toFixed(4)}
+                    📍 {currentAnalysis.entryRecommendations[0].entryPrice?.toFixed(4)} | 
+                    🛑 {currentAnalysis.entryRecommendations[0].stopLoss?.toFixed(4)} | 
+                    🎯 {currentAnalysis.entryRecommendations[0].takeProfit?.toFixed(4)}
                   </div>
                 )}
               </CardContent>
