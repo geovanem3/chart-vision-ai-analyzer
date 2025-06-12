@@ -97,6 +97,7 @@ export type AnalysisResult = {
   warnings?: string[]; // Warnings about potential false signals
   preciseEntryAnalysis?: PreciseEntryAnalysis; // Added for precise entry timing
   masterAnalysis?: any; // Added for master analysis
+  pixelAnalysis?: any; // Added to fix the TypeScript error
 };
 
 // New type for technical indicators for enhanced M1 strategy
