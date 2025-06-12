@@ -1,4 +1,3 @@
-
 /**
  * Análise rigorosa de pixels do gráfico para opções binárias
  */
@@ -142,7 +141,7 @@ const analyzeBackground = (data: Uint8ClampedArray, width: number, height: numbe
   return { backgroundType, darkRatio, lightRatio };
 };
 
-const detectCandles = (data: Uint8ClampedArray, width: number, height: number, backgroundType: string) => {
+const detectCandles = (data: Uint8ClampedArray, width: number, height: number, backgroundType: 'dark' | 'light' | 'mixed') => {
   const candleRegions: { x: number, y: number, width: number, height: number, color: 'green' | 'red' }[] = [];
   
   // Varrer a imagem procurando por retângulos verticais (candles)
@@ -164,7 +163,7 @@ const detectCandles = (data: Uint8ClampedArray, width: number, height: number, b
   // Filtrar candles sobrepostos
   const filteredCandles = filterOverlappingCandles(candleRegions);
   
-  const quality = filteredCandles.length > 20 ? 'alta' : filteredCandles.length > 10 ? 'media' : 'baixa';
+  const quality: 'alta' | 'media' | 'baixa' = filteredCandles.length > 20 ? 'alta' : filteredCandles.length > 10 ? 'media' : 'baixa';
   
   return {
     detected: filteredCandles.length > 5,
@@ -183,8 +182,8 @@ const analyzePotentialCandle = (
   minWidth: number,
   maxWidth: number,
   minHeight: number,
-  backgroundType: string
-) => {
+  backgroundType: 'dark' | 'light' | 'mixed'
+): { x: number, y: number, width: number, height: number, color: 'green' | 'red' } | null => {
   for (let candleWidth = minWidth; candleWidth <= maxWidth; candleWidth++) {
     for (let candleHeight = minHeight; candleHeight <= Math.min(height - startY, height * 0.2); candleHeight++) {
       if (startX + candleWidth >= width || startY + candleHeight >= height) continue;
@@ -243,7 +242,7 @@ const analyzeRegion = (data: Uint8ClampedArray, width: number, x: number, y: num
   
   // Um candle deve ter pelo menos 30% de pixels coloridos e 50% de uniformidade
   const isCandle = colorRatio > 0.3 && uniformityRatio > 0.5 && totalColorPixels > 5;
-  const dominantColor = greenPixels > redPixels ? 'green' : 'red';
+  const dominantColor: 'green' | 'red' = greenPixels > redPixels ? 'green' : 'red';
   
   return { isCandle, dominantColor, colorRatio, uniformityRatio };
 };
@@ -270,7 +269,7 @@ const filterOverlappingCandles = (candles: any[]) => {
   return filtered;
 };
 
-const detectGrid = (data: Uint8ClampedArray, width: number, height: number, backgroundType: string) => {
+const detectGrid = (data: Uint8ClampedArray, width: number, height: number, backgroundType: 'dark' | 'light' | 'mixed') => {
   let horizontalLines = 0;
   let verticalLines = 0;
   
@@ -427,7 +426,7 @@ const analyzeColors = (data: Uint8ClampedArray, width: number, height: number) =
   }
   
   const totalSamples = data.length / 16;
-  const backgroundType = darkPixels > lightPixels ? 'dark' : lightPixels > darkPixels ? 'light' : 'mixed';
+  const backgroundType: 'dark' | 'light' | 'mixed' = darkPixels > lightPixels ? 'dark' : lightPixels > darkPixels ? 'light' : 'mixed';
   
   return {
     hasGreenCandles: greenCandlePixels > totalSamples * 0.001, // Pelo menos 0.1% dos pixels
