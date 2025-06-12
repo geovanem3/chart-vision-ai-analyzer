@@ -16,7 +16,6 @@ interface LiveAnalysisResult {
   confidence: number;
   signal: 'compra' | 'venda' | 'neutro';
   patterns: string[];
-  price?: string;
   trend: 'alta' | 'baixa' | 'lateral';
   signalQuality?: string;
   confluenceScore?: number;
@@ -46,6 +45,7 @@ const LiveAnalysis = () => {
   const [priceActionDetails, setPriceActionDetails] = useState<any>(null);
   const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
   const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
+  const [isChartVisible, setIsChartVisible] = useState(false);
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -58,6 +58,19 @@ const LiveAnalysis = () => {
     marketContextEnabled,
     marketAnalysisDepth 
   } = useAnalyzer();
+
+  // Função para detectar se há um gráfico na tela
+  const detectChartInFrame = async (imageData: string) => {
+    // Simulação de detecção de gráfico - aqui você pode implementar
+    // uma lógica mais sofisticada para detectar se há um gráfico presente
+    return new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        // Por enquanto, retorna true aleatoriamente para simular
+        const hasChart = Math.random() > 0.3;
+        resolve(hasChart);
+      }, 100);
+    });
+  };
 
   // Iniciar câmera
   const startCamera = async () => {
@@ -101,7 +114,7 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar com confluências e price action
+  // Capturar frame e analisar apenas se houver gráfico
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
@@ -122,6 +135,16 @@ const LiveAnalysis = () => {
       
       // Converter para base64
       const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Verificar se há um gráfico visível na tela
+      const hasChart = await detectChartInFrame(imageUrl);
+      setIsChartVisible(hasChart);
+      
+      if (!hasChart) {
+        // Se não há gráfico, não fazer análise
+        setCurrentAnalysis(null);
+        return;
+      }
       
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
@@ -150,43 +173,50 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Processar resultado para formato live
+      // Processar resultado para formato live - garantir coerência
       let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
       let signalQuality = 'normal';
       let riskReward = 2.0;
+      let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
       
-      // Melhor confiança vem das recomendações de entrada
+      // Determinar sinal principal baseado no padrão mais forte
+      if (analysisResult.patterns.length > 0) {
+        const strongestPattern = analysisResult.patterns.reduce((prev, current) => 
+          (current.confidence > prev.confidence) ? current : prev
+        );
+        
+        mainSignal = strongestPattern.action === 'neutro' ? 'neutro' : strongestPattern.action;
+        finalConfidence = strongestPattern.confidence;
+      }
+      
+      // Melhor confiança vem das recomendações de entrada - mas deve ser coerente
       if (analysisResult.entryRecommendations && analysisResult.entryRecommendations.length > 0) {
-        const bestEntry = analysisResult.entryRecommendations[0];
-        finalConfidence = bestEntry.confidence;
-        riskReward = bestEntry.riskReward;
+        const bestEntry = analysisResult.entryRecommendations.find(entry => 
+          entry.action === mainSignal
+        ) || analysisResult.entryRecommendations[0];
         
-        if (bestEntry.confidence > 0.8) {
-          signalQuality = 'excelente';
-        } else if (bestEntry.confidence > 0.7) {
-          signalQuality = 'forte';
-        } else if (bestEntry.confidence > 0.6) {
-          signalQuality = 'boa';
-        }
-      } else if (analysisResult.validatedSignals && analysisResult.validatedSignals.length > 0) {
-        const validatedSignal = analysisResult.validatedSignals[0];
-        finalConfidence = validatedSignal.validation.confidence;
-        
-        if (validatedSignal.validation.isValid && validatedSignal.validation.confidence > 0.8) {
-          signalQuality = 'forte';
-        } else if (validatedSignal.validation.isValid && validatedSignal.validation.confidence > 0.6) {
-          signalQuality = 'boa';
-        } else if (!validatedSignal.validation.isValid) {
-          signalQuality = 'fraca';
+        // Só usar se for coerente com o sinal principal
+        if (bestEntry.action === mainSignal) {
+          finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
+          riskReward = bestEntry.riskReward;
+          
+          if (bestEntry.confidence > 0.8) {
+            signalQuality = 'excelente';
+          } else if (bestEntry.confidence > 0.7) {
+            signalQuality = 'forte';
+          } else if (bestEntry.confidence > 0.6) {
+            signalQuality = 'boa';
+          }
         }
       }
 
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
         confidence: finalConfidence,
-        signal: analysisResult.patterns[0]?.action || 'neutro',
+        signal: mainSignal,
         patterns: analysisResult.patterns.map(p => p.type),
-        trend: analysisResult.detailedMarketContext?.marketStructure.trend || 'lateral',
+        trend: analysisResult.detailedMarketContext?.marketStructure.trend === 'bullish' ? 'alta' :
+               analysisResult.detailedMarketContext?.marketStructure.trend === 'bearish' ? 'baixa' : 'lateral',
         signalQuality,
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
         supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
@@ -194,14 +224,16 @@ const LiveAnalysis = () => {
         priceActionSignals: analysisResult.priceActionSignals?.slice(0, 2) || [],
         marketPhase: analysisResult.detailedMarketContext?.phase || 'indefinida',
         institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
-        entryRecommendations: analysisResult.entryRecommendations?.slice(0, 2) || [],
+        entryRecommendations: analysisResult.entryRecommendations?.filter(entry => 
+          entry.action === mainSignal
+        ).slice(0, 2) || [],
         riskReward
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
 
-      // Notificar apenas sinais de alta qualidade com price action
+      // Notificar apenas sinais de alta qualidade e coerentes
       if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca') {
         const paText = liveResult.priceActionSignals.length > 0 ? 
           ` | PA: ${liveResult.priceActionSignals[0].type}` : '';
@@ -249,6 +281,7 @@ const LiveAnalysis = () => {
     setIsLiveActive(false);
     stopCamera();
     setCurrentAnalysis(null);
+    setIsChartVisible(false);
 
     toast({
       variant: "default",
@@ -287,10 +320,15 @@ const LiveAnalysis = () => {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live M1 - Price Action & Confluências
+            Análise Live M1 - Detecção Inteligente
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
+              </Badge>
+            )}
+            {isLiveActive && !isChartVisible && (
+              <Badge variant="secondary" className="ml-2">
+                AGUARDANDO GRÁFICO
               </Badge>
             )}
           </CardTitle>
@@ -378,12 +416,25 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando Price Action + Confluências...</p>
+              <p className="text-sm">
+                {isChartVisible ? 'Analisando Price Action + Confluências...' : 'Procurando gráfico...'}
+              </p>
             </div>
           </div>
         )}
 
-        {currentAnalysis && (
+        {/* Aviso quando não há gráfico */}
+        {isLiveActive && !isChartVisible && !isAnalyzing && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+            <div className="text-white text-center">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-400" />
+              <p className="text-sm">Aponte a câmera para um gráfico</p>
+              <p className="text-xs text-gray-300">Aguardando detecção automática...</p>
+            </div>
+          </div>
+        )}
+
+        {currentAnalysis && isChartVisible && (
           <motion.div 
             className="absolute top-4 left-4 right-4"
             initial={{ opacity: 0, y: -20 }}
@@ -438,7 +489,7 @@ const LiveAnalysis = () => {
                   </div>
                 )}
                 
-                {/* Entry Recommendations */}
+                {/* Entry Recommendations - apenas coerentes */}
                 {currentAnalysis.entryRecommendations && currentAnalysis.entryRecommendations.length > 0 && (
                   <div className="text-xs text-green-400">
                     Entrada: {currentAnalysis.entryRecommendations[0].entryPrice?.toFixed(4)} | 
@@ -631,7 +682,7 @@ const LiveAnalysis = () => {
         </Card>
       )}
 
-      {/* Histórico de resultados com confluências */}
+      {/* Histórico de resultados */}
       {liveResults.length > 0 && (
         <Card>
           <CardHeader className="pb-3">

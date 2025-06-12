@@ -2,9 +2,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { TrendingUp, Target, AlertTriangle, Volume, Activity, Clock, BarChart3, BookOpen } from 'lucide-react';
+import { TrendingUp, Volume, Activity, BarChart3, AlertTriangle } from 'lucide-react';
 import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 
 const AnalysisResults = () => {
@@ -25,7 +24,6 @@ const AnalysisResults = () => {
     marketContext, 
     volumeData, 
     volatilityData, 
-    preciseEntryAnalysis,
     masterAnalysis 
   } = analysisResults;
 
@@ -34,7 +32,6 @@ const AnalysisResults = () => {
     marketContext, 
     volumeData, 
     volatilityData, 
-    preciseEntryAnalysis,
     masterAnalysis 
   });
 
@@ -60,9 +57,9 @@ const AnalysisResults = () => {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">{pattern.description || 'Descrição não disponível'}</p>
-                  {pattern.action && (
+                  {pattern.action && pattern.action !== 'neutro' && (
                     <div className="flex items-center gap-2">
-                      <Badge variant={pattern.action === 'compra' ? 'default' : pattern.action === 'venda' ? 'destructive' : 'secondary'}>
+                      <Badge variant={pattern.action === 'compra' ? 'default' : 'destructive'}>
                         {pattern.action.toUpperCase()}
                       </Badge>
                       {pattern.isScalpingSignal && (
@@ -72,48 +69,8 @@ const AnalysisResults = () => {
                       )}
                     </div>
                   )}
-                  {pattern.recommendation && (
-                    <p className="text-xs mt-2 text-muted-foreground">{pattern.recommendation}</p>
-                  )}
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Precise Entry Analysis */}
-      {preciseEntryAnalysis && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
-              <Clock className="h-5 w-5" />
-              Análise de Entrada Precisa
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Horário exato:</span> {preciseEntryAnalysis.exactMinute || 'N/A'}
-              </div>
-              <div>
-                <span className="font-medium">Tipo de entrada:</span> {(preciseEntryAnalysis.entryType || 'N/A').replace('_', ' de ')}
-              </div>
-              <div className="col-span-full">
-                <span className="font-medium">Próxima vela:</span> {preciseEntryAnalysis.nextCandleExpectation || 'N/A'}
-              </div>
-              <div className="col-span-full">
-                <span className="font-medium">Price Action:</span> {preciseEntryAnalysis.priceAction || 'N/A'}
-              </div>
-              <div className="col-span-full">
-                <span className="font-medium">Sinal de confirmação:</span> {preciseEntryAnalysis.confirmationSignal || 'N/A'}
-              </div>
-              <div>
-                <span className="font-medium">Risk/Reward:</span> 1:{(preciseEntryAnalysis.riskRewardRatio || 0).toFixed(1)}
-              </div>
-              <div className="col-span-full mt-2 p-2 bg-green-100 rounded text-green-800">
-                <span className="font-medium">Instruções:</span> {preciseEntryAnalysis.entryInstructions || 'N/A'}
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -138,9 +95,6 @@ const AnalysisResults = () => {
               </div>
               <div>
                 <span className="font-medium">Sentimento:</span> {marketContext.sentiment || 'N/A'}
-              </div>
-              <div>
-                <span className="font-medium">Estrutura:</span> {(marketContext.marketStructure || 'N/A').replace('_', ' ')}
               </div>
               <div className="col-span-2">
                 <span className="font-medium">Descrição:</span> {marketContext.description || 'N/A'}
@@ -214,7 +168,7 @@ const AnalysisResults = () => {
       )}
 
       {/* Warning if no significant data */}
-      {patterns.length === 0 && !masterAnalysis && !preciseEntryAnalysis && (
+      {patterns.length === 0 && !masterAnalysis && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-800">

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -9,7 +8,7 @@ import UserMenu from '@/components/UserMenu';
 import { 
   BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
   ImageOff, Zap, TrendingUp, ChartCandlestick, BarChartHorizontal,
-  Volume, Activity, Clock, ArrowDown, ArrowUp, Check
+  Volume, Activity, Clock
 } from 'lucide-react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -49,26 +48,6 @@ const GraphAnalyzerWithMarkupToolbar = () => {
       
       {/* Advanced 1-minute Market Analysis */}
       {capturedImage && <AdvancedMarketAnalysis />}
-      
-      {analysisResults?.preciseEntryAnalysis && (
-        <Alert className="my-2 mb-16 rounded-lg" variant="default">
-          <Clock className="h-4 w-4 text-green-500" />
-          <AlertTitle className="flex items-center gap-1 text-sm">
-            <Check className="h-4 w-4 text-green-500" /> Confirmado:
-            {analysisResults.patterns && analysisResults.patterns.some(p => p.action === 'compra' && p.confidence > 0.6) ? 
-              <ArrowUp className="h-4 w-4 text-green-500" /> : 
-              <ArrowDown className="h-4 w-4 text-red-500" />}
-          </AlertTitle>
-          <AlertDescription className="text-xs">
-            <div className="font-semibold">Entrar: {analysisResults.preciseEntryAnalysis.exactMinute}</div>
-            <div>Tipo: {analysisResults.preciseEntryAnalysis.entryType.replace('_', ' de ')}</div>
-            <div>Próxima vela: {analysisResults.preciseEntryAnalysis.nextCandleExpectation}</div>
-            <div className="mt-1 text-xs bg-black/10 p-1 rounded font-semibold">
-              {analysisResults.preciseEntryAnalysis.entryInstructions}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
     </>
   );
 };
