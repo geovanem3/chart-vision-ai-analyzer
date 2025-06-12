@@ -82,23 +82,6 @@ export type MarketContext = {
   momentumSignature: 'acelerando' | 'estável' | 'desacelerando' | 'divergente';
 };
 
-// Signal type for analysis results
-export type Signal = {
-  type: 'Buy' | 'Sell';
-  strength: number;
-  description?: string;
-};
-
-// Entry recommendation type
-export type EntryRecommendation = {
-  action: 'compra' | 'venda';
-  confidence: number;
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  reasoning: string;
-};
-
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
@@ -114,12 +97,6 @@ export type AnalysisResult = {
   warnings?: string[]; // Warnings about potential false signals
   preciseEntryAnalysis?: PreciseEntryAnalysis; // Added for precise entry timing
   masterAnalysis?: any; // Added for master analysis
-  pixelAnalysis?: any; // Added to fix the TypeScript error
-  // Additional properties that were missing
-  confidence?: number;
-  signals?: Signal[];
-  trend?: string;
-  entryRecommendations?: EntryRecommendation[];
 };
 
 // New type for technical indicators for enhanced M1 strategy
