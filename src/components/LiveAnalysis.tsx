@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeChartPixels, ChartPixelAnalysis } from '@/utils/chartPixelAnalysis';
 import { analyzeChart } from '@/utils/patternDetection';
-import { AnalysisResult } from '@/context/AnalyzerContext';
+import { AnalysisResult, TimeframeType } from '@/context/AnalyzerContext';
 import { Activity, AlertTriangle, Camera, Eye, Filter, FlipHorizontal, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LiveChartMarkup from './LiveChartMarkup';
@@ -166,7 +166,8 @@ const LiveAnalysis = () => {
       
       // Transform the raw result to match our expected AnalysisResult type
       const analysisResult: AnalysisResult = {
-        ...rawAnalysisResult,
+        patterns: rawAnalysisResult.patterns || [],
+        timestamp: Date.now(),
         pixelAnalysis,
         confidence: rawAnalysisResult.patterns?.[0]?.confidence || 0,
         signals: rawAnalysisResult.patterns?.map(pattern => ({
@@ -175,7 +176,18 @@ const LiveAnalysis = () => {
           description: pattern.description
         })) || [],
         trend: rawAnalysisResult.patterns?.[0]?.action || 'neutro',
-        entryRecommendations: []
+        entryRecommendations: [],
+        // Transform marketContext to match our expected type
+        marketContext: rawAnalysisResult.marketContext ? {
+          phase: rawAnalysisResult.marketContext.phase as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
+          strength: rawAnalysisResult.marketContext.strength as 'forte' | 'moderada' | 'fraca',
+          dominantTimeframe: '1m' as TimeframeType,
+          sentiment: rawAnalysisResult.marketContext.sentiment as 'otimista' | 'pessimista' | 'neutro',
+          description: `Análise de mercado em tempo real`,
+          marketStructure: 'indefinida' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
+          breakoutPotential: 'médio' as 'alto' | 'médio' | 'baixo',
+          momentumSignature: 'estável' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente'
+        } : undefined
       };
       
       // Incrementar contador de análises
