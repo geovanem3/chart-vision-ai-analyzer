@@ -26,6 +26,12 @@ interface LiveAnalysisResult {
   institutionalBias?: string;
   entryRecommendations?: any[];
   riskReward?: number;
+  warnings?: string[];
+  analysisHealth?: {
+    consistency: number;
+    reliability: number;
+    marketAlignment: boolean;
+  };
 }
 
 const LiveAnalysis = () => {
@@ -46,6 +52,12 @@ const LiveAnalysis = () => {
   const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
   const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
   const [isChartVisible, setIsChartVisible] = useState(false);
+  const [analysisStats, setAnalysisStats] = useState({
+    totalAnalyses: 0,
+    validSignals: 0,
+    avgConfidence: 0,
+    lastValidSignalTime: null as number | null
+  });
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -59,17 +71,78 @@ const LiveAnalysis = () => {
     marketAnalysisDepth 
   } = useAnalyzer();
 
-  // Função para detectar se há um gráfico na tela
-  const detectChartInFrame = async (imageData: string) => {
-    // Simulação de detecção de gráfico - aqui você pode implementar
-    // uma lógica mais sofisticada para detectar se há um gráfico presente
+  // Função melhorada para detectar se há um gráfico na tela
+  const detectChartInFrame = async (imageData: string): Promise<boolean> => {
     return new Promise<boolean>((resolve) => {
       setTimeout(() => {
-        // Por enquanto, retorna true aleatoriamente para simular
-        const hasChart = Math.random() > 0.3;
-        resolve(hasChart);
-      }, 100);
+        // Lógica mais sofisticada de detecção
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx?.drawImage(img, 0, 0);
+          
+          // Análise simples de padrões que indicam um gráfico
+          const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+          if (!imageData) {
+            resolve(false);
+            return;
+          }
+          
+          // Verificar variação de cores e padrões lineares
+          let colorVariations = 0;
+          let linePatterns = 0;
+          
+          for (let i = 0; i < imageData.data.length; i += 4) {
+            const r = imageData.data[i];
+            const g = imageData.data[i + 1];
+            const b = imageData.data[i + 2];
+            
+            // Detectar variações de cor típicas de gráficos
+            if (Math.abs(r - g) > 30 || Math.abs(g - b) > 30) {
+              colorVariations++;
+            }
+          }
+          
+          const hasChart = colorVariations > (imageData.data.length / 4) * 0.1;
+          resolve(hasChart);
+        };
+        
+        img.onerror = () => resolve(false);
+        img.src = imageData;
+      }, 200);
     });
+  };
+
+  // Função para calcular saúde da análise
+  const calculateAnalysisHealth = (
+    patterns: any[],
+    priceActionSignals: any[],
+    confluenceScore: number
+  ) => {
+    // Verificar consistência entre sinais
+    const patternActions = patterns.map(p => p.action).filter(a => a !== 'neutro');
+    const uniqueActions = [...new Set(patternActions)];
+    const consistency = uniqueActions.length <= 1 ? 100 : 50;
+    
+    // Calcular confiabilidade baseada em confluência e número de sinais
+    const reliability = Math.min(100, 
+      (confluenceScore * 0.6) + 
+      (patterns.length * 10) + 
+      (priceActionSignals.length * 15)
+    );
+    
+    // Verificar alinhamento com mercado
+    const marketAlignment = patterns.length > 0 && priceActionSignals.length > 0;
+    
+    return {
+      consistency,
+      reliability,
+      marketAlignment
+    };
   };
 
   // Iniciar câmera
@@ -114,12 +187,13 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar apenas se houver gráfico
+  // Capturar frame e analisar com lógica melhorada
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
     try {
       setIsAnalyzing(true);
+      console.log('🎥 Capturando frame para análise...');
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -141,10 +215,12 @@ const LiveAnalysis = () => {
       setIsChartVisible(hasChart);
       
       if (!hasChart) {
-        // Se não há gráfico, não fazer análise
+        console.log('📊 Nenhum gráfico detectado na tela');
         setCurrentAnalysis(null);
         return;
       }
+      
+      console.log('✅ Gráfico detectado! Iniciando análise...');
       
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
@@ -173,54 +249,99 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Processar resultado para formato live - garantir coerência
-      let finalConfidence = analysisResult.patterns[0]?.confidence || 0;
-      let signalQuality = 'normal';
+      // Processar resultado para formato live com validação melhorada
+      let finalConfidence = 0;
+      let signalQuality = 'fraca';
       let riskReward = 2.0;
       let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
       
-      // Determinar sinal principal baseado no padrão mais forte
-      if (analysisResult.patterns.length > 0) {
-        const strongestPattern = analysisResult.patterns.reduce((prev, current) => 
-          (current.confidence > prev.confidence) ? current : prev
-        );
+      // Determinar sinal principal baseado no padrão mais forte e consistente
+      const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
+      
+      if (validPatterns.length > 0) {
+        // Verificar consistência entre padrões
+        const actions = validPatterns.map(p => p.action);
+        const uniqueActions = [...new Set(actions)];
         
-        mainSignal = strongestPattern.action === 'neutro' ? 'neutro' : strongestPattern.action;
-        finalConfidence = strongestPattern.confidence;
+        if (uniqueActions.length === 1) {
+          // Sinais consistentes
+          mainSignal = uniqueActions[0] as 'compra' | 'venda';
+          finalConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
+        } else {
+          // Sinais conflitantes - usar o mais forte mas reduzir confiança
+          const strongestPattern = validPatterns.reduce((prev, current) => 
+            (current.confidence > prev.confidence) ? current : prev
+          );
+          mainSignal = strongestPattern.action as 'compra' | 'venda';
+          finalConfidence = strongestPattern.confidence * 0.7; // Penalizar conflito
+        }
       }
       
-      // Melhor confiança vem das recomendações de entrada - mas deve ser coerente
-      if (analysisResult.entryRecommendations && analysisResult.entryRecommendations.length > 0) {
-        const bestEntry = analysisResult.entryRecommendations.find(entry => 
-          entry.action === mainSignal
-        ) || analysisResult.entryRecommendations[0];
+      // Validar com price action
+      const alignedPASignals = analysisResult.priceActionSignals?.filter(pa => 
+        (mainSignal === 'compra' && pa.direction === 'alta') ||
+        (mainSignal === 'venda' && pa.direction === 'baixa')
+      ) || [];
+      
+      if (alignedPASignals.length > 0) {
+        const paConfidence = alignedPASignals.reduce((sum, pa) => sum + pa.confidence, 0) / alignedPASignals.length;
+        finalConfidence = (finalConfidence + paConfidence) / 2;
+      } else if (analysisResult.priceActionSignals?.length > 0 && mainSignal !== 'neutro') {
+        // Price action contradiz - reduzir confiança
+        finalConfidence *= 0.6;
+      }
+      
+      // Determinar qualidade do sinal
+      if (finalConfidence > 0.85) {
+        signalQuality = 'excelente';
+      } else if (finalConfidence > 0.75) {
+        signalQuality = 'forte';
+      } else if (finalConfidence > 0.65) {
+        signalQuality = 'boa';
+      } else if (finalConfidence > 0.55) {
+        signalQuality = 'moderada';
+      } else {
+        signalQuality = 'fraca';
+      }
+      
+      // Ajustar baseado em confluências
+      if (analysisResult.confluences) {
+        const confluenceBonus = analysisResult.confluences.confluenceScore / 100 * 0.1;
+        finalConfidence = Math.min(1, finalConfidence + confluenceBonus);
         
-        // Só usar se for coerente com o sinal principal
-        if (bestEntry.action === mainSignal) {
-          finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
-          riskReward = bestEntry.riskReward;
-          
-          if (bestEntry.confidence > 0.8) {
-            signalQuality = 'excelente';
-          } else if (bestEntry.confidence > 0.7) {
-            signalQuality = 'forte';
-          } else if (bestEntry.confidence > 0.6) {
-            signalQuality = 'boa';
-          }
+        if (analysisResult.confluences.confluenceScore > 80) {
+          signalQuality = 'excelente';
+        }
+      }
+      
+      // Obter melhor recomendação de entrada
+      const bestEntry = analysisResult.entryRecommendations?.find(entry => 
+        entry.action === mainSignal
+      );
+      
+      if (bestEntry) {
+        riskReward = bestEntry.riskReward;
+        finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
+      }
+
+      // Mapear tendência corretamente
+      let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
+      
+      if (analysisResult.detailedMarketContext?.marketStructure?.trend) {
+        const rawTrend = analysisResult.detailedMarketContext.marketStructure.trend;
+        if (rawTrend === 'bullish') {
+          mappedTrend = 'alta';
+        } else if (rawTrend === 'bearish') {
+          mappedTrend = 'baixa';
         }
       }
 
-      // Fix the trend mapping from English to Portuguese
-      let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
-      const rawTrend = analysisResult.detailedMarketContext?.marketStructure?.trend as string | undefined;
-      
-      if (rawTrend === 'bullish') {
-        mappedTrend = 'alta';
-      } else if (rawTrend === 'bearish') {
-        mappedTrend = 'baixa';
-      } else {
-        mappedTrend = 'lateral';
-      }
+      // Calcular saúde da análise
+      const analysisHealth = calculateAnalysisHealth(
+        analysisResult.patterns,
+        analysisResult.priceActionSignals || [],
+        analysisResult.confluences?.confluenceScore || 0
+      );
 
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
@@ -238,28 +359,40 @@ const LiveAnalysis = () => {
         entryRecommendations: analysisResult.entryRecommendations?.filter(entry => 
           entry.action === mainSignal
         ).slice(0, 2) || [],
-        riskReward
+        riskReward,
+        analysisHealth
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
 
-      // Notificar apenas sinais de alta qualidade e coerentes
-      if (finalConfidence > 0.7 && liveResult.signal !== 'neutro' && signalQuality !== 'fraca') {
-        const paText = liveResult.priceActionSignals.length > 0 ? 
-          ` | PA: ${liveResult.priceActionSignals[0].type}` : '';
+      // Atualizar estatísticas
+      setAnalysisStats(prev => ({
+        totalAnalyses: prev.totalAnalyses + 1,
+        validSignals: prev.validSignals + (mainSignal !== 'neutro' ? 1 : 0),
+        avgConfidence: (prev.avgConfidence * prev.totalAnalyses + finalConfidence * 100) / (prev.totalAnalyses + 1),
+        lastValidSignalTime: mainSignal !== 'neutro' ? Date.now() : prev.lastValidSignalTime
+      }));
+
+      // Notificar apenas sinais de alta qualidade
+      if (finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
+        const paText = alignedPASignals.length > 0 ? 
+          ` | PA: ${alignedPASignals[0].type}` : '';
         const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
+        const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
         
         toast({
-          variant: liveResult.signal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${liveResult.signal.toUpperCase()}`,
+          variant: mainSignal === 'compra' ? "default" : "destructive",
+          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${mainSignal.toUpperCase()}${healthText}`,
           description: `Confiança: ${Math.round(finalConfidence * 100)}% | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
           duration: 8000,
         });
       }
 
+      console.log(`✅ Análise completa - Sinal: ${mainSignal} (${Math.round(finalConfidence * 100)}%)`);
+
     } catch (error) {
-      console.error('Erro na análise em tempo real:', error);
+      console.error('❌ Erro na análise em tempo real:', error);
     } finally {
       setIsAnalyzing(false);
     }
@@ -326,12 +459,12 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Cabeçalho de controles */}
+      {/* Cabeçalho de controles melhorado */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live M1 - Detecção Inteligente
+            Análise Live M1 - IA Aprimorada
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
@@ -343,6 +476,14 @@ const LiveAnalysis = () => {
               </Badge>
             )}
           </CardTitle>
+          {/* Estatísticas da sessão */}
+          {analysisStats.totalAnalyses > 0 && (
+            <div className="text-xs text-muted-foreground mt-2">
+              Análises: {analysisStats.totalAnalyses} | 
+              Sinais Válidos: {analysisStats.validSignals} | 
+              Confiança Média: {Math.round(analysisStats.avgConfidence)}%
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
@@ -428,7 +569,7 @@ const LiveAnalysis = () => {
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
               <p className="text-sm">
-                {isChartVisible ? 'Analisando Price Action + Confluências...' : 'Procurando gráfico...'}
+                {isChartVisible ? 'Analisando com IA Aprimorada...' : 'Procurando gráfico...'}
               </p>
             </div>
           </div>
@@ -466,10 +607,19 @@ const LiveAnalysis = () => {
                       {currentAnalysis.signalQuality && (
                         <Badge 
                           variant={currentAnalysis.signalQuality === 'excelente' || currentAnalysis.signalQuality === 'forte' ? 'default' : 
-                                   currentAnalysis.signalQuality === 'boa' ? 'secondary' : 'destructive'}
+                                   currentAnalysis.signalQuality === 'boa' || currentAnalysis.signalQuality === 'moderada' ? 'secondary' : 'destructive'}
                           className="text-xs"
                         >
                           {currentAnalysis.signalQuality}
+                        </Badge>
+                      )}
+                      {/* Indicador de saúde da análise */}
+                      {currentAnalysis.analysisHealth && (
+                        <Badge 
+                          variant={currentAnalysis.analysisHealth.consistency > 80 ? 'default' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {currentAnalysis.analysisHealth.consistency > 80 ? '✅' : '⚠️'}
                         </Badge>
                       )}
                     </div>
@@ -487,6 +637,11 @@ const LiveAnalysis = () => {
                     <div className="text-xs text-blue-300">
                       Bias: {currentAnalysis.institutionalBias}
                     </div>
+                    {currentAnalysis.analysisHealth && (
+                      <div className="text-xs text-purple-300">
+                        Saúde: {Math.round(currentAnalysis.analysisHealth.reliability)}%
+                      </div>
+                    )}
                     <div className="text-xs text-gray-300">
                       {new Date(currentAnalysis.timestamp).toLocaleTimeString()}
                     </div>

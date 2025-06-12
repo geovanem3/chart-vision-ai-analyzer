@@ -113,7 +113,114 @@ export interface AnalysisResult {
   }>;
 }
 
+// Função melhorada para validar consistência entre sinais
+const validateSignalConsistency = (
+  patterns: DetectedPattern[],
+  priceActionSignals: PriceActionSignal[],
+  marketContext?: MarketContextAnalysis
+): { consistentSignal: 'compra' | 'venda' | 'neutro'; confidence: number; reasoning: string } => {
+  console.log('🔍 Validando consistência dos sinais...');
+  
+  // Contar votos para cada ação
+  const votes = { compra: 0, venda: 0, neutro: 0 };
+  const reasons: string[] = [];
+  
+  // Votos dos padrões
+  patterns.forEach(pattern => {
+    if (pattern.action !== 'neutro') {
+      votes[pattern.action] += pattern.confidence;
+      reasons.push(`Padrão ${pattern.type}: ${pattern.action} (${Math.round(pattern.confidence * 100)}%)`);
+    }
+  });
+  
+  // Votos do price action
+  priceActionSignals.forEach(signal => {
+    const action = signal.direction === 'alta' ? 'compra' : signal.direction === 'baixa' ? 'venda' : 'neutro';
+    if (action !== 'neutro') {
+      votes[action] += signal.confidence * 0.8; // Price action tem peso ligeiramente menor
+      reasons.push(`Price Action ${signal.type}: ${action} (${Math.round(signal.confidence * 100)}%)`);
+    }
+  });
+  
+  // Voto do contexto de mercado
+  if (marketContext) {
+    const marketBias = marketContext.institutionalBias;
+    if (marketBias === 'alta' || marketBias === 'compra') {
+      votes.compra += 0.3;
+      reasons.push(`Contexto de mercado: ${marketBias}`);
+    } else if (marketBias === 'baixa' || marketBias === 'venda') {
+      votes.venda += 0.3;
+      reasons.push(`Contexto de mercado: ${marketBias}`);
+    }
+  }
+  
+  // Determinar sinal dominante
+  const totalVotes = votes.compra + votes.venda + votes.neutro;
+  const compraPercent = votes.compra / totalVotes;
+  const vendaPercent = votes.venda / totalVotes;
+  
+  let consistentSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
+  let confidence = 0;
+  
+  if (compraPercent > 0.6) {
+    consistentSignal = 'compra';
+    confidence = compraPercent;
+  } else if (vendaPercent > 0.6) {
+    consistentSignal = 'venda';
+    confidence = vendaPercent;
+  } else {
+    // Sinais conflitantes
+    confidence = Math.max(compraPercent, vendaPercent) * 0.5; // Reduzir confiança
+  }
+  
+  console.log(`✅ Sinal consistente: ${consistentSignal} (${Math.round(confidence * 100)}%)`);
+  
+  return {
+    consistentSignal,
+    confidence,
+    reasoning: reasons.join(' | ')
+  };
+};
+
+// Função para detectar divergências e alertas
+const detectAnalysisWarnings = (
+  patterns: DetectedPattern[],
+  priceActionSignals: PriceActionSignal[],
+  confluences?: ConfluenceAnalysis
+): string[] => {
+  const warnings: string[] = [];
+  
+  // Verificar conflitos entre padrões
+  const patternActions = patterns.map(p => p.action).filter(a => a !== 'neutro');
+  const uniqueActions = [...new Set(patternActions)];
+  
+  if (uniqueActions.length > 1) {
+    warnings.push('⚠️ Sinais conflitantes entre padrões detectados');
+  }
+  
+  // Verificar se price action confirma padrões
+  if (patterns.length > 0 && priceActionSignals.length > 0) {
+    const patternAction = patterns[0]?.action;
+    const paDirection = priceActionSignals[0]?.direction;
+    
+    if (patternAction === 'compra' && paDirection === 'baixa') {
+      warnings.push('⚠️ Price Action contra padrão de compra');
+    } else if (patternAction === 'venda' && paDirection === 'alta') {
+      warnings.push('⚠️ Price Action contra padrão de venda');
+    }
+  }
+  
+  // Verificar score de confluência baixo
+  if (confluences && confluences.confluenceScore < 50) {
+    warnings.push('⚠️ Score de confluência baixo - sinal fraco');
+  }
+  
+  return warnings;
+};
+
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
+  console.log('🚀 Iniciando análise completa do gráfico...');
+  
   // Simulate analysis delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
@@ -122,12 +229,13 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const numCandles = options.isLiveAnalysis ? 30 : 50;
   let basePrice = 100;
   
+  // Gerar dados mais realistas com base no timeframe
   for (let i = 0; i < numCandles; i++) {
-    const variation = (Math.random() - 0.5) * 4;
+    const variation = (Math.random() - 0.5) * (options.timeframe === '1m' ? 2 : 4);
     const open = basePrice + variation;
-    const close = open + (Math.random() - 0.5) * 2;
-    const high = Math.max(open, close) + Math.random() * 1;
-    const low = Math.min(open, close) - Math.random() * 1;
+    const close = open + (Math.random() - 0.5) * (options.timeframe === '1m' ? 1 : 2);
+    const high = Math.max(open, close) + Math.random() * (options.timeframe === '1m' ? 0.5 : 1);
+    const low = Math.min(open, close) - Math.random() * (options.timeframe === '1m' ? 0.5 : 1);
     
     mockCandles.push({
       open,
@@ -143,66 +251,89 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     basePrice = close;
   }
   
-  // Generate patterns
-  const trends = ['Bullish', 'Bearish', 'Sideways'];
-  const signalTypes = ['Buy', 'Sell', 'Hold'];
+  console.log(`📊 Gerados ${mockCandles.length} candles para análise`);
+  
+  // Generate patterns with better logic
   const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
-  const actions: ('compra' | 'venda' | 'neutro')[] = ['compra', 'venda', 'neutro'];
+  const numPatterns = Math.floor(Math.random() * 2) + 1; // 1-2 patterns for consistency
   
-  const trend = trends[Math.floor(Math.random() * trends.length)];
-  const signalType = signalTypes[Math.floor(Math.random() * signalTypes.length)];
-  const patternType = patternTypes[Math.floor(Math.random() * patternTypes.length)];
-  const action = actions[Math.floor(Math.random() * actions.length)];
+  const patterns: DetectedPattern[] = [];
+  for (let i = 0; i < numPatterns; i++) {
+    const patternType = patternTypes[Math.floor(Math.random() * patternTypes.length)];
+    
+    // Melhor lógica para determinar ação baseada no tipo de padrão
+    let action: 'compra' | 'venda' | 'neutro' = 'neutro';
+    if (patternType === 'Martelo' || patternType === 'Engolfo de Alta') {
+      action = Math.random() > 0.3 ? 'compra' : 'neutro';
+    } else if (patternType === 'Estrela Cadente') {
+      action = Math.random() > 0.3 ? 'venda' : 'neutro';
+    } else {
+      action = Math.random() > 0.5 ? (Math.random() > 0.5 ? 'compra' : 'venda') : 'neutro';
+    }
+    
+    patterns.push({
+      type: patternType,
+      action,
+      confidence: Math.random() * 0.4 + 0.5, // 0.5 to 0.9
+      description: `${patternType} detectado`
+    });
+  }
   
-  const patterns: DetectedPattern[] = [{
-    type: patternType,
-    action: action,
-    confidence: Math.random() * 0.4 + 0.5, // 0.5 to 0.9
-    description: `${patternType} detectado com tendência ${trend.toLowerCase()}`
-  }];
+  console.log(`🎯 Detectados ${patterns.length} padrões`);
   
   let result: AnalysisResult = {
-    trend,
-    signals: [{
-      type: signalType,
-      strength: Math.random() * 100,
-      description: `${signalType} signal detected with ${trend.toLowerCase()} trend`
-    }],
-    confidence: Math.random() * 100,
+    trend: 'Sideways',
+    signals: [],
+    confidence: 0,
     timestamp: Date.now(),
-    patterns,
-    marketContext: {
-      sentiment: action === 'compra' ? 'otimista' : action === 'venda' ? 'pessimista' : 'neutro',
-      phase: 'análise',
-      strength: 'moderada'
-    }
+    patterns
   };
   
-  // Add price action analysis for M1 timeframe
-  if (options.enablePriceAction !== false && (options.timeframe === '1m' || options.isLiveAnalysis)) {
-    const priceActionSignals = analyzePriceAction(mockCandles);
+  // Add price action analysis
+  let priceActionSignals: PriceActionSignal[] = [];
+  if (options.enablePriceAction !== false) {
+    priceActionSignals = analyzePriceAction(mockCandles);
     result.priceActionSignals = priceActionSignals;
-    
-    // Adjust confidence based on price action
-    if (priceActionSignals.length > 0) {
-      const avgPAConfidence = priceActionSignals.reduce((sum, signal) => sum + signal.confidence, 0) / priceActionSignals.length;
-      result.confidence = Math.round((result.confidence + avgPAConfidence * 100) / 2);
-    }
+    console.log(`📈 Analisados ${priceActionSignals.length} sinais de price action`);
   }
   
   // Add detailed market context analysis
+  let detailedMarketContext: MarketContextAnalysis | undefined;
   if (options.enableMarketContext !== false) {
-    const detailedMarketContext = analyzeMarketContext(mockCandles);
+    detailedMarketContext = analyzeMarketContext(mockCandles);
     result.detailedMarketContext = detailedMarketContext;
-    
-    // Update market context based on detailed analysis
-    result.marketContext = {
-      sentiment: detailedMarketContext.sentiment === 'muito_otimista' || detailedMarketContext.sentiment === 'otimista' ? 'otimista' :
-                detailedMarketContext.sentiment === 'muito_pessimista' || detailedMarketContext.sentiment === 'pessimista' ? 'pessimista' : 'neutro',
-      phase: detailedMarketContext.phase,
-      strength: detailedMarketContext.marketStructure.strength > 70 ? 'forte' : 
-               detailedMarketContext.marketStructure.strength > 40 ? 'moderada' : 'fraca'
-    };
+    console.log(`🏛️ Contexto de mercado: ${detailedMarketContext.phase}`);
+  }
+  
+  // Validar consistência entre todos os sinais
+  const consistencyCheck = validateSignalConsistency(patterns, priceActionSignals, detailedMarketContext);
+  
+  // Atualizar padrões para serem consistentes com o sinal dominante
+  if (consistencyCheck.consistentSignal !== 'neutro') {
+    patterns.forEach(pattern => {
+      if (pattern.action !== 'neutro' && pattern.action !== consistencyCheck.consistentSignal) {
+        // Ajustar padrões conflitantes para neutro ou consistent signal
+        if (Math.random() > 0.7) {
+          pattern.action = consistencyCheck.consistentSignal;
+          pattern.confidence *= 0.8; // Reduzir confiança
+        } else {
+          pattern.action = 'neutro';
+          pattern.confidence *= 0.5;
+        }
+      }
+    });
+  }
+  
+  // Set trend based on market context
+  if (detailedMarketContext?.marketStructure?.trend) {
+    const rawTrend = detailedMarketContext.marketStructure.trend;
+    if (rawTrend === 'bullish') {
+      result.trend = 'Bullish';
+    } else if (rawTrend === 'bearish') {
+      result.trend = 'Bearish';
+    } else {
+      result.trend = 'Sideways';
+    }
   }
   
   // Add confluence analysis if enabled
@@ -218,19 +349,27 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     }));
     
     result.validatedSignals = validatedSignals;
-    
-    // Update overall confidence based on confluences
-    const avgValidationConfidence = validatedSignals.reduce((sum, vs) => sum + vs.validation.confidence, 0) / validatedSignals.length;
-    result.confidence = Math.round(avgValidationConfidence * 100);
-    
-    // Update market context based on confluence score
-    if (confluenceAnalysis.confluenceScore > 70) {
-      result.marketContext!.strength = 'forte';
-    } else if (confluenceAnalysis.confluenceScore > 40) {
-      result.marketContext!.strength = 'moderada';
-    } else {
-      result.marketContext!.strength = 'fraca';
-    }
+    console.log(`🔄 Validados ${validatedSignals.length} sinais com confluências`);
+  }
+  
+  // Set final confidence based on consistency
+  result.confidence = consistencyCheck.confidence * 100;
+  
+  // Update market context
+  result.marketContext = {
+    sentiment: consistencyCheck.consistentSignal === 'compra' ? 'otimista' : 
+               consistencyCheck.consistentSignal === 'venda' ? 'pessimista' : 'neutro',
+    phase: detailedMarketContext?.phase || 'indefinida',
+    strength: result.confidence > 70 ? 'forte' : result.confidence > 50 ? 'moderada' : 'fraca'
+  };
+  
+  // Generate signals based on consistent signal
+  if (consistencyCheck.consistentSignal !== 'neutro') {
+    result.signals = [{
+      type: consistencyCheck.consistentSignal === 'compra' ? 'Buy' : 'Sell',
+      strength: result.confidence,
+      description: `Sinal ${consistencyCheck.consistentSignal} baseado em: ${consistencyCheck.reasoning}`
+    }];
   }
   
   // Generate specific entry recommendations for M1 scalping
@@ -238,16 +377,29 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     result.entryRecommendations = generateScalpingEntries(
       mockCandles, 
       patterns, 
-      result.priceActionSignals || [], 
+      priceActionSignals, 
       result.confluences,
       result.detailedMarketContext
     );
+    console.log(`💡 Geradas ${result.entryRecommendations?.length || 0} recomendações de entrada`);
   }
+  
+  // Detectar avisos e problemas
+  const warnings = detectAnalysisWarnings(patterns, priceActionSignals, result.confluences);
+  if (warnings.length > 0) {
+    console.warn('⚠️ Avisos detectados:', warnings);
+    // Reduzir confiança se há muitos avisos
+    if (warnings.length >= 2) {
+      result.confidence *= 0.8;
+    }
+  }
+  
+  console.log(`✅ Análise completa finalizada - Confiança: ${Math.round(result.confidence)}%`);
   
   return result;
 };
 
-// Generate specific scalping entry recommendations
+// Generate specific scalping entry recommendations with better logic
 const generateScalpingEntries = (
   candles: CandleData[],
   patterns: DetectedPattern[],
@@ -258,105 +410,104 @@ const generateScalpingEntries = (
   const entries: AnalysisResult['entryRecommendations'] = [];
   const currentPrice = candles[candles.length - 1]?.close || 100;
   
-  // Combine pattern signals with price action - filter out 'neutro' actions
-  patterns
-    .filter(pattern => pattern.action !== 'neutro')
-    .forEach(pattern => {
-      const validAction = pattern.action as 'compra' | 'venda'; // Type assertion after filtering
-      const alignedPASignals = priceActionSignals.filter(pa => 
-        (validAction === 'compra' && pa.direction === 'alta') ||
-        (validAction === 'venda' && pa.direction === 'baixa')
-      );
-      
-      if (alignedPASignals.length > 0) {
-        const bestPASignal = alignedPASignals.sort((a, b) => b.confidence - a.confidence)[0];
-        
-        let entryPrice = currentPrice;
-        let stopLoss = currentPrice;
-        let takeProfit = currentPrice;
-        let riskReward = 2.0;
-        
-        if (bestPASignal.entryZone) {
-          entryPrice = bestPASignal.entryZone.optimal;
-          
-          if (validAction === 'compra') {
-            stopLoss = entryPrice - (entryPrice * 0.002); // 0.2% stop
-            takeProfit = entryPrice + (entryPrice * 0.004); // 0.4% target
-          } else {
-            stopLoss = entryPrice + (entryPrice * 0.002);
-            takeProfit = entryPrice - (entryPrice * 0.004);
-          }
-          
-          riskReward = bestPASignal.riskReward || 2.0;
-        }
-        
-        const confidence = (pattern.confidence + bestPASignal.confidence) / 2;
-        
-        let reasoning = `${pattern.type} + ${bestPASignal.type} (${bestPASignal.strength})`;
-        
-        // Add confluence reasoning
-        if (confluences && confluences.confluenceScore > 60) {
-          reasoning += ` | Confluência: ${Math.round(confluences.confluenceScore)}%`;
-        }
-        
-        // Add market context reasoning
-        if (marketContext) {
-          reasoning += ` | Contexto: ${marketContext.phase} - ${marketContext.institutionalBias}`;
-          reasoning += ` | Estrutura: ${marketContext.marketStructure.trend}`;
-        }
-        
-        entries.push({
-          type: 'scalping_entry',
-          action: validAction,
-          entryPrice,
-          stopLoss,
-          takeProfit,
-          confidence,
-          reasoning,
-          timeframe: '1m',
-          riskReward
-        });
-      }
-    });
+  console.log('💰 Gerando recomendações de entrada para scalping...');
   
-  // Add pure price action entries for high-confidence signals
-  priceActionSignals
-    .filter(pa => pa.confidence > 0.75 && pa.entryZone)
-    .forEach(paSignal => {
-      const entryPrice = paSignal.entryZone!.optimal;
-      const action: 'compra' | 'venda' = paSignal.direction === 'alta' ? 'compra' : 'venda';
+  // Filtrar apenas padrões válidos (não neutros)
+  const validPatterns = patterns.filter(pattern => pattern.action !== 'neutro');
+  
+  if (validPatterns.length === 0) {
+    console.log('⚠️ Nenhum padrão válido para gerar entradas');
+    return [];
+  }
+  
+  // Combine pattern signals with price action - apenas sinais alinhados
+  validPatterns.forEach(pattern => {
+    const validAction = pattern.action as 'compra' | 'venda';
+    const alignedPASignals = priceActionSignals.filter(pa => 
+      (validAction === 'compra' && pa.direction === 'alta') ||
+      (validAction === 'venda' && pa.direction === 'baixa')
+    );
+    
+    // Só gerar entrada se há alinhamento ou se o padrão é muito forte
+    if (alignedPASignals.length > 0 || pattern.confidence > 0.8) {
+      const bestPASignal = alignedPASignals.length > 0 ? 
+        alignedPASignals.sort((a, b) => b.confidence - a.confidence)[0] : null;
       
-      let stopLoss = entryPrice;
-      let takeProfit = entryPrice;
+      let entryPrice = currentPrice;
+      let stopLoss = currentPrice;
+      let takeProfit = currentPrice;
+      let riskReward = 2.0;
       
-      if (action === 'compra') {
-        stopLoss = entryPrice - (entryPrice * 0.0015); // Tighter stop for PA signals
-        takeProfit = entryPrice + (entryPrice * 0.003);
+      // Calcular preços mais precisos baseados no timeframe M1
+      const volatilityFactor = 0.001; // 0.1% para M1
+      const spreadFactor = 0.0005; // 0.05% spread
+      
+      if (bestPASignal?.entryZone) {
+        entryPrice = bestPASignal.entryZone.optimal;
       } else {
-        stopLoss = entryPrice + (entryPrice * 0.0015);
-        takeProfit = entryPrice - (entryPrice * 0.003);
+        // Ajustar entrada baseada no pattern confidence
+        entryPrice = validAction === 'compra' ? 
+          currentPrice * (1 + spreadFactor) : 
+          currentPrice * (1 - spreadFactor);
       }
       
-      let reasoning = `Price Action puro: ${paSignal.description}`;
+      if (validAction === 'compra') {
+        stopLoss = entryPrice * (1 - (volatilityFactor * 2)); // 0.2% stop
+        takeProfit = entryPrice * (1 + (volatilityFactor * 4)); // 0.4% target
+      } else {
+        stopLoss = entryPrice * (1 + (volatilityFactor * 2));
+        takeProfit = entryPrice * (1 - (volatilityFactor * 4));
+      }
       
+      riskReward = Math.abs(takeProfit - entryPrice) / Math.abs(entryPrice - stopLoss);
+      
+      // Calcular confiança combinada
+      let confidence = pattern.confidence;
+      if (bestPASignal) {
+        confidence = (pattern.confidence + bestPASignal.confidence) / 2;
+      }
+      
+      // Boost confidence if confluences align
+      if (confluences && confluences.confluenceScore > 60) {
+        confidence = Math.min(1, confidence * 1.1);
+      }
+      
+      let reasoning = `${pattern.type}`;
+      if (bestPASignal) {
+        reasoning += ` + ${bestPASignal.type} (${bestPASignal.strength})`;
+      }
+      
+      // Add confluence reasoning
+      if (confluences && confluences.confluenceScore > 60) {
+        reasoning += ` | Confluência: ${Math.round(confluences.confluenceScore)}%`;
+      }
+      
+      // Add market context reasoning
       if (marketContext) {
-        reasoning += ` | Alinhado com ${marketContext.institutionalBias} institucional`;
+        reasoning += ` | Contexto: ${marketContext.phase}`;
+        if (marketContext.institutionalBias && marketContext.institutionalBias !== 'neutro') {
+          reasoning += ` - ${marketContext.institutionalBias}`;
+        }
       }
       
       entries.push({
         type: 'scalping_entry',
-        action,
+        action: validAction,
         entryPrice,
         stopLoss,
         takeProfit,
-        confidence: paSignal.confidence,
+        confidence,
         reasoning,
         timeframe: '1m',
-        riskReward: paSignal.riskReward || 2.0
+        riskReward
       });
-    });
+    }
+  });
   
-  return entries.slice(0, 3); // Limit to top 3 recommendations
+  // Ordenar por confiança e limitar a 2 melhores
+  return entries
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 2);
 };
 
 // Function to interpret the detected pattern
