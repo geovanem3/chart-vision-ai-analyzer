@@ -800,5 +800,3 @@ const LiveAnalysis = () => {
 };
 
 export default LiveAnalysis;
-
-</edits_to_apply>
