@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeChartPixels, ChartPixelAnalysis } from '@/utils/chartPixelAnalysis';
-import { analyzeChart, AnalysisResult } from '@/utils/patternDetection';
+import { analyzeChart } from '@/utils/patternDetection';
+import { AnalysisResult } from '@/context/AnalyzerContext';
 import { Activity, AlertTriangle, Camera, Eye, Filter, FlipHorizontal, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LiveChartMarkup from './LiveChartMarkup';
