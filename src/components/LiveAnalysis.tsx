@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -155,7 +154,7 @@ const LiveAnalysis = () => {
       
       // Análise técnica do gráfico
       const imageData = canvas.toDataURL('image/jpeg', 0.9);
-      const analysisResult = await analyzeChart(imageData, {
+      const rawAnalysisResult = await analyzeChart(imageData, {
         isLiveAnalysis: true,
         enablePriceAction: true,
         enableMarketContext: true,
@@ -165,8 +164,19 @@ const LiveAnalysis = () => {
                     minSignalQuality === 'moderada' ? 0.7 : 0.6
       });
       
-      // Adicionar análise de pixels ao resultado
-      analysisResult.pixelAnalysis = pixelAnalysis;
+      // Transform the raw result to match our expected AnalysisResult type
+      const analysisResult: AnalysisResult = {
+        ...rawAnalysisResult,
+        pixelAnalysis,
+        confidence: rawAnalysisResult.patterns?.[0]?.confidence || 0,
+        signals: rawAnalysisResult.patterns?.map(pattern => ({
+          type: pattern.action === 'compra' ? 'Buy' as const : 'Sell' as const,
+          strength: pattern.confidence,
+          description: pattern.description
+        })) || [],
+        trend: rawAnalysisResult.patterns?.[0]?.action || 'neutro',
+        entryRecommendations: []
+      };
       
       // Incrementar contador de análises
       setAnalysisCount(prev => prev + 1);
@@ -194,7 +204,7 @@ const LiveAnalysis = () => {
       minSignalQuality === 'forte' ? 75 :
       minSignalQuality === 'moderada' ? 65 : 55;
     
-    if (analysis.confidence < confidenceThreshold) return false;
+    if ((analysis.confidence || 0) < confidenceThreshold) return false;
     
     // Verificar se há padrões detectados
     if (!analysis.patterns || analysis.patterns.length === 0) return false;
@@ -207,8 +217,10 @@ const LiveAnalysis = () => {
   
   // Notificar usuário sobre sinal
   const notifySignal = useCallback((analysis: AnalysisResult) => {
-    const signal = analysis.signals[0];
-    const pattern = analysis.patterns[0];
+    const signal = analysis.signals?.[0];
+    const pattern = analysis.patterns?.[0];
+    
+    if (!signal || !pattern) return;
     
     // Atualizar timestamp do último sinal
     setLastSignalTime(Date.now());
@@ -216,7 +228,7 @@ const LiveAnalysis = () => {
     // Notificar usuário
     toast({
       title: `🎯 ${signal.type === 'Buy' ? 'COMPRA' : 'VENDA'} Detectada`,
-      description: `${pattern.type} com ${Math.round(analysis.confidence)}% de confiança`,
+      description: `${pattern.type} com ${Math.round(analysis.confidence || 0)}% de confiança`,
       variant: signal.type === 'Buy' ? 'default' : 'destructive',
       duration: 5000,
     });
@@ -435,8 +447,8 @@ const LiveAnalysis = () => {
           <CardHeader className="bg-muted/50 pb-2">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Resultados da Análise</span>
-              <Badge variant={currentAnalysis.confidence > 75 ? "default" : "outline"}>
-                {Math.round(currentAnalysis.confidence)}% confiança
+              <Badge variant={(currentAnalysis.confidence || 0) > 75 ? "default" : "outline"}>
+                {Math.round(currentAnalysis.confidence || 0)}% confiança
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -444,10 +456,10 @@ const LiveAnalysis = () => {
             {/* Tendência e Sinais */}
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className="text-xs">
-                Tendência: {currentAnalysis.trend}
+                Tendência: {currentAnalysis.trend || 'neutro'}
               </Badge>
               
-              {currentAnalysis.signals.map((signal, idx) => (
+              {currentAnalysis.signals?.map((signal, idx) => (
                 <Badge 
                   key={idx}
                   variant={signal.type === 'Buy' ? "default" : "destructive"}
@@ -474,7 +486,7 @@ const LiveAnalysis = () => {
                     >
                       <div className="font-medium">{pattern.type}</div>
                       <div className="text-muted-foreground">
-                        {pattern.action.toUpperCase()} ({Math.round(pattern.confidence * 100)}%)
+                        {pattern.action?.toUpperCase()} ({Math.round(pattern.confidence * 100)}%)
                       </div>
                     </div>
                   ))}
