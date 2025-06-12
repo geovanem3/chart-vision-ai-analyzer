@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
 import { analyzeChart } from '@/utils/patternDetection';
+import { analyzeChartPixels, type ChartPixelAnalysis } from '@/utils/chartPixelAnalysis';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -30,10 +31,11 @@ interface LiveAnalysisResult {
   entryRecommendations?: any[];
   riskReward?: number;
   latency?: number;
-  chartAnalysisQuality?: 'excelente' | 'boa' | 'regular' | 'ruim';
+  chartAnalysisQuality?: 'excelente' | 'boa' | 'regular' | 'ruim' | 'nao_detectado';
   visualConfirmation?: boolean;
-  executionWindow?: number; // Tempo em segundos para executar o sinal
+  executionWindow?: number;
   signalStrength?: 'muito_forte' | 'forte' | 'moderada' | 'fraca';
+  pixelAnalysis?: ChartPixelAnalysis;
 }
 
 const LiveAnalysis = () => {
@@ -42,7 +44,7 @@ const LiveAnalysis = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(5000); // Aumentado para 5 segundos
+  const [analysisInterval, setAnalysisInterval] = useState(8000); // Aumentado para 8 segundos para análise mais rigorosa
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -57,9 +59,10 @@ const LiveAnalysis = () => {
   const [lastSignalType, setLastSignalType] = useState<'compra' | 'venda' | null>(null);
   const [analysisCount, setAnalysisCount] = useState<number>(0);
   const [chartDetectionEnabled, setChartDetectionEnabled] = useState(true);
-  const [signalCooldown, setSignalCooldown] = useState(60000); // 60 segundos de cooldown
-  const [minSignalQuality, setMinSignalQuality] = useState<'forte' | 'muito_forte'>('forte');
+  const [signalCooldown, setSignalCooldown] = useState(90000); // Aumentado para 90 segundos
+  const [minSignalQuality, setMinSignalQuality] = useState<'muito_forte'>('muito_forte'); // Apenas sinais muito fortes
   const [consecutiveNoChartCount, setConsecutiveNoChartCount] = useState(0);
+  const [pixelAnalysisHistory, setPixelAnalysisHistory] = useState<ChartPixelAnalysis[]>([]);
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -115,110 +118,27 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Função melhorada para detectar gráfico com mais precisão
-  const detectChartInImage = (canvas: HTMLCanvasElement): { 
-    hasChart: boolean; 
-    quality: 'excelente' | 'boa' | 'regular' | 'ruim';
-    confidence: number;
-  } => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return { hasChart: false, quality: 'ruim', confidence: 0 };
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+  // Função ultra-rigorosa para detectar gráfico com análise de pixels
+  const detectChartWithPixelAnalysis = (canvas: HTMLCanvasElement): ChartPixelAnalysis => {
+    console.log(`[PIXEL DETECTION] Iniciando análise rigorosa de pixels`);
     
-    let linePixels = 0;
-    let colorVariations = new Set<string>();
-    let contrastCount = 0;
-    let horizontalLines = 0;
-    let verticalLines = 0;
+    const pixelAnalysis = analyzeChartPixels(canvas);
     
-    // Analisar pixels para detectar padrões de gráfico
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      
-      // Detectar variações de cor (indicativo de dados visuais)
-      const colorKey = `${Math.floor(r/15)}-${Math.floor(g/15)}-${Math.floor(b/15)}`;
-      colorVariations.add(colorKey);
-      
-      // Detectar contrastes (bordas de candles, linhas)
-      if (i > 4) {
-        const prevR = data[i - 4];
-        const prevG = data[i - 3];
-        const prevB = data[i - 2];
-        
-        const contrast = Math.abs(r - prevR) + Math.abs(g - prevG) + Math.abs(b - prevB);
-        if (contrast > 80) contrastCount++;
-      }
-    }
+    console.log(`[PIXEL DETECTION] Resultado:`, {
+      qualidade: pixelAnalysis.chartQuality,
+      confiança: pixelAnalysis.confidence,
+      candles: pixelAnalysis.candleDetection.count,
+      grid: `${pixelAnalysis.gridDetection.horizontalLines}H/${pixelAnalysis.gridDetection.verticalLines}V`,
+      cores: `Verde:${pixelAnalysis.colorAnalysis.hasGreenCandles} Vermelho:${pixelAnalysis.colorAnalysis.hasRedCandles}`
+    });
     
-    // Detectar linhas horizontais e verticais (grid do gráfico)
-    const width = canvas.width;
-    const height = canvas.height;
-    
-    // Verificar linhas horizontais a cada 10% da altura
-    for (let y = Math.floor(height * 0.1); y < height; y += Math.floor(height * 0.1)) {
-      let linePixelCount = 0;
-      for (let x = 0; x < width; x += 5) {
-        const pixelIndex = (y * width + x) * 4;
-        const r = data[pixelIndex];
-        const g = data[pixelIndex + 1];
-        const b = data[pixelIndex + 2];
-        
-        // Detectar pixels que podem ser parte de uma linha
-        if (r + g + b < 600) { // Pixels mais escuros
-          linePixelCount++;
-        }
-      }
-      if (linePixelCount > width * 0.3) horizontalLines++;
-    }
-    
-    // Verificar linhas verticais a cada 10% da largura
-    for (let x = Math.floor(width * 0.1); x < width; x += Math.floor(width * 0.1)) {
-      let linePixelCount = 0;
-      for (let y = 0; y < height; y += 5) {
-        const pixelIndex = (y * width + x) * 4;
-        const r = data[pixelIndex];
-        const g = data[pixelIndex + 1];
-        const b = data[pixelIndex + 2];
-        
-        if (r + g + b < 600) {
-          linePixelCount++;
-        }
-      }
-      if (linePixelCount > height * 0.3) verticalLines++;
-    }
-    
-    const totalPixels = data.length / 4;
-    const colorDiversity = colorVariations.size;
-    const contrastRatio = contrastCount / totalPixels;
-    const gridLinesRatio = (horizontalLines + verticalLines) / 20; // Máximo esperado de 20 linhas
-    
-    // Critérios mais rigorosos para detectar gráfico
-    const hasChart = colorDiversity > 80 && contrastRatio > 0.025 && gridLinesRatio > 0.2;
-    
-    // Calcular confiança baseada em múltiplos fatores
-    let confidence = 0;
-    confidence += Math.min(50, colorDiversity * 0.5); // Máximo 50 pontos
-    confidence += Math.min(25, contrastRatio * 1000); // Máximo 25 pontos  
-    confidence += Math.min(25, gridLinesRatio * 125); // Máximo 25 pontos
-    
-    let quality: 'excelente' | 'boa' | 'regular' | 'ruim' = 'ruim';
-    if (hasChart) {
-      if (confidence > 85) quality = 'excelente';
-      else if (confidence > 70) quality = 'boa';
-      else if (confidence > 50) quality = 'regular';
-    }
-    
-    return { hasChart, quality, confidence };
+    return pixelAnalysis;
   };
 
-  // Função para validar qualidade do sinal
-  const validateSignalQuality = (
+  // Função para validar qualidade do sinal com base na análise de pixels
+  const validateSignalQualityWithPixels = (
     analysisResult: any, 
-    chartQuality: 'excelente' | 'boa' | 'regular' | 'ruim'
+    pixelAnalysis: ChartPixelAnalysis
   ): {
     isValid: boolean;
     signalStrength: 'muito_forte' | 'forte' | 'moderada' | 'fraca';
@@ -228,90 +148,99 @@ const LiveAnalysis = () => {
     const reasons: string[] = [];
     let score = 0;
     
-    // Critério 1: Qualidade do gráfico detectado
-    if (chartQuality === 'excelente') {
-      score += 25;
-      reasons.push('Gráfico detectado com excelente qualidade');
-    } else if (chartQuality === 'boa') {
-      score += 20;
-      reasons.push('Gráfico detectado com boa qualidade');
-    } else if (chartQuality === 'regular') {
-      score += 10;
-      reasons.push('Gráfico detectado com qualidade regular');
-    } else {
-      return { isValid: false, signalStrength: 'fraca', executionWindow: 0, reasons: ['Qualidade do gráfico insuficiente'] };
-    }
-    
-    // Critério 2: Confluência de múltiplos fatores
-    const hasValidPattern = analysisResult.patterns.length > 0 && analysisResult.patterns[0].action !== 'neutro';
-    const hasGoodConfluence = (analysisResult.confluences?.confluenceScore || 0) > 65;
-    const hasStrongPriceAction = (analysisResult.priceActionSignals?.length || 0) > 0;
-    const hasValidEntry = (analysisResult.entryRecommendations?.length || 0) > 0;
-    
-    const confluenceCount = [hasValidPattern, hasGoodConfluence, hasStrongPriceAction, hasValidEntry].filter(Boolean).length;
-    
-    if (confluenceCount >= 3) {
+    // CRITÉRIO 1: Qualidade da detecção de pixels (peso 40%)
+    if (pixelAnalysis.chartQuality === 'excelente') {
+      score += 40;
+      reasons.push(`✅ Gráfico detectado com excelente qualidade (${pixelAnalysis.confidence}%)`);
+    } else if (pixelAnalysis.chartQuality === 'boa') {
       score += 30;
-      reasons.push(`Confluência excelente (${confluenceCount}/4 critérios)`);
-    } else if (confluenceCount >= 2) {
-      score += 20;
-      reasons.push(`Confluência boa (${confluenceCount}/4 critérios)`);
-    } else {
-      score += 5;
-      reasons.push(`Confluência fraca (${confluenceCount}/4 critérios)`);
-    }
-    
-    // Critério 3: Confiança do padrão principal
-    const mainPatternConfidence = analysisResult.patterns[0]?.confidence || 0;
-    if (mainPatternConfidence > 0.8) {
-      score += 25;
-      reasons.push(`Padrão com alta confiança (${Math.round(mainPatternConfidence * 100)}%)`);
-    } else if (mainPatternConfidence > 0.65) {
+      reasons.push(`✅ Gráfico detectado com boa qualidade (${pixelAnalysis.confidence}%)`);
+    } else if (pixelAnalysis.chartQuality === 'regular') {
       score += 15;
-      reasons.push(`Padrão com boa confiança (${Math.round(mainPatternConfidence * 100)}%)`);
+      reasons.push(`⚠️ Qualidade do gráfico regular (${pixelAnalysis.confidence}%)`);
+    } else {
+      reasons.push(`❌ Qualidade insuficiente: ${pixelAnalysis.chartQuality} (${pixelAnalysis.confidence}%)`);
+      return { isValid: false, signalStrength: 'fraca', executionWindow: 0, reasons };
+    }
+    
+    // CRITÉRIO 2: Detecção de candles (peso 25%)
+    if (pixelAnalysis.candleDetection.quality === 'alta' && pixelAnalysis.candleDetection.count >= 15) {
+      score += 25;
+      reasons.push(`🕯️ ${pixelAnalysis.candleDetection.count} candles detectados com alta qualidade`);
+    } else if (pixelAnalysis.candleDetection.quality === 'media' && pixelAnalysis.candleDetection.count >= 8) {
+      score += 15;
+      reasons.push(`🕯️ ${pixelAnalysis.candleDetection.count} candles detectados com qualidade média`);
     } else {
       score += 5;
-      reasons.push(`Padrão com baixa confiança (${Math.round(mainPatternConfidence * 100)}%)`);
+      reasons.push(`⚠️ Apenas ${pixelAnalysis.candleDetection.count} candles detectados`);
     }
     
-    // Critério 4: Score de confluência técnica
-    const confluenceScore = analysisResult.confluences?.confluenceScore || 0;
-    if (confluenceScore > 75) {
-      score += 20;
-      reasons.push(`Score de confluência alto (${Math.round(confluenceScore)}%)`);
-    } else if (confluenceScore > 60) {
+    // CRITÉRIO 3: Grid e estrutura (peso 15%)
+    if (pixelAnalysis.gridDetection.detected && 
+        pixelAnalysis.gridDetection.horizontalLines >= 4 && 
+        pixelAnalysis.gridDetection.verticalLines >= 4) {
+      score += 15;
+      reasons.push(`📊 Grid completo detectado (${pixelAnalysis.gridDetection.horizontalLines}H/${pixelAnalysis.gridDetection.verticalLines}V)`);
+    } else {
+      score += 5;
+      reasons.push(`⚠️ Grid incompleto ou não detectado`);
+    }
+    
+    // CRITÉRIO 4: Cores dos candles (peso 10%)
+    if (pixelAnalysis.colorAnalysis.hasGreenCandles && pixelAnalysis.colorAnalysis.hasRedCandles) {
       score += 10;
-      reasons.push(`Score de confluência moderado (${Math.round(confluenceScore)}%)`);
+      reasons.push(`🎨 Candles verdes e vermelhos detectados`);
+    } else {
+      score += 3;
+      reasons.push(`⚠️ Cores de candles não detectadas claramente`);
     }
     
-    // Determinar força do sinal e janela de execução
+    // CRITÉRIO 5: Confluência da análise técnica (peso 10%)
+    const confluenceScore = analysisResult.confluences?.confluenceScore || 0;
+    if (confluenceScore > 80) {
+      score += 10;
+      reasons.push(`📈 Confluência técnica excelente (${Math.round(confluenceScore)}%)`);
+    } else if (confluenceScore > 65) {
+      score += 6;
+      reasons.push(`📈 Confluência técnica boa (${Math.round(confluenceScore)}%)`);
+    } else {
+      score += 2;
+      reasons.push(`⚠️ Confluência técnica baixa (${Math.round(confluenceScore)}%)`);
+    }
+    
+    // Determinar força do sinal baseado no score
     let signalStrength: 'muito_forte' | 'forte' | 'moderada' | 'fraca' = 'fraca';
-    let executionWindow = 30; // segundos padrão
+    let executionWindow = 30;
     
     if (score >= 90) {
       signalStrength = 'muito_forte';
-      executionWindow = 90; // 1.5 minutos para sinais muito fortes
+      executionWindow = 120; // 2 minutos para sinais muito fortes
     } else if (score >= 75) {
       signalStrength = 'forte';
-      executionWindow = 60; // 1 minuto para sinais fortes
+      executionWindow = 90;
     } else if (score >= 60) {
       signalStrength = 'moderada';
-      executionWindow = 45; // 45 segundos para sinais moderados
+      executionWindow = 60;
     }
     
-    // Aplicar filtro de qualidade mínima
-    const isValid = (minSignalQuality === 'muito_forte' && signalStrength === 'muito_forte') ||
-                   (minSignalQuality === 'forte' && ['muito_forte', 'forte'].includes(signalStrength));
+    // Para opções binárias, só aceitar sinais muito fortes
+    const isValid = signalStrength === 'muito_forte' && 
+                   pixelAnalysis.confidence >= 70 &&
+                   pixelAnalysis.candleDetection.count >= 10;
+    
+    if (!isValid) {
+      reasons.push(`🚫 Sinal rejeitado: Força ${signalStrength}, apenas sinais MUITO FORTES são aceitos para opções binárias`);
+    }
     
     return { isValid, signalStrength, executionWindow, reasons };
   };
 
-  // Capturar frame e analisar com validação super rigorosa
+  // Capturar frame e analisar com validação ultra-rigorosa de pixels
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
     const captureStartTime = Date.now();
-    console.log(`[ANÁLISE ${analysisCount + 1}] Iniciando análise rigorosa`);
+    console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] Iniciando análise ultra-rigorosa para opções binárias`);
 
     try {
       setIsAnalyzing(true);
@@ -330,11 +259,12 @@ const LiveAnalysis = () => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const captureTime = Date.now();
       
-      // VALIDAÇÃO 1: Detectar qualidade do gráfico
-      const chartDetection = detectChartInImage(canvas);
+      // VALIDAÇÃO 1: Análise rigorosa de pixels
+      const pixelAnalysis = detectChartWithPixelAnalysis(canvas);
+      setPixelAnalysisHistory(prev => [pixelAnalysis, ...prev.slice(0, 9)]);
       
-      if (chartDetectionEnabled && !chartDetection.hasChart) {
-        console.log(`[ANÁLISE ${analysisCount + 1}] Gráfico não detectado - confiança: ${chartDetection.confidence.toFixed(1)}%`);
+      if (chartDetectionEnabled && !pixelAnalysis.hasValidChart) {
+        console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] ❌ Gráfico rejeitado - qualidade: ${pixelAnalysis.chartQuality}`);
         setConsecutiveNoChartCount(prev => prev + 1);
         
         setCurrentAnalysis({
@@ -346,28 +276,29 @@ const LiveAnalysis = () => {
           patterns: [],
           trend: 'lateral',
           signalQuality: 'ruim',
-          chartAnalysisQuality: chartDetection.quality,
+          chartAnalysisQuality: pixelAnalysis.chartQuality,
           visualConfirmation: false,
           latency: Date.now() - captureStartTime,
-          signalStrength: 'fraca'
+          signalStrength: 'fraca',
+          pixelAnalysis
         });
         return;
       }
 
       setConsecutiveNoChartCount(0);
       
-      // VALIDAÇÃO 2: Controle de cooldown inteligente
+      // VALIDAÇÃO 2: Controle de cooldown ultra-conservador
       const timeSinceLastSignal = captureTime - lastSignalTime;
       
       if (timeSinceLastSignal < signalCooldown) {
-        console.log(`[ANÁLISE ${analysisCount + 1}] Em cooldown - ${Math.round((signalCooldown - timeSinceLastSignal) / 1000)}s restantes`);
+        console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] ⏱️ Em cooldown - ${Math.round((signalCooldown - timeSinceLastSignal) / 1000)}s restantes`);
         return;
       }
 
       // Converter para base64
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.95); // Qualidade máxima
       
-      // Analisar com máxima rigorosidade
+      // VALIDAÇÃO 3: Análise técnica com máxima rigorosidade
       const analysisResult = await analyzeChart(imageUrl, {
         timeframe: '1m',
         optimizeForScalping: true,
@@ -381,16 +312,16 @@ const LiveAnalysis = () => {
         useConfluences: true,
         enablePriceAction: true,
         enableMarketContext: true,
-        sensitivity: 0.9 // Máxima sensibilidade para ser ultra-criterioso
+        sensitivity: 0.95 // Máxima sensibilidade para ser ultra-criterioso
       });
 
       const analysisEndTime = Date.now();
       const totalLatency = analysisEndTime - captureStartTime;
       
-      // VALIDAÇÃO 3: Validar qualidade do sinal
-      const signalValidation = validateSignalQuality(analysisResult, chartDetection.quality);
+      // VALIDAÇÃO 4: Validar qualidade do sinal com análise de pixels
+      const signalValidation = validateSignalQualityWithPixels(analysisResult, pixelAnalysis);
       
-      console.log(`[ANÁLISE ${analysisCount + 1}] Gráfico: ${chartDetection.quality} | Sinal: ${signalValidation.signalStrength} | Válido: ${signalValidation.isValid}`);
+      console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] 📊 Pixels: ${pixelAnalysis.chartQuality} | Sinal: ${signalValidation.signalStrength} | Válido: ${signalValidation.isValid}`);
 
       // Armazenar detalhes
       setConfluenceDetails(analysisResult.confluences);
@@ -400,15 +331,15 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Determinar sinal final
-      const finalSignal = signalValidation.isValid ? 
+      // Determinar sinal final - APENAS MUITO FORTES para opções binárias
+      const finalSignal = signalValidation.isValid && signalValidation.signalStrength === 'muito_forte' ? 
         (analysisResult.patterns[0]?.action || 'neutro') : 'neutro';
       
-      // VALIDAÇÃO 4: Evitar sinais opostos muito próximos
+      // VALIDAÇÃO 5: Evitar sinais opostos consecutivos
       if (finalSignal !== 'neutro' && lastSignalType && finalSignal !== lastSignalType) {
-        const oppositeSignalCooldown = signalCooldown * 1.5; // 50% mais tempo para sinais opostos
+        const oppositeSignalCooldown = signalCooldown * 2; // Dobro do tempo para sinais opostos
         if (timeSinceLastSignal < oppositeSignalCooldown) {
-          console.log(`[ANÁLISE ${analysisCount + 1}] Bloqueando sinal oposto - cooldown estendido`);
+          console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] 🚫 Bloqueando sinal oposto - cooldown estendido`);
           return;
         }
       }
@@ -422,7 +353,7 @@ const LiveAnalysis = () => {
         signal: finalSignal,
         patterns: signalValidation.isValid ? analysisResult.patterns.map(p => p.type) : [],
         trend: analysisResult.detailedMarketContext?.marketStructure.trend || 'lateral',
-        signalQuality: signalValidation.isValid ? 'boa' : 'ruim',
+        signalQuality: signalValidation.isValid ? 'excelente' : 'ruim',
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
         supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
         criticalLevels: analysisResult.confluences?.criticalLevels || [],
@@ -431,37 +362,42 @@ const LiveAnalysis = () => {
         institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
         entryRecommendations: signalValidation.isValid ? (analysisResult.entryRecommendations?.slice(0, 2) || []) : [],
         riskReward: analysisResult.entryRecommendations?.[0]?.riskReward || 2.0,
-        chartAnalysisQuality: chartDetection.quality,
-        visualConfirmation: chartDetection.hasChart,
+        chartAnalysisQuality: pixelAnalysis.chartQuality,
+        visualConfirmation: pixelAnalysis.hasValidChart,
         executionWindow: signalValidation.executionWindow,
-        signalStrength: signalValidation.signalStrength
+        signalStrength: signalValidation.signalStrength,
+        pixelAnalysis
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]);
 
-      // NOTIFICAÇÃO: Apenas para sinais válidos e de qualidade
-      if (signalValidation.isValid && finalSignal !== 'neutro') {
+      // NOTIFICAÇÃO: Apenas para sinais MUITO FORTES para opções binárias
+      if (signalValidation.isValid && finalSignal !== 'neutro' && signalValidation.signalStrength === 'muito_forte') {
         setLastSignalTime(captureTime);
         setLastSignalType(finalSignal as 'compra' | 'venda');
         
-        const strengthEmoji = {
-          'muito_forte': '🔥',
-          'forte': '⚡',
-          'moderada': '📊',
-          'fraca': '⚠️'
-        }[signalValidation.signalStrength];
-        
         toast({
           variant: finalSignal === 'compra' ? "default" : "destructive",
-          title: `${strengthEmoji} ENTRADA ${signalValidation.signalStrength.toUpperCase()} - ${finalSignal.toUpperCase()}`,
-          description: `Janela: ${signalValidation.executionWindow}s | Confiança: ${Math.round(liveResult.confidence * 100)}% | Confluência: ${Math.round(liveResult.confluenceScore)}%`,
-          duration: signalValidation.executionWindow * 1000, // Duração baseada na janela de execução
+          title: `🔥 SINAL ULTRA-FORTE - ${finalSignal.toUpperCase()} 🔥`,
+          description: `⚡ EXECUTE EM ${signalValidation.executionWindow}s | Confiança: ${Math.round(liveResult.confidence * 100)}% | Confluência: ${Math.round(liveResult.confluenceScore)}% | Candles: ${pixelAnalysis.candleDetection.count}`,
+          duration: signalValidation.executionWindow * 1000,
         });
+        
+        // Toast adicional com detalhes técnicos
+        setTimeout(() => {
+          toast({
+            title: "📊 Detalhes da Análise",
+            description: signalValidation.reasons.slice(0, 3).join(" | "),
+            duration: 8000,
+          });
+        }, 1000);
+      } else if (finalSignal === 'neutro' && pixelAnalysis.hasValidChart) {
+        console.log(`[ANÁLISE RIGOROSA ${analysisCount + 1}] ⚪ Gráfico válido mas sem sinal forte suficiente`);
       }
 
     } catch (error) {
-      console.error('Erro na análise rigorosa:', error);
+      console.error('Erro na análise ultra-rigorosa:', error);
     } finally {
       setIsAnalyzing(false);
     }
@@ -532,26 +468,20 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Cabeçalho com controles avançados */}
+      {/* Cabeçalho com controles ultra-rigorosos */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Eye className="h-5 w-5" />
-            Análise M1 Ultra-Rigorosa
+            Análise M1 Ultra-Rigorosa para Opções Binárias
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
               </Badge>
             )}
-            {currentAnalysis?.signalStrength && (
-              <Badge 
-                variant={
-                  currentAnalysis.signalStrength === 'muito_forte' ? 'default' :
-                  currentAnalysis.signalStrength === 'forte' ? 'secondary' : 'destructive'
-                }
-                className="ml-2 text-xs"
-              >
-                {currentAnalysis.signalStrength.replace('_', ' ').toUpperCase()}
+            {currentAnalysis?.signalStrength === 'muito_forte' && (
+              <Badge variant="default" className="ml-2 text-xs bg-red-600">
+                🔥 ULTRA-FORTE
               </Badge>
             )}
           </CardTitle>
@@ -586,10 +516,10 @@ const LiveAnalysis = () => {
               disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
-              <option value={5000}>5s (RIGOROSO)</option>
-              <option value={8000}>8s (BALANCEADO)</option>
-              <option value={10000}>10s (CONSERVADOR)</option>
-              <option value={15000}>15s (ULTRA-CONSERVADOR)</option>
+              <option value={8000}>8s (ULTRA-RIGOROSO)</option>
+              <option value={10000}>10s (SUPER-CONSERVADOR)</option>
+              <option value={15000}>15s (MÁXIMA PRECISÃO)</option>
+              <option value={20000}>20s (SUPER-SELETIVO)</option>
             </select>
 
             <select 
@@ -598,21 +528,15 @@ const LiveAnalysis = () => {
               disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
-              <option value={30000}>30s Cooldown</option>
-              <option value={60000}>60s Cooldown (PADRÃO)</option>
-              <option value={90000}>90s Cooldown</option>
-              <option value={120000}>120s Cooldown (ULTRA)</option>
+              <option value={90000}>90s Cooldown (PADRÃO)</option>
+              <option value={120000}>120s Cooldown (CONSERVADOR)</option>
+              <option value={180000}>180s Cooldown (ULTRA-SELETIVO)</option>
+              <option value={300000}>300s Cooldown (MÁXIMA PRECISÃO)</option>
             </select>
 
-            <select 
-              value={minSignalQuality} 
-              onChange={(e) => setMinSignalQuality(e.target.value as 'forte' | 'muito_forte')}
-              disabled={isLiveActive}
-              className="px-3 py-2 border rounded-md text-sm"
-            >
-              <option value="forte">Sinais FORTES+</option>
-              <option value="muito_forte">Apenas MUITO FORTES</option>
-            </select>
+            <Badge variant="secondary" className="text-xs">
+              APENAS SINAIS ULTRA-FORTES
+            </Badge>
 
             <Button
               variant={chartDetectionEnabled ? "default" : "outline"}
@@ -624,20 +548,33 @@ const LiveAnalysis = () => {
             </Button>
           </div>
           
-          {/* Status detalhado */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-muted-foreground">
+          {/* Status detalhado com informações de pixels */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs text-muted-foreground">
             <div>Análises: {analysisCount}</div>
             <div>Último sinal: {lastSignalTime > 0 ? new Date(lastSignalTime).toLocaleTimeString() : 'Nenhum'}</div>
             <div>Cooldown: {signalCooldown / 1000}s</div>
-            <div>Filtro: {minSignalQuality}</div>
+            <div>Qualidade: {currentAnalysis?.pixelAnalysis?.chartQuality || 'N/A'}</div>
+            <div>Candles: {currentAnalysis?.pixelAnalysis?.candleDetection.count || 0}</div>
           </div>
+          
+          {/* Análise de pixels em tempo real */}
+          {currentAnalysis?.pixelAnalysis && (
+            <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+              <div className="flex items-center gap-4">
+                <span>🎯 Confiança: {currentAnalysis.pixelAnalysis.confidence}%</span>
+                <span>🕯️ Candles: {currentAnalysis.pixelAnalysis.candleDetection.count} ({currentAnalysis.pixelAnalysis.candleDetection.quality})</span>
+                <span>📊 Grid: {currentAnalysis.pixelAnalysis.gridDetection.horizontalLines}H/{currentAnalysis.pixelAnalysis.gridDetection.verticalLines}V</span>
+                <span>🎨 Cores: {currentAnalysis.pixelAnalysis.colorAnalysis.hasGreenCandles ? '✅' : '❌'}G {currentAnalysis.pixelAnalysis.colorAnalysis.hasRedCandles ? '✅' : '❌'}R</span>
+              </div>
+            </div>
+          )}
           
           {/* Contador de cooldown */}
           {isLiveActive && lastSignalTime > 0 && (
             <div className="mt-2">
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4" />
-                <span>Próximo sinal em: {Math.max(0, Math.ceil((signalCooldown - (Date.now() - lastSignalTime)) / 1000))}s</span>
+                <span>Próximo sinal em: {Math.max(0, Math.ceil((signalCooldown - (Date.now() - lastSignalTime)) / 1000)}s</span>
               </div>
             </div>
           )}
@@ -663,7 +600,7 @@ const LiveAnalysis = () => {
         </Alert>
       )}
 
-      {/* Video feed com overlay melhorado */}
+      {/* Video feed com overlay melhorado para análise de pixels */}
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
         <video 
           ref={videoRef}
@@ -677,8 +614,8 @@ const LiveAnalysis = () => {
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">Analisando com rigor...</p>
-              <p className="text-xs text-gray-300">Análise #{analysisCount}</p>
+              <p className="text-sm">Analisando pixels do gráfico...</p>
+              <p className="text-xs text-gray-300">Análise #{analysisCount} - Ultra-rigorosa</p>
             </div>
           </div>
         )}
@@ -701,35 +638,32 @@ const LiveAnalysis = () => {
                       >
                         {currentAnalysis.signal.toUpperCase()}
                       </Badge>
-                      {currentAnalysis.signalStrength && (
-                        <Badge 
-                          variant={currentAnalysis.signalStrength === 'muito_forte' ? 'default' : 
-                                   currentAnalysis.signalStrength === 'forte' ? 'secondary' : 'destructive'}
-                          className="text-xs"
-                        >
-                          {currentAnalysis.signalStrength.replace('_', ' ').toUpperCase()}
+                      {currentAnalysis.signalStrength === 'muito_forte' && (
+                        <Badge variant="default" className="text-xs bg-red-600 animate-pulse">
+                          🔥 ULTRA-FORTE
                         </Badge>
                       )}
                       <Badge 
                         variant={currentAnalysis.visualConfirmation ? 'default' : 'destructive'}
                         className="text-xs"
                       >
-                        {currentAnalysis.visualConfirmation ? '👁️ DETECTADO' : '❌ SEM GRÁFICO'}
+                        {currentAnalysis.pixelAnalysis?.candleDetection.count || 0} CANDLES
                       </Badge>
-                      {currentAnalysis.executionWindow && (
-                        <Badge variant="outline" className="text-xs">
+                      {currentAnalysis.executionWindow && currentAnalysis.signal !== 'neutro' && (
+                        <Badge variant="outline" className="text-xs animate-pulse">
                           ⏱️ {currentAnalysis.executionWindow}s
                         </Badge>
                       )}
                     </div>
                     <p className="text-xs">
-                      Confiança: {Math.round(currentAnalysis.confidence * 100)}% | 
-                      Confluência: {Math.round(currentAnalysis.confluenceScore || 0)}%
+                      Pixels: {Math.round(currentAnalysis.pixelAnalysis?.confidence || 0)}% | 
+                      Confluência: {Math.round(currentAnalysis.confluenceScore || 0)}% |
+                      Qualidade: {currentAnalysis.pixelAnalysis?.chartQuality}
                     </p>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-yellow-300">
-                      Visual: {currentAnalysis.chartAnalysisQuality}
+                      Grid: {currentAnalysis.pixelAnalysis?.gridDetection.horizontalLines}H/{currentAnalysis.pixelAnalysis?.gridDetection.verticalLines}V
                     </div>
                     <div className="text-xs text-blue-300">
                       Fase: {currentAnalysis.marketPhase}
@@ -740,10 +674,17 @@ const LiveAnalysis = () => {
                   </div>
                 </div>
                 
-                {/* Janela de execução */}
-                {currentAnalysis.executionWindow && currentAnalysis.signal !== 'neutro' && (
-                  <div className="text-xs text-orange-300 mb-1 font-semibold">
-                    ⚡ EXECUTE EM {currentAnalysis.executionWindow} SEGUNDOS
+                {/* Janela de execução para sinais ultra-fortes */}
+                {currentAnalysis.executionWindow && currentAnalysis.signal !== 'neutro' && currentAnalysis.signalStrength === 'muito_forte' && (
+                  <div className="text-xs text-red-400 mb-1 font-bold animate-pulse">
+                    🔥 EXECUTE AGORA - {currentAnalysis.executionWindow} SEGUNDOS! 🔥
+                  </div>
+                )}
+                
+                {/* Recomendações da análise de pixels */}
+                {currentAnalysis.pixelAnalysis?.recommendations && currentAnalysis.pixelAnalysis.recommendations.length > 0 && (
+                  <div className="text-xs text-orange-300 mb-1">
+                    💡 {currentAnalysis.pixelAnalysis.recommendations[0]}
                   </div>
                 )}
                 
