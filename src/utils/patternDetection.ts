@@ -12,6 +12,7 @@ import {
   PriceActionSignal, 
   MarketContextAnalysis 
 } from "./priceActionAnalysis";
+import { analyzeCandleMetrics, CandleMetrics } from "./candleAnalysis";
 
 // Function to detect a specific pattern in the chart data
 export const detectPattern = (chart: Chart, pattern: Pattern): boolean => {
@@ -71,6 +72,14 @@ export interface AnalysisOptions {
   useConfluences?: boolean;
   enablePriceAction?: boolean;
   enableMarketContext?: boolean;
+}
+
+// Define VolatilityAnalysis interface
+export interface VolatilityAnalysis {
+  currentVolatility: number;
+  volatilityRatio: number;
+  isHighVolatility: boolean;
+  averageVolatility: number;
 }
 
 export interface AnalysisResult {
@@ -218,6 +227,23 @@ const detectAnalysisWarnings = (
   return warnings;
 };
 
+// Add volatility analysis function
+const analyzeVolatility = (candles: CandleData[]): VolatilityAnalysis => {
+  const recentCandles = candles.slice(-20); // Last 20 candles
+  const ranges = recentCandles.map(candle => (candle.high - candle.low) / candle.close);
+  
+  const currentVolatility = ranges[ranges.length - 1] || 0;
+  const averageVolatility = ranges.reduce((sum, range) => sum + range, 0) / ranges.length;
+  const volatilityRatio = currentVolatility / averageVolatility;
+  
+  return {
+    currentVolatility: currentVolatility * 100, // Convert to percentage
+    volatilityRatio,
+    isHighVolatility: volatilityRatio > 1.5,
+    averageVolatility: averageVolatility * 100
+  };
+};
+
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   console.log('🚀 Iniciando análise completa do gráfico...');
   
@@ -252,6 +278,10 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   }
   
   console.log(`📊 Gerados ${mockCandles.length} candles para análise`);
+  
+  // Analyze volatility
+  const volatilityAnalysis = analyzeVolatility(mockCandles);
+  console.log(`📈 Volatilidade: ${volatilityAnalysis.currentVolatility.toFixed(2)}% (ratio: ${volatilityAnalysis.volatilityRatio.toFixed(2)})`);
   
   // Generate patterns with better logic
   const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
@@ -379,7 +409,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       patterns, 
       priceActionSignals, 
       result.confluences,
-      result.detailedMarketContext
+      result.detailedMarketContext,
+      volatilityAnalysis
     );
     console.log(`💡 Geradas ${result.entryRecommendations?.length || 0} recomendações de entrada`);
   }
@@ -406,7 +437,6 @@ const generateScalpingEntries = (
   priceActionSignals: PriceActionSignal[],
   confluences?: ConfluenceAnalysis,
   marketContext?: MarketContextAnalysis,
-  candleContext?: any,
   volatilityAnalysis?: VolatilityAnalysis
 ): AnalysisResult['entryRecommendations'] => {
   const entries: AnalysisResult['entryRecommendations'] = [];
@@ -419,8 +449,7 @@ const generateScalpingEntries = (
   // Filtrar apenas padrões válidos e confiáveis
   const validPatterns = patterns.filter(pattern => 
     pattern.action !== 'neutro' && 
-    pattern.confidence > 0.5 &&
-    pattern.validation?.isReliable !== false
+    pattern.confidence > 0.5
   );
   
   if (validPatterns.length === 0) {
@@ -536,13 +565,6 @@ const generateScalpingEntries = (
         confidence *= 0.9;
       }
       
-      // Boost para contexto de candles de boa qualidade
-      if (candleContext?.quality === 'excelente') {
-        confidence = Math.min(1, confidence * 1.15);
-      } else if (candleContext?.quality === 'ruim') {
-        confidence *= 0.85;
-      }
-      
       let reasoning = `${pattern.type}`;
       if (bestPASignal) {
         reasoning += ` + ${bestPASignal.type} (${bestPASignal.strength})`;
@@ -565,11 +587,6 @@ const generateScalpingEntries = (
       // Add volatility context
       if (volatilityAnalysis) {
         reasoning += ` | Vol: ${volatilityAnalysis.volatilityRatio.toFixed(1)}x`;
-      }
-      
-      // Add candle quality
-      if (candleContext) {
-        reasoning += ` | Qualidade: ${candleContext.quality}`;
       }
       
       entries.push({
