@@ -1,4 +1,3 @@
-
 import { Chart } from "chart.js";
 import { Pattern, PatternName, DetectedPattern } from "./types";
 import { TechnicalElement, CandleData, Point } from "../context/AnalyzerContext";
@@ -400,37 +399,52 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   return result;
 };
 
-// Generate specific scalping entry recommendations with better logic
+// Generate specific scalping entry recommendations with candle analysis
 const generateScalpingEntries = (
   candles: CandleData[],
   patterns: DetectedPattern[],
   priceActionSignals: PriceActionSignal[],
   confluences?: ConfluenceAnalysis,
-  marketContext?: MarketContextAnalysis
+  marketContext?: MarketContextAnalysis,
+  candleContext?: any,
+  volatilityAnalysis?: VolatilityAnalysis
 ): AnalysisResult['entryRecommendations'] => {
   const entries: AnalysisResult['entryRecommendations'] = [];
   const currentPrice = candles[candles.length - 1]?.close || 100;
+  const currentCandle = candles[candles.length - 1];
+  const currentMetrics = analyzeCandleMetrics(currentCandle);
   
-  console.log('💰 Gerando recomendações de entrada para scalping...');
+  console.log('💰 Gerando recomendações com análise de candles...');
   
-  // Filtrar apenas padrões válidos (não neutros)
-  const validPatterns = patterns.filter(pattern => pattern.action !== 'neutro');
+  // Filtrar apenas padrões válidos e confiáveis
+  const validPatterns = patterns.filter(pattern => 
+    pattern.action !== 'neutro' && 
+    pattern.confidence > 0.5 &&
+    pattern.validation?.isReliable !== false
+  );
   
   if (validPatterns.length === 0) {
     console.log('⚠️ Nenhum padrão válido para gerar entradas');
     return [];
   }
   
-  // Combine pattern signals with price action - apenas sinais alinhados
   validPatterns.forEach(pattern => {
     const validAction = pattern.action as 'compra' | 'venda';
+    
+    // Verificar alinhamento com price action
     const alignedPASignals = priceActionSignals.filter(pa => 
       (validAction === 'compra' && pa.direction === 'alta') ||
       (validAction === 'venda' && pa.direction === 'baixa')
     );
     
-    // Só gerar entrada se há alinhamento ou se o padrão é muito forte
-    if (alignedPASignals.length > 0 || pattern.confidence > 0.8) {
+    // Verificar qualidade do candle atual
+    const isCandleQualityGood = currentMetrics.bodyPercent > 15 || 
+                               currentMetrics.isPinBar || 
+                               currentMetrics.isHammer || 
+                               currentMetrics.isShootingStar;
+    
+    // Só gerar entrada se há alinhamento OU se o padrão é muito forte OU se o candle tem boa qualidade
+    if (alignedPASignals.length > 0 || pattern.confidence > 0.8 || isCandleQualityGood) {
       const bestPASignal = alignedPASignals.length > 0 ? 
         alignedPASignals.sort((a, b) => b.confidence - a.confidence)[0] : null;
       
@@ -439,38 +453,94 @@ const generateScalpingEntries = (
       let takeProfit = currentPrice;
       let riskReward = 2.0;
       
-      // Calcular preços mais precisos baseados no timeframe M1
-      const volatilityFactor = 0.001; // 0.1% para M1
-      const spreadFactor = 0.0005; // 0.05% spread
+      // Calcular preços baseados na análise de candles e volatilidade
+      const volatilityFactor = volatilityAnalysis ? 
+        Math.max(0.0005, Math.min(0.002, volatilityAnalysis.currentVolatility / 100)) : 
+        0.001;
       
+      const spreadFactor = 0.0003; // Spread reduzido para M1
+      
+      // Ajustar entrada baseada no tipo de candle
       if (bestPASignal?.entryZone) {
         entryPrice = bestPASignal.entryZone.optimal;
       } else {
-        // Ajustar entrada baseada no pattern confidence
-        entryPrice = validAction === 'compra' ? 
-          currentPrice * (1 + spreadFactor) : 
-          currentPrice * (1 - spreadFactor);
+        // Entrada baseada na análise do candle atual
+        if (validAction === 'compra') {
+          if (currentMetrics.isHammer || currentMetrics.wickDominance === 'lower') {
+            // Entrada próxima ao close para martelos
+            entryPrice = currentPrice * (1 + spreadFactor);
+          } else {
+            entryPrice = currentPrice * (1 + spreadFactor * 1.5);
+          }
+        } else {
+          if (currentMetrics.isShootingStar || currentMetrics.wickDominance === 'upper') {
+            // Entrada próxima ao close para estrelas cadentes
+            entryPrice = currentPrice * (1 - spreadFactor);
+          } else {
+            entryPrice = currentPrice * (1 - spreadFactor * 1.5);
+          }
+        }
       }
+      
+      // Calcular stop loss baseado no tamanho do candle e volatilidade
+      const candleBasedStop = Math.max(
+        volatilityFactor * 1.5, // Stop mínimo baseado na volatilidade
+        currentMetrics.totalRange * 0.6 / currentPrice // Stop baseado no range do candle
+      );
       
       if (validAction === 'compra') {
-        stopLoss = entryPrice * (1 - (volatilityFactor * 2)); // 0.2% stop
-        takeProfit = entryPrice * (1 + (volatilityFactor * 4)); // 0.4% target
+        stopLoss = entryPrice * (1 - candleBasedStop);
+        
+        // Take profit baseado na análise do candle
+        if (currentMetrics.isHammer && currentMetrics.lowerWickPercent > 60) {
+          // Para martelos fortes, target maior
+          takeProfit = entryPrice * (1 + (candleBasedStop * 3.5));
+          riskReward = 3.5;
+        } else {
+          takeProfit = entryPrice * (1 + (candleBasedStop * 2.5));
+          riskReward = 2.5;
+        }
       } else {
-        stopLoss = entryPrice * (1 + (volatilityFactor * 2));
-        takeProfit = entryPrice * (1 - (volatilityFactor * 4));
+        stopLoss = entryPrice * (1 + candleBasedStop);
+        
+        // Take profit para vendas
+        if (currentMetrics.isShootingStar && currentMetrics.upperWickPercent > 60) {
+          // Para estrelas cadentes fortes, target maior
+          takeProfit = entryPrice * (1 - (candleBasedStop * 3.5));
+          riskReward = 3.5;
+        } else {
+          takeProfit = entryPrice * (1 - (candleBasedStop * 2.5));
+          riskReward = 2.5;
+        }
       }
       
-      riskReward = Math.abs(takeProfit - entryPrice) / Math.abs(entryPrice - stopLoss);
-      
-      // Calcular confiança combinada
+      // Calcular confiança combinada considerando candles
       let confidence = pattern.confidence;
+      
       if (bestPASignal) {
         confidence = (pattern.confidence + bestPASignal.confidence) / 2;
       }
       
-      // Boost confidence if confluences align
+      // Boost para candles de alta qualidade
+      if (isCandleQualityGood) {
+        confidence = Math.min(1, confidence * 1.1);
+      }
+      
+      // Boost se confluences align
       if (confluences && confluences.confluenceScore > 60) {
         confidence = Math.min(1, confidence * 1.1);
+      }
+      
+      // Penalizar se volatilidade muito alta
+      if (volatilityAnalysis && volatilityAnalysis.volatilityRatio > 2.5) {
+        confidence *= 0.9;
+      }
+      
+      // Boost para contexto de candles de boa qualidade
+      if (candleContext?.quality === 'excelente') {
+        confidence = Math.min(1, confidence * 1.15);
+      } else if (candleContext?.quality === 'ruim') {
+        confidence *= 0.85;
       }
       
       let reasoning = `${pattern.type}`;
@@ -478,17 +548,28 @@ const generateScalpingEntries = (
         reasoning += ` + ${bestPASignal.type} (${bestPASignal.strength})`;
       }
       
+      // Adicionar informações do candle
+      if (currentMetrics.isHammer) {
+        reasoning += ` | Martelo: pavio ${currentMetrics.lowerWickPercent.toFixed(0)}%`;
+      } else if (currentMetrics.isShootingStar) {
+        reasoning += ` | Estrela: pavio ${currentMetrics.upperWickPercent.toFixed(0)}%`;
+      } else if (currentMetrics.isPinBar) {
+        reasoning += ` | Pin Bar: ${currentMetrics.wickDominance}`;
+      }
+      
       // Add confluence reasoning
       if (confluences && confluences.confluenceScore > 60) {
         reasoning += ` | Confluência: ${Math.round(confluences.confluenceScore)}%`;
       }
       
-      // Add market context reasoning
-      if (marketContext) {
-        reasoning += ` | Contexto: ${marketContext.phase}`;
-        if (marketContext.institutionalBias && marketContext.institutionalBias !== 'neutro') {
-          reasoning += ` - ${marketContext.institutionalBias}`;
-        }
+      // Add volatility context
+      if (volatilityAnalysis) {
+        reasoning += ` | Vol: ${volatilityAnalysis.volatilityRatio.toFixed(1)}x`;
+      }
+      
+      // Add candle quality
+      if (candleContext) {
+        reasoning += ` | Qualidade: ${candleContext.quality}`;
       }
       
       entries.push({
