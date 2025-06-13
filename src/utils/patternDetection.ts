@@ -1,3 +1,4 @@
+
 import { Chart } from "chart.js";
 import { Pattern, PatternName, DetectedPattern } from "./types";
 import { TechnicalElement, CandleData, Point } from "../context/AnalyzerContext";
@@ -142,13 +143,13 @@ const validateSignalConsistency = (
     }
   });
   
-  // Voto do contexto de mercado
+  // Voto do contexto de mercado - corrigir comparação de tipos
   if (marketContext) {
     const marketBias = marketContext.institutionalBias;
-    if (marketBias === 'alta' || marketBias === 'compra') {
+    if (marketBias === 'compra') {
       votes.compra += 0.3;
       reasons.push(`Contexto de mercado: ${marketBias}`);
-    } else if (marketBias === 'baixa' || marketBias === 'venda') {
+    } else if (marketBias === 'venda') {
       votes.venda += 0.3;
       reasons.push(`Contexto de mercado: ${marketBias}`);
     }
@@ -324,12 +325,12 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     });
   }
   
-  // Set trend based on market context
+  // Set trend based on market context - corrigir mapeamento de tipos
   if (detailedMarketContext?.marketStructure?.trend) {
     const rawTrend = detailedMarketContext.marketStructure.trend;
-    if (rawTrend === 'bullish') {
+    if (rawTrend === 'alta') {
       result.trend = 'Bullish';
-    } else if (rawTrend === 'bearish') {
+    } else if (rawTrend === 'baixa') {
       result.trend = 'Bearish';
     } else {
       result.trend = 'Sideways';

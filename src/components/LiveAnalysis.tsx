@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -324,14 +325,14 @@ const LiveAnalysis = () => {
         finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
       }
 
-      // Mapear tendência corretamente
+      // Mapear tendência corretamente - corrigir tipo de comparação
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
       
       if (analysisResult.detailedMarketContext?.marketStructure?.trend) {
         const rawTrend = analysisResult.detailedMarketContext.marketStructure.trend;
-        if (rawTrend === 'bullish') {
+        if (rawTrend === 'alta') {
           mappedTrend = 'alta';
-        } else if (rawTrend === 'bearish') {
+        } else if (rawTrend === 'baixa') {
           mappedTrend = 'baixa';
         }
       }
