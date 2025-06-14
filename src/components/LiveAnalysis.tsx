@@ -279,13 +279,13 @@ const LiveAnalysis = () => {
         console.log(`⏰ Validação Temporal: ${temporalValidation.reasoning}`);
       }
 
-      // NOVA FUNCIONALIDADE: Sistema de Tracking Completo
+      // SISTEMA COMPLETO: Tracking + M1 Context integrados
       const intelligentDecision: FinalDecision = trackAllAnalysisComponents(
         analysisResult,
         temporalValidation
       );
 
-      // Log detalhado da decisão
+      // Log detalhado da decisão (agora inclui M1)
       logAnalysisDecision(intelligentDecision);
 
       // Armazenar detalhes das confluências e price action
@@ -300,7 +300,7 @@ const LiveAnalysis = () => {
       const finalSignal = intelligentDecision.shouldTrade ? intelligentDecision.signal : 'neutro';
       const finalConfidence = intelligentDecision.shouldTrade ? intelligentDecision.confidence : 0;
       
-      // Determinar qualidade do sinal baseado na decisão inteligente
+      // Determinar qualidade do sinal baseado na decisão inteligente (agora inclui M1)
       let signalQuality = 'fraca';
       if (intelligentDecision.shouldTrade) {
         if (intelligentDecision.qualityScore > 85) {
@@ -313,8 +313,10 @@ const LiveAnalysis = () => {
           signalQuality = 'moderada';
         }
       } else {
-        // Se foi rejeitada, determinar tipo de rejeição
-        if (intelligentDecision.rejectionReasons.some(r => r.includes('temporal'))) {
+        // Se foi rejeitada, determinar tipo de rejeição (inclui M1)
+        if (intelligentDecision.rejectionReasons.some(r => r.includes('M1') || r.includes('lateralização') || r.includes('indecisão'))) {
+          signalQuality = 'rejeitada_m1';
+        } else if (intelligentDecision.rejectionReasons.some(r => r.includes('temporal'))) {
           signalQuality = 'rejeitada_temporal';
         } else if (intelligentDecision.rejectionReasons.some(r => r.includes('mercado'))) {
           signalQuality = 'rejeitada_mercado';
@@ -383,7 +385,7 @@ const LiveAnalysis = () => {
         lastValidSignalTime: intelligentDecision.shouldTrade ? Date.now() : prev.lastValidSignalTime
       }));
 
-      // APENAS ALERTAR OPERAÇÕES APROVADAS - Não mostrar rejeitadas
+      // APENAS ALERTAR OPERAÇÕES APROVADAS (agora com M1 context)
       if (intelligentDecision.shouldTrade && finalConfidence > 0.6 && finalSignal !== 'neutro') {
         const alignedPASignals = analysisResult.priceActionSignals?.filter(pa => 
           (finalSignal === 'compra' && pa.direction === 'alta') ||
@@ -398,17 +400,22 @@ const LiveAnalysis = () => {
           ` | Expira: ${temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'} (${temporalValidation.timeToExpiry}s)` : '';
         const qualityText = ` | Q:${Math.round(intelligentDecision.qualityScore)}%`;
         
+        // NOVO: Adicionar informação M1 no toast
+        const m1Text = intelligentDecision.m1ContextValidation ? 
+          ` | M1:${intelligentDecision.m1ContextValidation.contextScore}%` : '';
+        
         toast({
           variant: finalSignal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA APROVADA - ${finalSignal.toUpperCase()}${healthText}`,
-          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${qualityText}${paText}${rrText}`,
+          title: `🚨 ENTRADA APROVADA M1 - ${finalSignal.toUpperCase()}${healthText}`,
+          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${qualityText}${m1Text}${paText}${rrText}`,
           duration: 10000,
         });
       }
       
-      // Log apenas das operações aprovadas
+      // Log apenas das operações aprovadas (agora com M1)
       if (intelligentDecision.shouldTrade) {
-        console.log(`✅ OPERAÇÃO APROVADA - Sinal: ${finalSignal} (${Math.round(finalConfidence * 100)}%) | Qualidade: ${Math.round(intelligentDecision.qualityScore)}%`);
+        const m1Score = intelligentDecision.m1ContextValidation?.contextScore || 0;
+        console.log(`✅ OPERAÇÃO APROVADA M1 - Sinal: ${finalSignal} (${Math.round(finalConfidence * 100)}%) | Qualidade: ${Math.round(intelligentDecision.qualityScore)}% | M1: ${m1Score}%`);
       } else {
         console.log(`🚫 Operação rejeitada: ${intelligentDecision.rejectionReasons.join(', ')}`);
       }

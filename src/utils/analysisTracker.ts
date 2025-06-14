@@ -1,6 +1,6 @@
-
 import { CandleData, AnalysisResult } from "../context/AnalyzerContext";
 import { TemporalValidation } from "./temporalEntryValidation";
+import { validateM1Context, logM1ContextValidation, M1ContextValidation } from "./m1ContextValidator";
 
 export interface AnalysisComponent {
   name: string;
@@ -20,6 +20,7 @@ export interface TrackedAnalysis {
   confluence: AnalysisComponent;
   temporal: AnalysisComponent;
   technicalIndicators: AnalysisComponent;
+  m1Context: AnalysisComponent; // NOVO: Validação M1
 }
 
 export interface FinalDecision {
@@ -31,6 +32,7 @@ export interface FinalDecision {
   components: TrackedAnalysis;
   riskLevel: 'baixo' | 'medio' | 'alto';
   qualityScore: number;
+  m1ContextValidation?: M1ContextValidation; // NOVO: Dados M1
 }
 
 // Tracker principal que analisa todos os componentes
@@ -43,7 +45,7 @@ export const trackAllAnalysisComponents = (
   const patternsComponent: AnalysisComponent = {
     name: 'Padrões',
     confidence: 0,
-    weight: 0.25,
+    weight: 0.2, // Reduzido para dar espaço ao M1
     signal: 'neutro',
     data: analysisResults.patterns,
     isValid: false
@@ -69,7 +71,7 @@ export const trackAllAnalysisComponents = (
   const priceActionComponent: AnalysisComponent = {
     name: 'Price Action',
     confidence: 0,
-    weight: 0.2,
+    weight: 0.15,
     signal: 'neutro',
     data: analysisResults.priceActionSignals || [],
     isValid: false
@@ -91,7 +93,7 @@ export const trackAllAnalysisComponents = (
   const volumeComponent: AnalysisComponent = {
     name: 'Volume',
     confidence: 0,
-    weight: 0.15,
+    weight: 0.1,
     signal: 'neutro',
     data: analysisResults.volumeData,
     isValid: false
@@ -113,7 +115,7 @@ export const trackAllAnalysisComponents = (
   const volatilityComponent: AnalysisComponent = {
     name: 'Volatilidade',
     confidence: 0,
-    weight: 0.1,
+    weight: 0.05,
     signal: 'neutro',
     data: analysisResults.volatilityData,
     isValid: false
@@ -134,7 +136,7 @@ export const trackAllAnalysisComponents = (
   const marketContextComponent: AnalysisComponent = {
     name: 'Contexto de Mercado',
     confidence: 0,
-    weight: 0.15,
+    weight: 0.1,
     signal: 'neutro',
     data: analysisResults.marketContext,
     isValid: false
@@ -192,7 +194,7 @@ export const trackAllAnalysisComponents = (
   const technicalComponent: AnalysisComponent = {
     name: 'Indicadores Técnicos',
     confidence: 0,
-    weight: 0.1,
+    weight: 0.05,
     signal: 'neutro',
     data: analysisResults.technicalIndicators || [],
     isValid: false
@@ -210,6 +212,45 @@ export const trackAllAnalysisComponents = (
     }
   }
 
+  // 9. NOVO: Validação M1 Context - PESO MAIS ALTO
+  const m1ContextComponent: AnalysisComponent = {
+    name: 'Contexto M1',
+    confidence: 0,
+    weight: 0.2, // PESO ALTO - é crítico para M1
+    signal: 'neutro',
+    data: null,
+    isValid: false
+  };
+
+  let m1ContextValidation: M1ContextValidation | undefined;
+
+  // Determinar sinal preliminar para validação M1
+  let preliminarySignal: 'compra' | 'venda' | 'neutro' = 'neutro';
+  if (patternsComponent.isValid && patternsComponent.signal !== 'neutro') {
+    preliminarySignal = patternsComponent.signal;
+  } else if (priceActionComponent.isValid && priceActionComponent.signal !== 'neutro') {
+    preliminarySignal = priceActionComponent.signal;
+  }
+
+  // Aplicar validação M1 se há candles suficientes
+  if (analysisResults.candles && analysisResults.candles.length >= 20 && preliminarySignal !== 'neutro') {
+    m1ContextValidation = validateM1Context(
+      analysisResults.candles,
+      preliminarySignal,
+      analysisResults.priceActionSignals,
+      analysisResults.volumeData,
+      analysisResults.confluences
+    );
+
+    m1ContextComponent.data = m1ContextValidation;
+    m1ContextComponent.confidence = m1ContextValidation.contextScore / 100;
+    m1ContextComponent.isValid = m1ContextValidation.isValidForEntry;
+    m1ContextComponent.signal = m1ContextValidation.isValidForEntry ? preliminarySignal : 'neutro';
+
+    // Log da validação M1
+    logM1ContextValidation(m1ContextValidation, preliminarySignal);
+  }
+
   // Criar objeto de componentes rastreados
   const trackedComponents: TrackedAnalysis = {
     patterns: patternsComponent,
@@ -219,20 +260,39 @@ export const trackAllAnalysisComponents = (
     marketContext: marketContextComponent,
     confluence: confluenceComponent,
     temporal: temporalComponent,
-    technicalIndicators: technicalComponent
+    technicalIndicators: technicalComponent,
+    m1Context: m1ContextComponent // NOVO
   };
 
   // Tomar decisão final baseada em todos os componentes
-  const finalDecision = makeIntelligentDecision(trackedComponents);
+  const finalDecision = makeIntelligentDecision(trackedComponents, m1ContextValidation);
 
   return finalDecision;
 };
 
-// Função principal de decisão inteligente
-const makeIntelligentDecision = (components: TrackedAnalysis): FinalDecision => {
+// Função principal de decisão inteligente - ATUALIZADA para M1
+const makeIntelligentDecision = (components: TrackedAnalysis, m1Context?: M1ContextValidation): FinalDecision => {
   const reasoning: string[] = [];
   const rejectionReasons: string[] = [];
   
+  // NOVO: Verificação crítica M1 - se M1 rejeitou, não opera
+  if (m1Context && !m1Context.isValidForEntry) {
+    rejectionReasons.push('Contexto M1 rejeitou entrada');
+    rejectionReasons.push(...m1Context.rejectionReasons);
+    
+    return {
+      shouldTrade: false,
+      signal: 'neutro',
+      confidence: 0,
+      reasoning: [],
+      rejectionReasons,
+      components,
+      riskLevel: 'alto',
+      qualityScore: m1Context.contextScore,
+      m1ContextValidation: m1Context
+    };
+  }
+
   // Verificar componentes críticos que podem vetar a operação
   const criticalRejects = checkCriticalRejects(components);
   if (criticalRejects.length > 0) {
@@ -244,7 +304,8 @@ const makeIntelligentDecision = (components: TrackedAnalysis): FinalDecision => 
       rejectionReasons: criticalRejects,
       components,
       riskLevel: 'alto',
-      qualityScore: 0
+      qualityScore: 0,
+      m1ContextValidation: m1Context
     };
   }
 
@@ -272,17 +333,17 @@ const makeIntelligentDecision = (components: TrackedAnalysis): FinalDecision => 
   let finalSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
   let finalConfidence = 0;
 
-  if (buyScore > sellScore && buyScore > 0.4) {
+  if (buyScore > sellScore && buyScore > 0.35) { // Threshold um pouco menor devido ao M1
     finalSignal = 'compra';
-    finalConfidence = Math.min(buyScore * 2, 1); // Amplificar para escala 0-1
-  } else if (sellScore > buyScore && sellScore > 0.4) {
+    finalConfidence = Math.min(buyScore * 2.2, 1); // Ajuste na amplificação
+  } else if (sellScore > buyScore && sellScore > 0.35) {
     finalSignal = 'venda';
-    finalConfidence = Math.min(sellScore * 2, 1);
+    finalConfidence = Math.min(sellScore * 2.2, 1);
   }
 
-  // Verificar se há componentes suficientes válidos
+  // Verificar se há componentes suficientes válidos (inclui M1)
   if (validComponentsCount < 3) {
-    rejectionReasons.push(`Poucos componentes válidos (${validComponentsCount}/8)`);
+    rejectionReasons.push(`Poucos componentes válidos (${validComponentsCount}/9)`);
     return {
       shouldTrade: false,
       signal: 'neutro',
@@ -291,12 +352,13 @@ const makeIntelligentDecision = (components: TrackedAnalysis): FinalDecision => 
       rejectionReasons,
       components,
       riskLevel: 'alto',
-      qualityScore: (validComponentsCount / 8) * 100
+      qualityScore: (validComponentsCount / 9) * 100,
+      m1ContextValidation: m1Context
     };
   }
 
-  // Verificar confiança mínima
-  if (finalConfidence < 0.6) {
+  // Verificar confiança mínima (ajustada para M1)
+  if (finalConfidence < 0.55) {
     rejectionReasons.push(`Confiança insuficiente (${Math.round(finalConfidence * 100)}%)`);
     return {
       shouldTrade: false,
@@ -306,15 +368,16 @@ const makeIntelligentDecision = (components: TrackedAnalysis): FinalDecision => 
       rejectionReasons,
       components,
       riskLevel: 'medio',
-      qualityScore: finalConfidence * 100
+      qualityScore: finalConfidence * 100,
+      m1ContextValidation: m1Context
     };
   }
 
   // Calcular nível de risco
   const riskLevel = calculateRiskLevel(components, finalConfidence);
   
-  // Calcular score de qualidade geral
-  const qualityScore = (validComponentsCount / 8) * 50 + finalConfidence * 50;
+  // Calcular score de qualidade geral (inclui M1)
+  const qualityScore = (validComponentsCount / 9) * 40 + finalConfidence * 40 + (m1Context?.contextScore || 0) * 0.2;
 
   return {
     shouldTrade: true,
@@ -324,7 +387,8 @@ const makeIntelligentDecision = (components: TrackedAnalysis): FinalDecision => 
     rejectionReasons: [],
     components,
     riskLevel,
-    qualityScore
+    qualityScore,
+    m1ContextValidation: m1Context
   };
 };
 
@@ -370,21 +434,26 @@ const calculateRiskLevel = (
   if (components.volatility.data?.isHigh) riskFactors++;
   if (components.marketContext.data?.operatingScore < 50) riskFactors++;
   if (components.temporal.data?.riskFactors?.length > 2) riskFactors++;
-  if (confidence < 0.7) riskFactors++;
+  if (components.m1Context.data && !components.m1Context.data.isValidForEntry) riskFactors++; // NOVO
+  if (confidence < 0.65) riskFactors++;
 
   if (riskFactors >= 3) return 'alto';
   if (riskFactors >= 1) return 'medio';
   return 'baixo';
 };
 
-// Log detalhado para debugging
+// Log detalhado para debugging - ATUALIZADO
 export const logAnalysisDecision = (decision: FinalDecision) => {
-  console.log('🎯 DECISÃO FINAL DA IA:');
+  console.log('🎯 DECISÃO FINAL DA IA (com M1 Context):');
   console.log(`   Deve Operar: ${decision.shouldTrade ? '✅ SIM' : '❌ NÃO'}`);
   console.log(`   Sinal: ${decision.signal.toUpperCase()}`);
   console.log(`   Confiança: ${Math.round(decision.confidence * 100)}%`);
   console.log(`   Qualidade: ${Math.round(decision.qualityScore)}%`);
   console.log(`   Risco: ${decision.riskLevel.toUpperCase()}`);
+  
+  if (decision.m1ContextValidation) {
+    console.log(`   M1 Context: ${decision.m1ContextValidation.recommendation.toUpperCase()} (${decision.m1ContextValidation.contextScore}%)`);
+  }
   
   if (decision.reasoning.length > 0) {
     console.log('📋 Raciocínio:');
