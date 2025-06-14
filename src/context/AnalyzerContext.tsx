@@ -119,19 +119,6 @@ export interface EnhancedMarketContext {
   keyLevels?: any[];
 }
 
-export interface SelectedRegion {
-  type: 'rectangle' | 'circle';
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  centerX?: number;
-  centerY?: number;
-  radius?: number;
-}
-
-export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';
-
 export interface AnalysisResult {
   patterns: PatternResult[];
   timestamp: number;
@@ -140,11 +127,11 @@ export interface AnalysisResult {
   candles: CandleData[];
   scalpingSignals: ScalpingSignal[];
   technicalIndicators: TechnicalIndicator[];
-  volumeData?: VolumeData;
-  volatilityData?: VolatilityData;
-  marketContext?: EnhancedMarketContext;
+  volumeData: VolumeData;
+  volatilityData: VolatilityData;
+  marketContext: EnhancedMarketContext;
   warnings: string[];
-  preciseEntryAnalysis?: {
+  preciseEntryAnalysis: {
     exactMinute: string;
     entryType: 'reversão' | 'continuação' | 'breakout';
     nextCandleExpectation: string;
@@ -206,19 +193,17 @@ interface AnalyzerContextProps {
   setMarkupSize: React.Dispatch<React.SetStateAction<number>>;
   manualMarkups: TechnicalElement[];
   setManualMarkups: React.Dispatch<React.SetStateAction<TechnicalElement[]>>;
-  selectedRegion: SelectedRegion | null;
-  setSelectedRegion: React.Dispatch<React.SetStateAction<SelectedRegion | null>>;
+  selectedRegion: any;
+  setSelectedRegion: React.Dispatch<React.SetStateAction<any>>;
   regionType: string;
   setRegionType: React.Dispatch<React.SetStateAction<string>>;
   isMarkupMode: boolean;
   setIsMarkupMode: React.Dispatch<React.SetStateAction<boolean>>;
-  manualMarkupTool: MarkupToolType;
-  setManualMarkupTool: React.Dispatch<React.SetStateAction<MarkupToolType>>;
+  manualMarkupTool: string;
+  setManualMarkupTool: React.Dispatch<React.SetStateAction<string>>;
   addManualMarkup: (markup: TechnicalElement) => void;
   resetAnalysis: () => void;
   setMarkupMode: (mode: boolean) => void;
-  clearManualMarkups: () => void;
-  removeLastMarkup: () => void;
 }
 
 const AnalyzerContext = createContext<AnalyzerContextProps | undefined>(undefined);
@@ -248,21 +233,13 @@ export const AnalyzerProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [showTechnicalMarkup, setShowTechnicalMarkup] = useState(true);
   const [markupSize, setMarkupSize] = useState(1);
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<any>(null);
   const [regionType, setRegionType] = useState('full');
   const [isMarkupMode, setIsMarkupMode] = useState(false);
-  const [manualMarkupTool, setManualMarkupTool] = useState<MarkupToolType>('line');
+  const [manualMarkupTool, setManualMarkupTool] = useState('line');
 
   const addManualMarkup = (markup: TechnicalElement) => {
     setManualMarkups(prev => [...prev, markup]);
-  };
-
-  const clearManualMarkups = () => {
-    setManualMarkups([]);
-  };
-
-  const removeLastMarkup = () => {
-    setManualMarkups(prev => prev.slice(0, -1));
   };
 
   const resetAnalysis = () => {
@@ -317,9 +294,7 @@ export const AnalyzerProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setManualMarkupTool,
         addManualMarkup,
         resetAnalysis,
-        setMarkupMode,
-        clearManualMarkups,
-        removeLastMarkup
+        setMarkupMode
       }}
     >
       {children}
