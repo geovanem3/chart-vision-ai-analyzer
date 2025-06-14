@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
+import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, CircleArrowUp, CircleArrowDown, ChartBar, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
@@ -95,7 +95,6 @@ const LiveAnalysis = () => {
           
           // Verificar variação de cores e padrões lineares
           let colorVariations = 0;
-          let linePatterns = 0;
           
           for (let i = 0; i < imageData.data.length; i += 4) {
             const r = imageData.data[i];
