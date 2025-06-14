@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -120,20 +121,20 @@ const LiveAnalysis = () => {
               {tradeSuccessPredictions.map((prediction, index) => (
                 <div key={index} className="p-3 border rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <Badge variant={prediction.recommendation === 'enter_now' ? 'default' : 'secondary'}>
-                      {prediction.recommendation === 'enter_now' ? 'Executar' : 
-                       prediction.recommendation === 'wait_next_candle' ? 'Aguardar' : 'Pular'}
+                    <Badge variant={prediction.recommendation === 'execute' ? 'default' : 'secondary'}>
+                      {prediction.recommendation === 'execute' ? 'Executar' : 
+                       prediction.recommendation === 'wait' ? 'Aguardar' : 'Pular'}
                     </Badge>
                     <span className="text-sm font-mono">
                       {prediction.entryTiming}s
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
-                    {prediction.riskFactors.join(', ')}
+                    {prediction.analysis}
                   </p>
                   <div className="flex items-center justify-between text-xs">
-                    <span>Confiança: {Math.round(prediction.successProbability * 100)}%</span>
-                    <span>R/R: {(prediction.successProbability * 2).toFixed(2)}</span>
+                    <span>Confiança: {Math.round(prediction.confidence * 100)}%</span>
+                    <span>R/R: {prediction.riskReward.toFixed(2)}</span>
                   </div>
                 </div>
               ))}
