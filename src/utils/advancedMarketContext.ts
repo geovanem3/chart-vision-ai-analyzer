@@ -36,12 +36,14 @@ export const analyzeAdvancedMarketConditions = (candles: CandleData[]): Advanced
   const institutionalBias: 'bullish' | 'bearish' | 'neutral' = 'neutral';
   const marketStructure: 'trending' | 'ranging' | 'transitional' = 'ranging';
   
-  // Determinar horário do dia (simulado)
+  // Determinar horário do dia (simulado) com períodos de sobreposição
   const hour = new Date().getHours();
   let timeOfDay: 'asia' | 'london' | 'ny' | 'overlap' | 'quiet';
   if (hour >= 0 && hour < 8) timeOfDay = 'asia';
-  else if (hour >= 8 && hour < 13) timeOfDay = 'london';
-  else if (hour >= 13 && hour < 22) timeOfDay = 'ny';
+  else if (hour >= 8 && hour < 9) timeOfDay = 'overlap'; // London-Asia overlap
+  else if (hour >= 9 && hour < 13) timeOfDay = 'london';
+  else if (hour >= 13 && hour < 14) timeOfDay = 'overlap'; // London-NY overlap
+  else if (hour >= 14 && hour < 22) timeOfDay = 'ny';
   else timeOfDay = 'quiet';
   
   // Simular outros fatores
