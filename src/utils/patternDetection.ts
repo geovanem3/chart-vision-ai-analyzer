@@ -1,5 +1,5 @@
 
-import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal } from "../context/AnalyzerContext";
+import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { mockCandles as generateMockCandles } from "./mockData";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -64,6 +64,22 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], width: number
     color: '#ff0000',
     pattern: pattern.type,
     confidence: pattern.confidence
+  }));
+};
+
+export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
+  // Generate mock candle data for the detected chart
+  const candles = await generateMockCandles(20, '1m');
+  
+  // Add position data based on chart dimensions
+  return candles.map((candle, index) => ({
+    ...candle,
+    position: {
+      x: (index / 20) * width,
+      y: Math.random() * height
+    },
+    width: width / 25,
+    height: Math.abs(candle.high - candle.low) * (height / 100)
   }));
 };
 

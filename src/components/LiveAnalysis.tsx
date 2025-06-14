@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -328,8 +327,8 @@ const LiveAnalysis = () => {
       // Mapear tendência corretamente - corrigir tipo de comparação
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
       
-      if (analysisResult.detailedMarketContext?.marketStructure?.trend) {
-        const rawTrend = analysisResult.detailedMarketContext.marketStructure.trend;
+      if (analysisResult.detailedMarketContext?.trend) {
+        const rawTrend = analysisResult.detailedMarketContext.trend;
         if (rawTrend === 'alta') {
           mappedTrend = 'alta';
         } else if (rawTrend === 'baixa') {

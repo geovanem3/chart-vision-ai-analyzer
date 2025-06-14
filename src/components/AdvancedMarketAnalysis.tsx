@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -7,6 +8,7 @@ import {
   AlertTriangle, ShieldAlert, Activity, Zap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { EnhancedMarketContext } from '@/context/AnalyzerContext';
 
 const AdvancedMarketAnalysis = () => {
   const { 
