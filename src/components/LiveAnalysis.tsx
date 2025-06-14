@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, CircleArrowUp, CircleArrowDown, ChartBar, ShieldAlert } from 'lucide-react';
+import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, CircleArrowUp, CircleArrowDown, ChartBar, ShieldAlert, Timer, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
 import { analyzeChart } from '@/utils/patternDetection';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { TradeSuccessPrediction } from '@/utils/tradeSuccessPrediction';
+import { TradeSuccessPrediction, predictTradeSuccess } from '@/utils/tradeSuccessPrediction';
 
 interface LiveAnalysisResult {
   timestamp: number;
@@ -33,6 +33,21 @@ interface LiveAnalysisResult {
     reliability: number;
     marketAlignment: boolean;
   };
+  // NOVO: Predição de sucesso de 1 minuto
+  oneMinutePrediction?: {
+    willSucceed: boolean;
+    successProbability: number;
+    entryTiming: '30s_current' | '60s_next';
+    timeToEntry: number;
+    riskFactors: string[];
+    recommendation: 'enter_now' | 'wait_next_candle' | 'skip_entry';
+    candleAnalysis: {
+      currentProgress: number;
+      expectedSize: 'small' | 'medium' | 'large' | 'explosive';
+      reversalRisk: number;
+      volatilityLevel: 'low' | 'medium' | 'high' | 'extreme';
+    };
+  };
 }
 
 const LiveAnalysis = () => {
@@ -41,7 +56,7 @@ const LiveAnalysis = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(3000); // 3 segundos por padrão
+  const [analysisInterval, setAnalysisInterval] = useState(3000);
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -60,6 +75,10 @@ const LiveAnalysis = () => {
     lastValidSignalTime: null as number | null
   });
 
+  // NOVO: Estados para predição de 1 minuto
+  const [currentCandleProgress, setCurrentCandleProgress] = useState(0);
+  const [timeToNextCandle, setTimeToNextCandle] = useState(60);
+
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { 
@@ -72,11 +91,157 @@ const LiveAnalysis = () => {
     marketAnalysisDepth 
   } = useAnalyzer();
 
+  // NOVO: Simular progresso da vela atual
+  useEffect(() => {
+    if (!isLiveActive) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const seconds = now.getSeconds();
+      const progress = (seconds / 60) * 100;
+      const remaining = 60 - seconds;
+      
+      setCurrentCandleProgress(progress);
+      setTimeToNextCandle(remaining);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLiveActive]);
+
+  // NOVO: Função para determinar timing de entrada
+  const determineEntryTiming = (currentProgress: number): '30s_current' | '60s_next' => {
+    const remainingSeconds = 60 - (currentProgress / 100 * 60);
+    return remainingSeconds >= 30 ? '30s_current' : '60s_next';
+  };
+
+  // NOVO: Função para prever sucesso em 1 minuto
+  const predictOneMinuteSuccess = async (
+    patterns: any[], 
+    candles: any[], 
+    marketData: any
+  ): Promise<LiveAnalysisResult['oneMinutePrediction']> => {
+    if (patterns.length === 0 || patterns[0].action === 'neutro') {
+      return {
+        willSucceed: false,
+        successProbability: 0,
+        entryTiming: '30s_current',
+        timeToEntry: 0,
+        riskFactors: ['Nenhum sinal válido'],
+        recommendation: 'skip_entry',
+        candleAnalysis: {
+          currentProgress: currentCandleProgress,
+          expectedSize: 'medium',
+          reversalRisk: 50,
+          volatilityLevel: 'medium'
+        }
+      };
+    }
+
+    const entryTiming = determineEntryTiming(currentCandleProgress);
+    const timeToEntry = entryTiming === '30s_current' ? 
+      Math.max(0, 30 - (currentCandleProgress / 100 * 60)) : 
+      timeToNextCandle + 30;
+
+    // Analisar vela atual
+    const currentCandle = candles[candles.length - 1];
+    const recentCandles = candles.slice(-10);
+    
+    // Calcular volatilidade
+    const volatility = recentCandles.reduce((sum, c, i) => {
+      if (i === 0) return 0;
+      return sum + Math.abs(c.close - recentCandles[i-1].close) / recentCandles[i-1].close;
+    }, 0) / (recentCandles.length - 1);
+
+    let volatilityLevel: 'low' | 'medium' | 'high' | 'extreme' = 'medium';
+    if (volatility > 0.003) volatilityLevel = 'extreme';
+    else if (volatility > 0.002) volatilityLevel = 'high';
+    else if (volatility > 0.001) volatilityLevel = 'medium';
+    else volatilityLevel = 'low';
+
+    // Calcular tamanho esperado da vela
+    const currentRange = currentCandle.high - currentCandle.low;
+    const avgRange = recentCandles.reduce((sum, c) => sum + (c.high - c.low), 0) / recentCandles.length;
+    const sizeRatio = currentRange / avgRange;
+
+    let expectedSize: 'small' | 'medium' | 'large' | 'explosive';
+    if (sizeRatio > 2.5) expectedSize = 'explosive';
+    else if (sizeRatio > 1.5) expectedSize = 'large';
+    else if (sizeRatio > 0.8) expectedSize = 'medium';
+    else expectedSize = 'small';
+
+    // Calcular risco de reversão
+    const bodySize = Math.abs(currentCandle.close - currentCandle.open);
+    const wickSize = Math.max(
+      currentCandle.high - Math.max(currentCandle.open, currentCandle.close),
+      Math.min(currentCandle.open, currentCandle.close) - currentCandle.low
+    );
+    
+    let reversalRisk = 20; // Base
+    if (wickSize > bodySize * 1.5) reversalRisk += 30;
+    if (expectedSize === 'explosive') reversalRisk += 40;
+    if (currentCandleProgress > 80) reversalRisk += 20;
+
+    // Fatores de risco
+    const riskFactors: string[] = [];
+    if (volatilityLevel === 'extreme') riskFactors.push('Volatilidade extrema');
+    if (expectedSize === 'explosive') riskFactors.push('Vela explosiva detectada');
+    if (reversalRisk > 60) riskFactors.push('Alto risco de reversão');
+    if (currentCandleProgress > 90 && entryTiming === '30s_current') {
+      riskFactors.push('Entrada muito tardia na vela');
+    }
+
+    // Calcular probabilidade de sucesso
+    let successProbability = patterns[0].confidence * 100;
+    
+    // Penalizar por timing ruim
+    if (entryTiming === '30s_current' && currentCandleProgress > 80) {
+      successProbability *= 0.6;
+    }
+    
+    // Penalizar por volatilidade
+    if (volatilityLevel === 'extreme') successProbability *= 0.4;
+    else if (volatilityLevel === 'high') successProbability *= 0.7;
+    
+    // Penalizar por risco de reversão
+    successProbability *= (1 - reversalRisk / 200);
+    
+    // Penalizar por tamanho de vela
+    if (expectedSize === 'explosive') successProbability *= 0.5;
+    else if (expectedSize === 'large') successProbability *= 0.8;
+
+    successProbability = Math.max(0, Math.min(100, successProbability));
+    const willSucceed = successProbability >= 65;
+
+    // Determinar recomendação
+    let recommendation: 'enter_now' | 'wait_next_candle' | 'skip_entry';
+    if (!willSucceed || riskFactors.length > 2) {
+      recommendation = 'skip_entry';
+    } else if (entryTiming === '60s_next' || volatilityLevel === 'high') {
+      recommendation = 'wait_next_candle';
+    } else {
+      recommendation = 'enter_now';
+    }
+
+    return {
+      willSucceed,
+      successProbability,
+      entryTiming,
+      timeToEntry,
+      riskFactors,
+      recommendation,
+      candleAnalysis: {
+        currentProgress: currentCandleProgress,
+        expectedSize,
+        reversalRisk,
+        volatilityLevel
+      }
+    };
+  };
+
   // Função melhorada para detectar se há um gráfico na tela
   const detectChartInFrame = async (imageData: string): Promise<boolean> => {
     return new Promise<boolean>((resolve) => {
       setTimeout(() => {
-        // Lógica mais sofisticada de detecção
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
@@ -86,14 +251,12 @@ const LiveAnalysis = () => {
           canvas.height = img.height;
           ctx?.drawImage(img, 0, 0);
           
-          // Análise simples de padrões que indicam um gráfico
           const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
           if (!imageData) {
             resolve(false);
             return;
           }
           
-          // Verificar variação de cores e padrões lineares
           let colorVariations = 0;
           
           for (let i = 0; i < imageData.data.length; i += 4) {
@@ -101,7 +264,6 @@ const LiveAnalysis = () => {
             const g = imageData.data[i + 1];
             const b = imageData.data[i + 2];
             
-            // Detectar variações de cor típicas de gráficos
             if (Math.abs(r - g) > 30 || Math.abs(g - b) > 30) {
               colorVariations++;
             }
@@ -123,19 +285,16 @@ const LiveAnalysis = () => {
     priceActionSignals: any[],
     confluenceScore: number
   ) => {
-    // Verificar consistência entre sinais
     const patternActions = patterns.map(p => p.action).filter(a => a !== 'neutro');
     const uniqueActions = [...new Set(patternActions)];
     const consistency = uniqueActions.length <= 1 ? 100 : 50;
     
-    // Calcular confiabilidade baseada em confluência e número de sinais
     const reliability = Math.min(100, 
       (confluenceScore * 0.6) + 
       (patterns.length * 10) + 
       (priceActionSignals.length * 15)
     );
     
-    // Verificar alinhamento com mercado
     const marketAlignment = patterns.length > 0 && priceActionSignals.length > 0;
     
     return {
@@ -204,13 +363,9 @@ const LiveAnalysis = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      // Capturar frame atual
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Converter para base64
       const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
       
-      // Verificar se há um gráfico visível na tela
       const hasChart = await detectChartInFrame(imageUrl);
       setIsChartVisible(hasChart);
       
@@ -222,10 +377,8 @@ const LiveAnalysis = () => {
       
       console.log('✅ Gráfico detectado! Iniciando análise...');
       
-      // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
       
-      // Analisar com todas as funcionalidades ativadas
       const analysisResult = await analyzeChart(enhancedImageUrl, {
         timeframe: '1m',
         optimizeForScalping: true,
@@ -241,7 +394,6 @@ const LiveAnalysis = () => {
         enableMarketContext: true
       });
 
-      // Armazenar detalhes das confluências e price action
       setConfluenceDetails(analysisResult.confluences);
       setPriceActionDetails({
         signals: analysisResult.priceActionSignals || [],
@@ -249,35 +401,29 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Processar resultado para formato live com validação melhorada
       let finalConfidence = 0;
       let signalQuality = 'fraca';
       let riskReward = 2.0;
       let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
       
-      // Determinar sinal principal baseado no padrão mais forte e consistente
       const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
       
       if (validPatterns.length > 0) {
-        // Verificar consistência entre padrões
         const actions = validPatterns.map(p => p.action);
         const uniqueActions = [...new Set(actions)];
         
         if (uniqueActions.length === 1) {
-          // Sinais consistentes
           mainSignal = uniqueActions[0] as 'compra' | 'venda';
           finalConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
         } else {
-          // Sinais conflitantes - usar o mais forte mas reduzir confiança
           const strongestPattern = validPatterns.reduce((prev, current) => 
             (current.confidence > prev.confidence) ? current : prev
           );
           mainSignal = strongestPattern.action as 'compra' | 'venda';
-          finalConfidence = strongestPattern.confidence * 0.7; // Penalizar conflito
+          finalConfidence = strongestPattern.confidence * 0.7;
         }
       }
       
-      // Validar com price action
       const alignedPASignals = analysisResult.priceActionSignals?.filter(pa => 
         (mainSignal === 'compra' && pa.direction === 'alta') ||
         (mainSignal === 'venda' && pa.direction === 'baixa')
@@ -287,11 +433,9 @@ const LiveAnalysis = () => {
         const paConfidence = alignedPASignals.reduce((sum, pa) => sum + pa.confidence, 0) / alignedPASignals.length;
         finalConfidence = (finalConfidence + paConfidence) / 2;
       } else if (analysisResult.priceActionSignals?.length > 0 && mainSignal !== 'neutro') {
-        // Price action contradiz - reduzir confiança
         finalConfidence *= 0.6;
       }
       
-      // Determinar qualidade do sinal
       if (finalConfidence > 0.85) {
         signalQuality = 'excelente';
       } else if (finalConfidence > 0.75) {
@@ -304,7 +448,6 @@ const LiveAnalysis = () => {
         signalQuality = 'fraca';
       }
       
-      // Ajustar baseado em confluências
       if (analysisResult.confluences) {
         const confluenceBonus = analysisResult.confluences.confluenceScore / 100 * 0.1;
         finalConfidence = Math.min(1, finalConfidence + confluenceBonus);
@@ -314,7 +457,6 @@ const LiveAnalysis = () => {
         }
       }
       
-      // Obter melhor recomendação de entrada
       const bestEntry = analysisResult.entryRecommendations?.find(entry => 
         entry.action === mainSignal
       );
@@ -324,7 +466,6 @@ const LiveAnalysis = () => {
         finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
       }
 
-      // Mapear tendência corretamente - corrigir tipo de comparação
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
       
       if (analysisResult.detailedMarketContext?.trend) {
@@ -336,11 +477,17 @@ const LiveAnalysis = () => {
         }
       }
 
-      // Calcular saúde da análise
       const analysisHealth = calculateAnalysisHealth(
         analysisResult.patterns,
         analysisResult.priceActionSignals || [],
         analysisResult.confluences?.confluenceScore || 0
+      );
+
+      // NOVO: Prever sucesso em 1 minuto
+      const oneMinutePrediction = await predictOneMinuteSuccess(
+        analysisResult.patterns,
+        analysisResult.candles,
+        analysisResult.marketContext
       );
 
       const liveResult: LiveAnalysisResult = {
@@ -360,13 +507,13 @@ const LiveAnalysis = () => {
           entry.action === mainSignal
         ).slice(0, 2) || [],
         riskReward,
-        analysisHealth
+        analysisHealth,
+        oneMinutePrediction
       };
 
       setCurrentAnalysis(liveResult);
-      setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
+      setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]);
 
-      // Atualizar estatísticas
       setAnalysisStats(prev => ({
         totalAnalyses: prev.totalAnalyses + 1,
         validSignals: prev.validSignals + (mainSignal !== 'neutro' ? 1 : 0),
@@ -374,18 +521,27 @@ const LiveAnalysis = () => {
         lastValidSignalTime: mainSignal !== 'neutro' ? Date.now() : prev.lastValidSignalTime
       }));
 
-      // Notificar apenas sinais de alta qualidade
-      if (finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
-        const paText = alignedPASignals.length > 0 ? 
-          ` | PA: ${alignedPASignals[0].type}` : '';
-        const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
-        const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
-        
+      // NOVO: Notificar baseado na predição de 1 minuto
+      if (oneMinutePrediction && oneMinutePrediction.willSucceed && oneMinutePrediction.recommendation === 'enter_now') {
         toast({
           variant: mainSignal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${mainSignal.toUpperCase()}${healthText}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
+          title: `🚀 ENTRADA APROVADA - ${mainSignal.toUpperCase()}`,
+          description: `Sucesso: ${Math.round(oneMinutePrediction.successProbability)}% | Timing: ${oneMinutePrediction.entryTiming === '30s_current' ? '30s atual' : '60s próxima'}`,
           duration: 8000,
+        });
+      } else if (oneMinutePrediction && oneMinutePrediction.recommendation === 'wait_next_candle') {
+        toast({
+          variant: "default",
+          title: "⏳ AGUARDAR PRÓXIMA VELA",
+          description: `Entrada em ${Math.round(oneMinutePrediction.timeToEntry)}s | Sucesso: ${Math.round(oneMinutePrediction.successProbability)}%`,
+          duration: 5000,
+        });
+      } else if (oneMinutePrediction && oneMinutePrediction.riskFactors.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "❌ ENTRADA REJEITADA",
+          description: oneMinutePrediction.riskFactors[0],
+          duration: 5000,
         });
       }
 
@@ -396,14 +552,13 @@ const LiveAnalysis = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
+  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast, currentCandleProgress]);
 
   // Iniciar análise em tempo real
   const startLiveAnalysis = async () => {
     await startCamera();
     setIsLiveActive(true);
     
-    // Aguardar um pouco para a câmera inicializar
     setTimeout(() => {
       intervalRef.current = setInterval(captureAndAnalyze, analysisInterval);
     }, 1000);
@@ -411,7 +566,7 @@ const LiveAnalysis = () => {
     toast({
       variant: "default",
       title: "✅ Análise Live Iniciada",
-      description: `Analisando gráficos a cada ${analysisInterval / 1000} segundos`,
+      description: `Analisando com predição de sucesso a cada ${analysisInterval / 1000} segundos`,
     });
   };
 
@@ -440,182 +595,6 @@ const LiveAnalysis = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
-  // Ultra quick entry decision with 60-second success prediction
-  const quickEntrySignal = () => {
-    // Se as condições são muito ruins, não dar sinal
-    if (operatingScore < 30 || advancedConditions?.recommendation === 'nao_operar') {
-      return (
-        <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-500 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="h-7 w-7 text-red-500 animate-pulse" />
-            <span className="font-bold text-red-700 dark:text-red-400 text-xl">NÃO OPERAR</span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">Score: {operatingScore}/100</div>
-            <div className="text-xs opacity-70">Condições adversas</div>
-          </div>
-        </div>
-      );
-    }
-    
-    // NOVO: Verificar predições de sucesso
-    const bestPrediction = analysisResults.tradeSuccessPredictions?.find(p => 
-      p.willSucceed && p.recommendation === 'enter_now'
-    );
-    
-    const waitPrediction = analysisResults.tradeSuccessPredictions?.find(p => 
-      p.recommendation === 'wait_next_candle'
-    );
-    
-    // Se há uma predição que indica entrada agora
-    if (bestPrediction && (isUptrend || isDowntrend)) {
-      const signal = isUptrend ? 'compra' : 'venda';
-      const adjustedConfidence = Math.round(bestPrediction.successProbability);
-      
-      return (
-        <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
-          adjustedConfidence >= 75 ? 
-          'bg-green-100 dark:bg-green-900/30 border-green-500' :
-          'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isUptrend ? (
-                <CircleArrowUp className={`h-7 w-7 animate-pulse ${
-                  adjustedConfidence >= 75 ? 'text-green-500' : 'text-yellow-600'
-                }`} />
-              ) : (
-                <CircleArrowDown className={`h-7 w-7 animate-pulse ${
-                  adjustedConfidence >= 75 ? 'text-red-500' : 'text-yellow-600'
-                }`} />
-              )}
-              <span className={`font-bold text-xl ${
-                adjustedConfidence >= 75 ? 
-                (isUptrend ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400') :
-                'text-yellow-700 dark:text-yellow-400'
-              }`}>
-                {signal.toUpperCase()}
-              </span>
-            </div>
-            <div className="text-right">
-              <div className="font-mono text-sm">⏱️ {bestPrediction.exitTime}s</div>
-              <div className="text-xs opacity-70">Sucesso: {adjustedConfidence}%</div>
-            </div>
-          </div>
-          
-          {/* Detalhes da predição */}
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between">
-              <span>Timing:</span>
-              <span className="font-medium">
-                {bestPrediction.entryTiming === 'same_candle' ? 'Mesma vela' : 'Próxima vela'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Volatilidade:</span>
-              <span className={`font-medium ${
-                bestPrediction.candleAnalysis.volatilityRisk === 'low' ? 'text-green-600' :
-                bestPrediction.candleAnalysis.volatilityRisk === 'medium' ? 'text-yellow-600' :
-                'text-red-600'
-              }`}>
-                {bestPrediction.candleAnalysis.volatilityRisk.toUpperCase()}
-              </span>
-            </div>
-            {bestPrediction.riskFactors.length > 0 && (
-              <div className="text-orange-600 text-xs">
-                ⚠️ {bestPrediction.riskFactors[0]}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-    
-    // Se deve aguardar próxima vela
-    if (waitPrediction) {
-      return (
-        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-500 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="h-6 w-6 text-blue-500 animate-pulse" />
-            <span className="font-bold text-blue-700 dark:text-blue-400 text-lg">AGUARDAR PRÓXIMA VELA</span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">⏳ {Math.round(waitPrediction.timeToEntry)}s</div>
-            <div className="text-xs opacity-70">Sucesso: {Math.round(waitPrediction.successProbability)}%</div>
-          </div>
-        </div>
-      );
-    }
-    
-    // Lógica original para casos sem predição específica
-    if (isUptrend && operatingScore >= 40) {
-      const adjustedConfidence = Math.round(confidenceReduction * 100);
-      
-      return (
-        <div className={`p-3 rounded-lg border flex items-center justify-between ${
-          operatingScore >= 60 ? 
-          'bg-green-100 dark:bg-green-900/30 border-green-500' :
-          'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500'
-        }`}>
-          <div className="flex items-center gap-2">
-            <CircleArrowUp className={`h-7 w-7 animate-pulse ${
-              operatingScore >= 60 ? 'text-green-500' : 'text-yellow-600'
-            }`} />
-            <span className={`font-bold text-xl ${
-              operatingScore >= 60 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
-            }`}>
-              COMPRAR {operatingScore < 60 ? '(CAUTELOSO)' : ''}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">{entryMinute}</div>
-            <div className="text-xs opacity-70">Conf: {adjustedConfidence}%</div>
-          </div>
-        </div>
-      );
-    }
-    
-    if (isDowntrend && operatingScore >= 40) {
-      const adjustedConfidence = Math.round(confidenceReduction * 100);
-      
-      return (
-        <div className={`p-3 rounded-lg border flex items-center justify-between ${
-          operatingScore >= 60 ? 
-          'bg-red-100 dark:bg-red-900/30 border-red-500' :
-          'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500'
-        }`}>
-          <div className="flex items-center gap-2">
-            <CircleArrowDown className={`h-7 w-7 animate-pulse ${
-              operatingScore >= 60 ? 'text-red-500' : 'text-yellow-600'
-            }`} />
-            <span className={`font-bold text-xl ${
-              operatingScore >= 60 ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'
-            }`}>
-              VENDER {operatingScore < 60 ? '(CAUTELOSO)' : ''}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">{entryMinute}</div>
-            <div className="text-xs opacity-70">Conf: {adjustedConfidence}%</div>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ChartBar className="h-6 w-6 text-gray-500" />
-          <span className="font-bold text-gray-700 dark:text-gray-400 text-lg">AGUARDAR</span>
-        </div>
-        <div className="text-right">
-          <div className="font-mono text-sm">Score: {operatingScore}/100</div>
-          <div className="text-xs opacity-70">Sem sinal claro</div>
-        </div>
-      </div>
-    );
-  };
-
   // Cleanup
   useEffect(() => {
     return () => {
@@ -626,7 +605,6 @@ const LiveAnalysis = () => {
     };
   }, []);
 
-  // Reiniciar quando facing mode muda
   useEffect(() => {
     if (isLiveActive) {
       setTimeout(() => startLiveAnalysis(), 500);
@@ -635,24 +613,26 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Cabeçalho de controles melhorado */}
+      {/* Cabeçalho com timer da vela */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live M1 - IA Aprimorada
+            Análise Live M1 - Predição de Sucesso
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
               </Badge>
             )}
-            {isLiveActive && !isChartVisible && (
-              <Badge variant="secondary" className="ml-2">
-                AGUARDANDO GRÁFICO
-              </Badge>
+            {isLiveActive && (
+              <div className="ml-auto flex items-center gap-2 text-sm">
+                <Timer className="h-4 w-4" />
+                <span className="font-mono">
+                  {Math.round(currentCandleProgress)}% | {timeToNextCandle}s
+                </span>
+              </div>
             )}
           </CardTitle>
-          {/* Estatísticas da sessão */}
           {analysisStats.totalAnalyses > 0 && (
             <div className="text-xs text-muted-foreground mt-2">
               Análises: {analysisStats.totalAnalyses} | 
@@ -696,33 +676,10 @@ const LiveAnalysis = () => {
               <option value={3000}>3 segundos</option>
               <option value={5000}>5 segundos</option>
             </select>
-
-            {priceActionDetails && (
-              <Button 
-                variant="outline" 
-                onClick={() => setShowPriceActionDetails(!showPriceActionDetails)}
-                className="gap-2"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Price Action
-              </Button>
-            )}
-
-            {confluenceDetails && (
-              <Button 
-                variant="outline" 
-                onClick={() => setShowConfluenceDetails(!showConfluenceDetails)}
-                className="gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                Confluências
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Erro da câmera */}
       {cameraError && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -740,18 +697,35 @@ const LiveAnalysis = () => {
           className="w-full h-full object-cover"
         />
         
+        {/* Progress bar da vela atual */}
+        {isLiveActive && (
+          <div className="absolute top-2 left-2 right-2">
+            <div className="bg-black/70 rounded-lg p-2">
+              <div className="flex justify-between text-white text-xs mb-1">
+                <span>Progresso da Vela M1</span>
+                <span>{Math.round(currentCandleProgress)}%</span>
+              </div>
+              <div className="w-full bg-gray-600 rounded-full h-2">
+                <div 
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                  style={{ width: `${currentCandleProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        
         {isAnalyzing && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
               <p className="text-sm">
-                {isChartVisible ? 'Analisando com IA Aprimorada...' : 'Procurando gráfico...'}
+                {isChartVisible ? 'Analisando com IA + Predição...' : 'Procurando gráfico...'}
               </p>
             </div>
           </div>
         )}
 
-        {/* Aviso quando não há gráfico */}
         {isLiveActive && !isChartVisible && !isAnalyzing && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70">
             <div className="text-white text-center">
@@ -762,9 +736,10 @@ const LiveAnalysis = () => {
           </div>
         )}
 
+        {/* NOVO: Overlay de predição de sucesso */}
         {currentAnalysis && isChartVisible && (
           <motion.div 
-            className="absolute top-4 left-4 right-4"
+            className="absolute top-16 left-4 right-4"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
@@ -780,63 +755,56 @@ const LiveAnalysis = () => {
                       >
                         {currentAnalysis.signal.toUpperCase()}
                       </Badge>
-                      {currentAnalysis.signalQuality && (
+                      {currentAnalysis.oneMinutePrediction && (
                         <Badge 
-                          variant={currentAnalysis.signalQuality === 'excelente' || currentAnalysis.signalQuality === 'forte' ? 'default' : 
-                                   currentAnalysis.signalQuality === 'boa' || currentAnalysis.signalQuality === 'moderada' ? 'secondary' : 'destructive'}
-                          className="text-xs"
+                          variant={currentAnalysis.oneMinutePrediction.willSucceed ? 'default' : 'destructive'}
+                          className="text-xs flex items-center gap-1"
                         >
-                          {currentAnalysis.signalQuality}
-                        </Badge>
-                      )}
-                      {/* Indicador de saúde da análise */}
-                      {currentAnalysis.analysisHealth && (
-                        <Badge 
-                          variant={currentAnalysis.analysisHealth.consistency > 80 ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {currentAnalysis.analysisHealth.consistency > 80 ? '✅' : '⚠️'}
+                          {currentAnalysis.oneMinutePrediction.willSucceed ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                          {Math.round(currentAnalysis.oneMinutePrediction.successProbability)}%
                         </Badge>
                       )}
                     </div>
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}%
                     </p>
-                    <p className="text-xs text-green-300">
-                      R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
-                    </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-yellow-300">
-                      Fase: {currentAnalysis.marketPhase}
-                    </div>
-                    <div className="text-xs text-blue-300">
-                      Bias: {currentAnalysis.institutionalBias}
-                    </div>
-                    {currentAnalysis.analysisHealth && (
-                      <div className="text-xs text-purple-300">
-                        Saúde: {Math.round(currentAnalysis.analysisHealth.reliability)}%
+                    {currentAnalysis.oneMinutePrediction && (
+                      <div className="text-xs">
+                        <div className="text-yellow-300">
+                          {currentAnalysis.oneMinutePrediction.entryTiming === '30s_current' ? '30s Atual' : '60s Próxima'}
+                        </div>
+                        <div className="text-blue-300">
+                          Entrada: {Math.round(currentAnalysis.oneMinutePrediction.timeToEntry)}s
+                        </div>
+                        <div className={`text-xs ${
+                          currentAnalysis.oneMinutePrediction.recommendation === 'enter_now' ? 'text-green-400' :
+                          currentAnalysis.oneMinutePrediction.recommendation === 'wait_next_candle' ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {currentAnalysis.oneMinutePrediction.recommendation === 'enter_now' ? 'ENTRAR AGORA' :
+                           currentAnalysis.oneMinutePrediction.recommendation === 'wait_next_candle' ? 'AGUARDAR' :
+                           'PULAR'}
+                        </div>
                       </div>
                     )}
-                    <div className="text-xs text-gray-300">
-                      {new Date(currentAnalysis.timestamp).toLocaleTimeString()}
-                    </div>
                   </div>
                 </div>
                 
-                {/* Price Action Signals */}
-                {currentAnalysis.priceActionSignals && currentAnalysis.priceActionSignals.length > 0 && (
+                {/* NOVO: Análise da vela */}
+                {currentAnalysis.oneMinutePrediction && (
                   <div className="text-xs text-purple-300 mb-1">
-                    PA: {currentAnalysis.priceActionSignals.map((pa: any) => pa.type).join(', ')}
+                    Vela: {currentAnalysis.oneMinutePrediction.candleAnalysis.expectedSize.toUpperCase()} | 
+                    Reversão: {Math.round(currentAnalysis.oneMinutePrediction.candleAnalysis.reversalRisk)}% | 
+                    Vol: {currentAnalysis.oneMinutePrediction.candleAnalysis.volatilityLevel.toUpperCase()}
                   </div>
                 )}
                 
-                {/* Entry Recommendations - apenas coerentes */}
-                {currentAnalysis.entryRecommendations && currentAnalysis.entryRecommendations.length > 0 && (
-                  <div className="text-xs text-green-400">
-                    Entrada: {currentAnalysis.entryRecommendations[0].entryPrice?.toFixed(4)} | 
-                    SL: {currentAnalysis.entryRecommendations[0].stopLoss?.toFixed(4)} | 
-                    TP: {currentAnalysis.entryRecommendations[0].takeProfit?.toFixed(4)}
+                {/* Fatores de risco */}
+                {currentAnalysis.oneMinutePrediction && currentAnalysis.oneMinutePrediction.riskFactors.length > 0 && (
+                  <div className="text-xs text-red-400">
+                    ⚠️ {currentAnalysis.oneMinutePrediction.riskFactors[0]}
                   </div>
                 )}
               </CardContent>
@@ -847,188 +815,11 @@ const LiveAnalysis = () => {
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* Detalhes do Price Action */}
-      {showPriceActionDetails && priceActionDetails && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Análise de Price Action M1</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Sinais de Price Action */}
-            {priceActionDetails.signals && priceActionDetails.signals.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2">Sinais Detectados</h4>
-                <div className="space-y-2">
-                  {priceActionDetails.signals.slice(0, 3).map((signal: any, index: number) => (
-                    <div key={index} className="border rounded p-2">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`font-medium ${signal.direction === 'alta' ? 'text-green-600' : 'text-red-600'}`}>
-                          {signal.type} - {signal.direction}
-                        </span>
-                        <Badge variant={signal.strength === 'forte' ? 'default' : 'secondary'}>
-                          {signal.strength}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {signal.description}
-                      </div>
-                      <div className="text-xs text-blue-600 mt-1">
-                        Confiança: {Math.round(signal.confidence * 100)}% | R:R {signal.riskReward?.toFixed(1)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Contexto de Mercado Detalhado */}
-            {priceActionDetails.marketContext && (
-              <div>
-                <h4 className="font-semibold mb-2">Contexto de Mercado</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Fase:</span> {priceActionDetails.marketContext.phase}
-                  </div>
-                  <div>
-                    <span className="font-medium">Sentimento:</span> {priceActionDetails.marketContext.sentiment}
-                  </div>
-                  <div>
-                    <span className="font-medium">Volatilidade:</span> {priceActionDetails.marketContext.volatilityState}
-                  </div>
-                  <div>
-                    <span className="font-medium">Liquidez:</span> {priceActionDetails.marketContext.liquidityCondition}
-                  </div>
-                  <div>
-                    <span className="font-medium">Bias Institucional:</span> {priceActionDetails.marketContext.institutionalBias}
-                  </div>
-                  <div>
-                    <span className="font-medium">Horário:</span> {priceActionDetails.marketContext.timeOfDay}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recomendações de Entrada */}
-      {entryRecommendations.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Recomendações de Entrada M1</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {entryRecommendations.map((entry: any, index: number) => (
-                <div key={index} className="border rounded-lg p-3 bg-muted/30">
-                  <div className="flex justify-between items-center mb-2">
-                    <Badge 
-                      variant={entry.action === 'compra' ? 'default' : 'destructive'}
-                      className="text-sm"
-                    >
-                      {entry.action.toUpperCase()}
-                    </Badge>
-                    <span className="text-sm font-medium">
-                      Confiança: {Math.round(entry.confidence * 100)}%
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                    <div>
-                      <span className="font-medium">Entrada:</span> {entry.entryPrice?.toFixed(4)}
-                    </div>
-                    <div>
-                      <span className="font-medium">Stop:</span> {entry.stopLoss?.toFixed(4)}
-                    </div>
-                    <div>
-                      <span className="font-medium">Alvo:</span> {entry.takeProfit?.toFixed(4)}
-                    </div>
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground mb-1">
-                    R:R {entry.riskReward?.toFixed(1)} | Timeframe: {entry.timeframe}
-                  </div>
-                  
-                  <div className="text-xs">
-                    <span className="font-medium">Análise:</span> {entry.reasoning}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Detalhes das confluências */}
-      {showConfluenceDetails && confluenceDetails && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Análise de Confluências</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Score geral */}
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {Math.round(confluenceDetails.confluenceScore)}%
-              </div>
-              <div className="text-sm text-muted-foreground">Score de Confluência</div>
-            </div>
-
-            {/* Suportes e Resistências */}
-            {confluenceDetails.supportResistance && confluenceDetails.supportResistance.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2">Suportes e Resistências</h4>
-                <div className="space-y-1">
-                  {confluenceDetails.supportResistance.slice(0, 3).map((level: any, index: number) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span className={level.type === 'support' ? 'text-green-600' : 'text-red-600'}>
-                        {level.type === 'support' ? 'Suporte' : 'Resistência'} {level.strength}
-                      </span>
-                      <span>{level.price.toFixed(4)} ({level.confidence.toFixed(0)}%)</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Estrutura de mercado */}
-            {confluenceDetails.marketStructure && (
-              <div>
-                <h4 className="font-semibold mb-2">Estrutura de Mercado</h4>
-                <div className="text-sm">
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    confluenceDetails.marketStructure.structure === 'bullish' ? 'bg-green-100 text-green-800' :
-                    confluenceDetails.marketStructure.structure === 'bearish' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {confluenceDetails.marketStructure.structure.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Price Action */}
-            {confluenceDetails.priceAction && (
-              <div>
-                <h4 className="font-semibold mb-2">Price Action</h4>
-                <div className="flex justify-between text-sm">
-                  <span>Tendência: {confluenceDetails.priceAction.trend}</span>
-                  <span>Momentum: {confluenceDetails.priceAction.momentum}</span>
-                </div>
-                <div className="text-sm">
-                  Força: {Math.round(confluenceDetails.priceAction.strength)}%
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Histórico de resultados */}
+      {/* NOVO: Histórico com predições */}
       {liveResults.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Histórico de Sinais</CardTitle>
+            <CardTitle className="text-base">Histórico de Predições</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -1050,22 +841,29 @@ const LiveAnalysis = () => {
                       >
                         {result.signal}
                       </Badge>
+                      {result.oneMinutePrediction && (
+                        <Badge 
+                          variant={result.oneMinutePrediction.willSucceed ? 'default' : 'destructive'}
+                          className="text-xs"
+                        >
+                          {result.oneMinutePrediction.willSucceed ? '✅' : '❌'}
+                          {Math.round(result.oneMinutePrediction.successProbability)}%
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {Math.round(result.confidence * 100)}%
                       </span>
-                      {result.confluenceScore !== undefined && (
-                        <span className="text-xs text-blue-600">
-                          C:{Math.round(result.confluenceScore)}%
-                        </span>
-                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-muted-foreground">
                         {new Date(result.timestamp).toLocaleTimeString()}
                       </div>
-                      <div className="text-xs">
-                        {result.patterns.slice(0, 2).join(', ')}
-                      </div>
+                      {result.oneMinutePrediction && (
+                        <div className="text-xs">
+                          {result.oneMinutePrediction.entryTiming === '30s_current' ? '30s' : '60s'} | 
+                          {result.oneMinutePrediction.candleAnalysis.expectedSize}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -1074,6 +872,7 @@ const LiveAnalysis = () => {
           </CardContent>
         </Card>
       )}
+
     </div>
   );
 };

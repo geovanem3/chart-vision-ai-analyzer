@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from 'react';
 
 export interface CandleData {
@@ -119,6 +118,22 @@ export interface EnhancedMarketContext {
   keyLevels?: any[];
 }
 
+export interface MarketContext {
+  phase: string;
+  sentiment: string;
+  strength: string;
+  description: string;
+}
+
+export interface SelectedRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';
+
 export interface AnalysisResult {
   patterns: PatternResult[];
   timestamp: number;
@@ -204,6 +219,8 @@ interface AnalyzerContextProps {
   addManualMarkup: (markup: TechnicalElement) => void;
   resetAnalysis: () => void;
   setMarkupMode: (mode: boolean) => void;
+  clearManualMarkups: () => void;
+  removeLastMarkup: () => void;
 }
 
 const AnalyzerContext = createContext<AnalyzerContextProps | undefined>(undefined);
@@ -253,6 +270,14 @@ export const AnalyzerProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsMarkupMode(mode);
   };
 
+  const clearManualMarkups = () => {
+    setManualMarkups([]);
+  };
+
+  const removeLastMarkup = () => {
+    setManualMarkups(prev => prev.slice(0, -1));
+  };
+
   return (
     <AnalyzerContext.Provider
       value={{
@@ -294,7 +319,9 @@ export const AnalyzerProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setManualMarkupTool,
         addManualMarkup,
         resetAnalysis,
-        setMarkupMode
+        setMarkupMode,
+        clearManualMarkups,
+        removeLastMarkup
       }}
     >
       {children}
