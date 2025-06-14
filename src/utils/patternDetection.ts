@@ -1,5 +1,5 @@
 
-import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData, EnhancedMarketContext } from "../context/AnalyzerContext";
+import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { mockCandles as generateMockCandles } from "./mockData";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -13,9 +13,9 @@ import { DetectedPattern } from "./types";
 import { 
   analyzeAdvancedMarketConditions, 
   calculateOperatingScore, 
-  calculateConfidenceReduction
+  calculateConfidenceReduction,
+  EnhancedMarketContext
 } from "./advancedMarketContext";
-import { predictTradeSuccess, TradeSuccessPrediction } from "./tradeSuccessPrediction";
 
 interface AnalysisOptions {
   timeframe?: '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
@@ -32,7 +32,9 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
+// Export missing functions that ControlPanel.tsx expects
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
+  // Simple pattern detection simulation
   const patterns: PatternResult[] = [
     {
       type: 'Martelo',
@@ -66,8 +68,10 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], width: number
 };
 
 export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
+  // Generate mock candle data for the detected chart
   const candles = await generateMockCandles(20, '1m');
   
+  // Add position data based on chart dimensions
   return candles.map((candle, index) => ({
     ...candle,
     position: {
@@ -89,6 +93,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   console.log(`📊 Gerados ${candles.length} candles para análise`);
   
+  // NOVO: Análise avançada de condições de mercado
   const advancedConditions = analyzeAdvancedMarketConditions(candles);
   const operatingScore = calculateOperatingScore(advancedConditions);
   const confidenceReduction = calculateConfidenceReduction(advancedConditions);
@@ -101,9 +106,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     console.log('🚨 Warnings:', advancedConditions.warnings);
   }
   
+  // Analyze volatility
   const volatilityAnalysis = analyzeVolatility(candles);
   console.log(`📈 Volatilidade: ${volatilityAnalysis.value.toFixed(2)}% (trend: ${volatilityAnalysis.trend})`);
   
+  // Generate patterns with reduced confidence based on market conditions
   const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
   const patterns: PatternResult[] = [];
   
@@ -121,60 +128,40 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     });
   }
   
+  // MODIFICADO: Aplicar redução de confiança baseada nas condições de mercado
   patterns.forEach(pattern => {
     pattern.confidence *= confidenceReduction;
     
+    // Adicionar warnings específicos se as condições são ruins
     if (operatingScore < 30) {
       pattern.description += ` ⚠️ CUIDADO: Condições adversas de mercado (Score: ${operatingScore}/100)`;
     }
   });
   
+  // Price action analysis
   const priceActionSignals = analyzePriceAction(candles);
   console.log(`⚡️ Price Action Signals: ${priceActionSignals.length} signals detected`);
   
+  // Volume analysis
   const volumeData: VolumeData = analyzeVolume(candles);
   console.log(`📊 Volume Analysis: Trend - ${volumeData.trend}, Significance - ${volumeData.significance}`);
   
+  // Divergence analysis
   const divergences = detectDivergences(candles);
   console.log(`🔍 Divergências encontradas: ${divergences.length}`);
   
+  // Candlestick patterns
   let candlePatterns: DetectedPattern[] = [];
   if (options.enableCandleDetection !== false) {
     candlePatterns = detectCandlestickPatterns(candles);
     console.log(`🕯️ Padrões de candlestick detectados: ${candlePatterns.length}`);
   }
   
+  // Technical indicators
   const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
   console.log(`⚙️ Indicadores técnicos detectados: ${technicalIndicators.length}`);
   
-  const tradeSuccessPredictions: TradeSuccessPrediction[] = [];
-  
-  patterns.forEach(pattern => {
-    if (pattern.action !== 'neutro' && pattern.confidence > 0.5) {
-      const tradeEntry = {
-        action: pattern.action as 'compra' | 'venda',
-        confidence: pattern.confidence,
-        currentTime: Date.now(),
-        entryPrice: candles[candles.length - 1].close,
-        patterns: [pattern.type]
-      };
-      
-      const prediction = predictTradeSuccess(candles, tradeEntry);
-      console.log(`🎯 Predição para ${pattern.type}: ${prediction.successProbability.toFixed(1)}% | ${prediction.recommendation}`);
-      
-      tradeSuccessPredictions.push(prediction);
-      
-      if (!prediction.willSucceed || prediction.recommendation === 'skip_entry') {
-        pattern.confidence *= 0.3;
-        pattern.description += ` ❌ ENTRADA REJEITADA: ${prediction.riskFactors.join(', ')}`;
-      } else if (prediction.recommendation === 'wait_next_candle') {
-        pattern.description += ` ⏳ AGUARDAR PRÓXIMA VELA (${prediction.successProbability.toFixed(0)}% sucesso)`;
-      } else {
-        pattern.description += ` ✅ ENTRADA APROVADA (${prediction.successProbability.toFixed(0)}% sucesso em ${prediction.exitTime}s)`;
-      }
-    }
-  });
-  
+  // Scalping signals
   const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
     action: signal.action === 'compra' ? 'compra' : 'venda',
@@ -185,12 +172,15 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   }));
   console.log(`⚡️ Scalping Signals: ${scalpingSignals.length} signals detected`);
   
+  // Market context
   const marketContextAnalysis = analyzeMarketContext(candles);
   console.log(`🌎 Market Context: Phase - ${marketContextAnalysis.phase}, Sentiment - ${marketContextAnalysis.sentiment}`);
   
+  // Confluence analysis
   const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
   console.log(`🤝 Confluence Score: ${confluenceAnalysis.confluenceScore}`);
   
+  // NOVO: Criar contexto de mercado aprimorado
   const enhancedMarketContext: EnhancedMarketContext = {
     phase: 'lateral',
     strength: 'moderada',
@@ -242,7 +232,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       timeOfDay: 'horário_comercial',
       trend: 'lateral'
     },
-    entryRecommendations: [],
-    tradeSuccessPredictions
+    entryRecommendations: []
   };
 };

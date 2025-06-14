@@ -13,11 +13,11 @@ export const mockCandles = async (numCandles: number, timeframe: string): Promis
     const low = Math.min(open, close) - Math.random() * 0.002;
     
     candles.push({
-      time: new Date(Date.now() - (numCandles - i) * 60000).toISOString(),
       open,
       high,
       low,
-      close
+      close,
+      timestamp: Date.now() - (numCandles - i) * 60000
     });
     
     basePrice = close;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -101,27 +100,15 @@ const GraphAnalyzer = () => {
           ],
           timestamp: Date.now(),
           imageUrl: capturedImage,
-          technicalElements: [],
-          candles: [],
-          scalpingSignals: [],
-          technicalIndicators: [],
-          volumeData: {
-            value: 1250000,
-            trend: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
-            abnormal: masterAnalysis.bulkowski?.volumeImportance === 'critical',
-            significance: masterAnalysis.murphy?.volumeAnalysis?.significance || 'high' as 'high' | 'medium' | 'low',
-            relativeToAverage: 1.35,
-            distribution: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'accumulation' : 'neutral' as 'accumulation' | 'distribution' | 'neutral',
-            divergence: masterAnalysis.murphy?.volumeAnalysis?.trend === 'diverging'
-          },
-          volatilityData: {
-            value: 2.3,
-            trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
-            atr: 1.8,
-            percentageRange: 1.2,
-            isHigh: false,
-            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average',
-            impliedVolatility: 15.5
+          manualRegion: true,
+          preciseEntryAnalysis: {
+            exactMinute: '12:45',
+            entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
+            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
+            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
+            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
+            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
+            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
           },
           marketContext: {
             phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
@@ -137,50 +124,28 @@ const GraphAnalyzer = () => {
             breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
                               (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo' as 'alto' | 'médio' | 'baixo',
             momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
-            advancedConditions: {
-              liquidityState: 'medium' as 'high' | 'medium' | 'low',
-              institutionalBias: 'neutral' as 'bullish' | 'bearish' | 'neutral',
-              volatilityRegime: 'normal' as 'low' | 'normal' | 'high' | 'extreme',
-              marketStructure: 'ranging' as 'trending' | 'ranging' | 'transitional',
-              timeOfDay: 'ny' as 'asia' | 'london' | 'ny' | 'overlap' | 'quiet',
-              economicCalendar: 'low_impact' as 'high_impact' | 'medium_impact' | 'low_impact' | 'none',
-              seasonalEffect: 'neutral' as 'positive' | 'negative' | 'neutral',
-              riskSentiment: 'mixed' as 'risk_on' | 'risk_off' | 'mixed',
-              recommendation: 'operar' as 'operar' | 'cautela' | 'nao_operar',
-              warnings: []
-            },
-            operatingScore: 75,
-            confidenceReduction: 1.0
+            liquidityPools: masterAnalysis.murphy?.supportResistance?.map(sr => ({
+              level: sr.level,
+              strength: sr.strength === 'strong' ? 'alta' : sr.strength === 'moderate' ? 'média' : 'baixa' as 'alta' | 'média' | 'baixa'
+            })) || []
           },
-          warnings: [],
-          preciseEntryAnalysis: {
-            exactMinute: '12:45',
-            entryType: 'reversão' as 'reversão' | 'continuação' | 'breakout',
-            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
-            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
-            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
-            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
-            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
+          volumeData: {
+            value: 1250000,
+            trend: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
+            abnormal: masterAnalysis.bulkowski?.volumeImportance === 'critical',
+            significance: masterAnalysis.murphy?.volumeAnalysis?.significance || 'high' as 'high' | 'medium' | 'low',
+            relativeToAverage: 1.35,
+            distribution: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'accumulation' : 'neutral' as 'accumulation' | 'distribution' | 'neutral',
+            divergence: masterAnalysis.murphy?.volumeAnalysis?.trend === 'diverging'
           },
-          confluences: { confluenceScore: 0, signals: [] },
-          priceActionSignals: [],
-          detailedMarketContext: {
-            phase: 'lateral',
-            sentiment: 'neutro',
-            strength: 'moderada',
-            description: 'Análise dos mestres em progresso',
-            marketStructure: 'indefinida',
-            breakoutPotential: 'baixo',
-            momentumSignature: 'estável',
-            institutionalBias: 'neutro',
-            volatilityState: 'normal',
-            liquidityCondition: 'adequada',
-            timeOfDay: 'horário_comercial',
-            trend: 'lateral'
+          volatilityData: {
+            value: 2.3,
+            trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
+            atr: 1.8,
+            percentageRange: 1.2,
+            isHigh: false,
+            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
           },
-          entryRecommendations: [],
-          tradeSuccessPredictions: [],
-          manualRegion: true,
           masterAnalysis // Adicionando a análise dos mestres
         };
         
