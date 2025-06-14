@@ -30,9 +30,9 @@ export interface EnhancedMarketContext extends MarketContext {
 export const analyzeAdvancedMarketConditions = (candles: CandleData[]): AdvancedMarketConditions => {
   const warnings: string[] = [];
   
-  // Simular análise de condições avançadas
-  const volatilityRegime: 'low' | 'normal' | 'high' | 'extreme' = 'normal';
-  const liquidityState: 'high' | 'medium' | 'low' = 'medium';
+  // Simular análise de condições avançadas com valores dinâmicos
+  let volatilityRegime: 'low' | 'normal' | 'high' | 'extreme' = 'normal';
+  let liquidityState: 'high' | 'medium' | 'low' = 'medium';
   const institutionalBias: 'bullish' | 'bearish' | 'neutral' = 'neutral';
   const marketStructure: 'trending' | 'ranging' | 'transitional' = 'ranging';
   
@@ -48,6 +48,23 @@ export const analyzeAdvancedMarketConditions = (candles: CandleData[]): Advanced
   const economicCalendar: 'high_impact' | 'medium_impact' | 'low_impact' | 'none' = 'low_impact';
   const seasonalEffect: 'positive' | 'negative' | 'neutral' = 'neutral';
   const riskSentiment: 'risk_on' | 'risk_off' | 'mixed' = 'mixed';
+  
+  // Simular análise dinâmica baseada nos candles
+  if (candles.length > 0) {
+    const lastCandle = candles[candles.length - 1];
+    const candleRange = Math.abs(lastCandle.high - lastCandle.low);
+    
+    // Determinar volatilidade baseada no range do candle
+    if (candleRange > 50) volatilityRegime = 'extreme';
+    else if (candleRange > 30) volatilityRegime = 'high';
+    else if (candleRange > 15) volatilityRegime = 'normal';
+    else volatilityRegime = 'low';
+    
+    // Simular análise de liquidez
+    if (timeOfDay === 'quiet') liquidityState = 'low';
+    else if (timeOfDay === 'overlap') liquidityState = 'high';
+    else liquidityState = 'medium';
+  }
   
   // Determinar recomendação
   let recommendation: 'operar' | 'cautela' | 'nao_operar' = 'operar';
