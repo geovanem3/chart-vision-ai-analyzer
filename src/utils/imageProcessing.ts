@@ -3,7 +3,6 @@
  */
 
 import { SelectedRegion, CandleData, TechnicalElement } from '@/context/AnalyzerContext';
-import { generateId } from './idGenerator';
 
 // Process the captured image to enhance chart features
 export const processImage = async (imageUrl: string): Promise<{success: boolean; data: string; error?: string}> => {
@@ -923,7 +922,6 @@ const generateTechnicalElementsFromDetection = (
     const isSupport = i % 2 === 0; // Alternar entre suporte e resistência para fins visuais
     
     technicalElements.push({
-      id: generateId(),
       type: 'line',
       points: [
         { x: line.startX, y: line.startY },
@@ -937,12 +935,11 @@ const generateTechnicalElementsFromDetection = (
     // Adicionar rótulo para linhas com alta confiança
     if (line.confidence > 75) {
       technicalElements.push({
-        id: generateId(),
         type: 'label',
-        position: { x: 10, y: line.startY - 20 },
+        position: { x: 10, y: line.startY - 5 },
         text: isSupport ? 'Suporte' : 'Resistência',
         color: isSupport ? '#22c55e' : '#ef4444',
-        backgroundColor: 'white'
+        backgroundColor: '#1e293b'
       });
     }
   }
@@ -977,7 +974,6 @@ const generateTechnicalElementsFromDetection = (
       const endY = endCandle.position.y - (slope * (endCandle.position.x - startCandle.position.x));
       
       technicalElements.push({
-        id: generateId(),
         type: 'line',
         points: [
           { x: startCandle.position.x, y: startY },
@@ -990,12 +986,11 @@ const generateTechnicalElementsFromDetection = (
       
       // Adicionar rótulo indicando a tendência
       technicalElements.push({
-        id: generateId(),
         type: 'label',
         position: { x: endCandle.position.x - 100, y: endY - 20 },
         text: isBullish ? 'Tendência de Alta' : 'Tendência de Baixa',
         color: isBullish ? '#22c55e' : '#ef4444',
-        backgroundColor: 'white'
+        backgroundColor: '#1e293b'
       });
     }
     
@@ -1013,7 +1008,6 @@ const generateTechnicalElementsFromDetection = (
       // Identificar possível martelo (sombra inferior longa)
       if (lowerShadow > 2 * candleSize && upperShadow < 0.5 * candleSize) {
         technicalElements.push({
-          id: generateId(),
           type: 'circle',
           center: { x: currCandle.position.x, y: currCandle.position.y },
           radius: 15,
@@ -1022,19 +1016,17 @@ const generateTechnicalElementsFromDetection = (
         });
         
         technicalElements.push({
-          id: generateId(),
           type: 'label',
           position: { x: currCandle.position.x - 30, y: currCandle.position.y - 30 },
           text: 'Martelo',
           color: '#3b82f6',
-          backgroundColor: 'white'
+          backgroundColor: '#1e293b'
         });
       }
       
       // Identificar possível doji (abertura próxima do fechamento)
       if (candleSize < 0.1 * (upperShadow + lowerShadow) && (upperShadow + lowerShadow) > 0) {
         technicalElements.push({
-          id: generateId(),
           type: 'circle',
           center: { x: currCandle.position.x, y: currCandle.position.y },
           radius: 15,
@@ -1043,12 +1035,11 @@ const generateTechnicalElementsFromDetection = (
         });
         
         technicalElements.push({
-          id: generateId(),
           type: 'label',
           position: { x: currCandle.position.x - 20, y: currCandle.position.y - 30 },
           text: 'Doji',
           color: '#f59e0b',
-          backgroundColor: 'white'
+          backgroundColor: '#1e293b'
         });
       }
     }

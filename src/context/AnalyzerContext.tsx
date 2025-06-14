@@ -6,14 +6,6 @@ export interface CandleData {
   high: number;
   low: number;
   close: number;
-  timestamp?: number;
-  position?: {
-    x: number;
-    y: number;
-  };
-  width?: number;
-  height?: number;
-  color?: string;
 }
 
 export interface PatternResult {
@@ -22,37 +14,13 @@ export interface PatternResult {
   description: string;
   recommendation: string;
   action: 'compra' | 'venda' | 'neutro';
-  isScalpingSignal?: boolean;
 }
 
 export interface TechnicalElement {
   id: string;
-  type: 'trendline' | 'rectangle' | 'circle' | 'ellipse' | 'fibonacci' | 'pattern' | 'line' | 'label' | 'arrow';
-  points?: Point[];
+  type: 'trendline' | 'rectangle' | 'circle' | 'ellipse' | 'fibonacci';
+  points: Point[];
   color: string;
-  thickness?: number;
-  dashArray?: number[];
-  backgroundColor?: string;
-  
-  // For arrow elements
-  start?: Point;
-  end?: Point;
-  
-  // For rectangle elements
-  position?: Point;
-  width?: number;
-  height?: number;
-  
-  // For circle elements
-  center?: Point;
-  radius?: number;
-  
-  // For label elements
-  text?: string;
-  
-  // For pattern elements
-  patternType?: string;
-  label?: string;
 }
 
 export interface Point {
@@ -104,18 +72,7 @@ export interface DetectedPattern {
   action: 'compra' | 'venda';
 }
 
-export interface MarketContext {
-  phase: string;
-  strength: string;
-  dominantTimeframe: string;
-  sentiment: string;
-  description: string;
-  marketStructure: string;
-  breakoutPotential: string;
-  momentumSignature: string;
-}
-
-export interface EnhancedMarketContext extends MarketContext {
+export interface EnhancedMarketContext {
   phase: string;
   strength: string;
   dominantTimeframe: string;
@@ -127,21 +84,7 @@ export interface EnhancedMarketContext extends MarketContext {
   advancedConditions: any;
   operatingScore: number;
   confidenceReduction: number;
-  keyLevels?: any[];
 }
-
-export interface SelectedRegion {
-  type: 'rectangle' | 'circle';
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  centerX?: number;
-  centerY?: number;
-  radius?: number;
-}
-
-export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';
 
 export interface AnalysisResult {
   patterns: PatternResult[];
@@ -151,11 +94,11 @@ export interface AnalysisResult {
   candles: CandleData[];
   scalpingSignals: ScalpingSignal[];
   technicalIndicators: TechnicalIndicator[];
-  volumeData?: VolumeData;
-  volatilityData?: VolatilityData;
-  marketContext?: EnhancedMarketContext;
+  volumeData: VolumeData;
+  volatilityData: VolatilityData;
+  marketContext: EnhancedMarketContext;
   warnings: string[];
-  preciseEntryAnalysis?: {
+  preciseEntryAnalysis: {
     exactMinute: string;
     entryType: 'reversão' | 'continuação' | 'breakout';
     nextCandleExpectation: string;
@@ -181,9 +124,7 @@ export interface AnalysisResult {
     trend: string;
   };
   entryRecommendations: any[];
-  tradeSuccessPredictions?: import('../utils/tradeSuccessPrediction').TradeSuccessPrediction[];
-  masterAnalysis?: any;
-  manualRegion?: any;
+  tradeSuccessPredictions?: import('../utils/tradeSuccessPrediction').TradeSuccessPrediction[]; // NOVO
 }
 
 interface AnalyzerContextProps {
@@ -209,27 +150,6 @@ interface AnalyzerContextProps {
   setMarketContextEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   marketAnalysisDepth: string;
   setMarketAnalysisDepth: React.Dispatch<React.SetStateAction<string>>;
-  
-  // Chart markup and region selection properties
-  showTechnicalMarkup: boolean;
-  setShowTechnicalMarkup: React.Dispatch<React.SetStateAction<boolean>>;
-  markupSize: number;
-  setMarkupSize: React.Dispatch<React.SetStateAction<number>>;
-  manualMarkups: TechnicalElement[];
-  setManualMarkups: React.Dispatch<React.SetStateAction<TechnicalElement[]>>;
-  selectedRegion: SelectedRegion | null;
-  setSelectedRegion: React.Dispatch<React.SetStateAction<SelectedRegion | null>>;
-  regionType: string;
-  setRegionType: React.Dispatch<React.SetStateAction<string>>;
-  isMarkupMode: boolean;
-  setIsMarkupMode: React.Dispatch<React.SetStateAction<boolean>>;
-  manualMarkupTool: MarkupToolType;
-  setManualMarkupTool: React.Dispatch<React.SetStateAction<MarkupToolType>>;
-  addManualMarkup: (markup: TechnicalElement) => void;
-  resetAnalysis: () => void;
-  setMarkupMode: (mode: boolean) => void;
-  clearManualMarkups: () => void;
-  removeLastMarkup: () => void;
 }
 
 const AnalyzerContext = createContext<AnalyzerContextProps | undefined>(undefined);
@@ -254,38 +174,6 @@ export const AnalyzerProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [scalpingStrategy, setScalpingStrategy] = useState('estrategia_padrao');
   const [marketContextEnabled, setMarketContextEnabled] = useState(true);
   const [marketAnalysisDepth, setMarketAnalysisDepth] = useState('superficial');
-  
-  // Chart markup and region selection states
-  const [showTechnicalMarkup, setShowTechnicalMarkup] = useState(true);
-  const [markupSize, setMarkupSize] = useState(1);
-  const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
-  const [regionType, setRegionType] = useState('full');
-  const [isMarkupMode, setIsMarkupMode] = useState(false);
-  const [manualMarkupTool, setManualMarkupTool] = useState<MarkupToolType>('line');
-
-  const addManualMarkup = (markup: TechnicalElement) => {
-    setManualMarkups(prev => [...prev, markup]);
-  };
-
-  const clearManualMarkups = () => {
-    setManualMarkups([]);
-  };
-
-  const removeLastMarkup = () => {
-    setManualMarkups(prev => prev.slice(0, -1));
-  };
-
-  const resetAnalysis = () => {
-    setAnalysisResults(null);
-    setCapturedImage(null);
-    setSelectedRegion(null);
-    setManualMarkups([]);
-  };
-
-  const setMarkupMode = (mode: boolean) => {
-    setIsMarkupMode(mode);
-  };
 
   return (
     <AnalyzerContext.Provider
@@ -311,26 +199,7 @@ export const AnalyzerProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         marketContextEnabled,
         setMarketContextEnabled,
         marketAnalysisDepth,
-        setMarketAnalysisDepth,
-        showTechnicalMarkup,
-        setShowTechnicalMarkup,
-        markupSize,
-        setMarkupSize,
-        manualMarkups,
-        setManualMarkups,
-        selectedRegion,
-        setSelectedRegion,
-        regionType,
-        setRegionType,
-        isMarkupMode,
-        setIsMarkupMode,
-        manualMarkupTool,
-        setManualMarkupTool,
-        addManualMarkup,
-        resetAnalysis,
-        setMarkupMode,
-        clearManualMarkups,
-        removeLastMarkup
+        setMarketAnalysisDepth
       }}
     >
       {children}
