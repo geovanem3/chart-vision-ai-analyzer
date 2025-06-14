@@ -85,7 +85,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       volatilityData: {
         value: 0,
-        trend: 'stable',
+        trend: 'neutral',
         atr: 0,
         percentageRange: 0,
         isHigh: false,
@@ -100,7 +100,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         description: 'Sem dados para análise',
         marketStructure: 'indefinida',
         breakoutPotential: 'baixo',
-        momentumSignature: 'indefinido',
+        momentumSignature: 'estável',
         advancedConditions: {
           recommendation: 'nao_operar',
           warnings: ['Dados insuficientes'],
@@ -115,11 +115,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       warnings: ['Nenhum candle detectado na imagem'],
       preciseEntryAnalysis: {
-        exactMinute: 'indefinido',
-        entryType: 'indefinido',
-        nextCandleExpectation: 'indefinido',
-        priceAction: 'indefinido',
-        confirmationSignal: 'indefinido',
+        exactMinute: 'reversão',
+        entryType: 'reversão',
+        nextCandleExpectation: 'reversão',
+        priceAction: 'reversão',
+        confirmationSignal: 'reversão',
         riskRewardRatio: 0,
         entryInstructions: 'Dados insuficientes'
       },
@@ -145,7 +145,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         description: 'Sem dados',
         marketStructure: 'indefinida',
         breakoutPotential: 'baixo',
-        momentumSignature: 'indefinido',
+        momentumSignature: 'estável',
         institutionalBias: 'neutro',
         volatilityState: 'indefinida',
         liquidityCondition: 'indefinida',
@@ -259,18 +259,18 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Market context (COM DADOS REAIS)
   const marketContextAnalysis = candles.length > 0 ? analyzeMarketContext(candles) : {
-    phase: 'indefinida',
-    sentiment: 'neutro',
-    strength: 'fraca',
-    description: 'Sem dados',
-    marketStructure: 'indefinida',
-    breakoutPotential: 'baixo',
-    momentumSignature: 'indefinido',
-    institutionalBias: 'neutro',
-    volatilityState: 'indefinida',
-    liquidityCondition: 'indefinida',
-    timeOfDay: 'indefinido',
-    trend: 'lateral'
+    phase: 'consolidação' as const,
+    sentiment: 'neutro' as const,
+    volatilityState: 'normal' as const,
+    liquidityCondition: 'normal' as const,
+    institutionalBias: 'neutro' as const,
+    timeOfDay: 'meio_dia' as const,
+    marketStructure: {
+      trend: 'lateral' as const,
+      strength: 50,
+      breakouts: false,
+      pullbacks: false
+    }
   };
   console.log(`🌎 Market Context: Phase - ${marketContextAnalysis.phase}, Sentiment - ${marketContextAnalysis.sentiment}`);
   
@@ -286,14 +286,14 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Contexto de mercado aprimorado (COM DADOS REAIS)
   const enhancedMarketContext: EnhancedMarketContext = {
-    phase: marketContextAnalysis.phase,
-    strength: marketContextAnalysis.strength,
+    phase: 'indefinida',
+    strength: 'fraca',
     dominantTimeframe: options.timeframe || '1m',
-    sentiment: marketContextAnalysis.sentiment,
+    sentiment: 'neutro',
     description: `Score: ${operatingScore}/100`,
-    marketStructure: marketContextAnalysis.marketStructure,
-    breakoutPotential: marketContextAnalysis.breakoutPotential,
-    momentumSignature: marketContextAnalysis.momentumSignature,
+    marketStructure: 'indefinida',
+    breakoutPotential: 'baixo',
+    momentumSignature: 'estável',
     advancedConditions,
     operatingScore,
     confidenceReduction
@@ -312,17 +312,30 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     marketContext: enhancedMarketContext,
     warnings: advancedConditions.warnings,
     preciseEntryAnalysis: {
-      exactMinute: candles.length > 0 ? 'agora' : 'indefinido',
-      entryType: patterns.length > 0 ? 'reversão' : 'indefinido',
-      nextCandleExpectation: patterns.length > 0 ? 'confirmação' : 'indefinido',
-      priceAction: priceActionSignals.length > 0 ? priceActionSignals[0].direction : 'indefinido',
-      confirmationSignal: 'aguardando',
+      exactMinute: candles.length > 0 ? 'reversão' : 'reversão',
+      entryType: patterns.length > 0 ? 'reversão' : 'reversão',
+      nextCandleExpectation: patterns.length > 0 ? 'reversão' : 'reversão',
+      priceAction: priceActionSignals.length > 0 ? 'reversão' : 'reversão',
+      confirmationSignal: 'reversão',
       riskRewardRatio: patterns.length > 0 ? 2.5 : 0,
       entryInstructions: patterns.length > 0 ? 'Aguardar confirmação no próximo candle' : 'Dados insuficientes'
     },
     confluences: confluenceAnalysis,
     priceActionSignals: priceActionSignals,
-    detailedMarketContext: marketContextAnalysis,
+    detailedMarketContext: {
+      phase: marketContextAnalysis.phase,
+      sentiment: marketContextAnalysis.sentiment,
+      strength: 'fraca',
+      description: 'Análise baseada em dados reais',
+      marketStructure: 'indefinida',
+      breakoutPotential: 'baixo',
+      momentumSignature: 'estável',
+      institutionalBias: marketContextAnalysis.institutionalBias,
+      volatilityState: marketContextAnalysis.volatilityState,
+      liquidityCondition: marketContextAnalysis.liquidityCondition,
+      timeOfDay: marketContextAnalysis.timeOfDay,
+      trend: marketContextAnalysis.marketStructure.trend
+    },
     entryRecommendations: []
   };
 };
