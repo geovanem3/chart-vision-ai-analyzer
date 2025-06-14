@@ -1,5 +1,4 @@
-
-import { CandleData, MarketContext } from "../context/AnalyzerContext";
+import { CandleData } from "../context/AnalyzerContext";
 
 export interface AdvancedMarketConditions {
   operatingDifficulty: 'facil' | 'moderado' | 'dificil' | 'muito_dificil' | 'nao_operar';
@@ -17,10 +16,19 @@ export interface AdvancedMarketConditions {
   reasoning: string[];
 }
 
-export interface EnhancedMarketContext extends MarketContext {
+export interface EnhancedMarketContext {
+  phase: string;
+  strength: string;
+  dominantTimeframe: string;
+  sentiment: string;
+  description: string;
+  marketStructure: string;
+  breakoutPotential: string;
+  momentumSignature: string;
   advancedConditions: AdvancedMarketConditions;
-  operatingScore: number; // 0-100, onde 0 = não operar, 100 = condições ideais
-  confidenceReduction: number; // Fator de redução de confiança (0-1)
+  operatingScore: number;
+  confidenceReduction: number;
+  keyLevels?: any[];
 }
 
 // Analisar condições avançadas de mercado

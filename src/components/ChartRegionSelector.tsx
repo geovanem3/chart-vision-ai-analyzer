@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAnalyzer, Point, TechnicalElement } from '@/context/AnalyzerContext';
@@ -97,10 +98,13 @@ const ChartRegionSelector = () => {
       return colors[Math.floor(Math.random() * colors.length)];
     };
     
+    const generateId = () => `markup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     const markup: TechnicalElement = (() => {
       switch (manualMarkupTool) {
         case 'line':
           return {
+            id: generateId(),
             type: 'line',
             points: [
               { x: startPoint.x, y: startPoint.y },
@@ -111,6 +115,7 @@ const ChartRegionSelector = () => {
           };
         case 'arrow':
           return {
+            id: generateId(),
             type: 'arrow',
             start: { x: startPoint.x, y: startPoint.y },
             end: { x: currentPoint.x, y: currentPoint.y },
@@ -123,6 +128,7 @@ const ChartRegionSelector = () => {
           const x = Math.min(startPoint.x, currentPoint.x);
           const y = Math.min(startPoint.y, currentPoint.y);
           return {
+            id: generateId(),
             type: 'rectangle',
             position: { x, y },
             width,
@@ -135,6 +141,7 @@ const ChartRegionSelector = () => {
           const deltaY = currentPoint.y - startPoint.y;
           const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
           return {
+            id: generateId(),
             type: 'circle',
             center: { x: startPoint.x, y: startPoint.y },
             radius,
@@ -143,6 +150,7 @@ const ChartRegionSelector = () => {
           };
         case 'trendline':
           return {
+            id: generateId(),
             type: 'pattern',
             patternType: 'trendline',
             points: [
@@ -155,6 +163,7 @@ const ChartRegionSelector = () => {
           };
         case 'eliotwave':
           return {
+            id: generateId(),
             type: 'pattern',
             patternType: 'eliotwave',
             points: [
@@ -167,6 +176,7 @@ const ChartRegionSelector = () => {
           };
         case 'dowtheory':
           return {
+            id: generateId(),
             type: 'pattern',
             patternType: 'dowtheory',
             points: [
@@ -179,6 +189,7 @@ const ChartRegionSelector = () => {
           };
         default:
           return {
+            id: generateId(),
             type: 'line',
             points: [
               { x: startPoint.x, y: startPoint.y },
@@ -201,6 +212,7 @@ const ChartRegionSelector = () => {
   const handleAddLabel = () => {
     if (pendingLabelPosition && labelText) {
       const labelMarkup: TechnicalElement = {
+        id: `label-${Date.now()}`,
         type: 'label',
         position: pendingLabelPosition,
         text: labelText,
@@ -632,7 +644,7 @@ const ChartRegionSelector = () => {
               return (
                 <polyline
                   key={index}
-                  points={markup.points.map(p => `${p.x * scaleX},${p.y * scaleY}`).join(' ')}
+                  points={(markup.points || []).map(p => `${p.x * scaleX},${p.y * scaleY}`).join(' ')}
                   stroke={markup.color}
                   strokeWidth={markup.thickness || 2}
                   fill="none"
@@ -640,6 +652,8 @@ const ChartRegionSelector = () => {
                 />
               );
             case 'arrow':
+              if (!markup.start || !markup.end) return null;
+              
               const dx = markup.end.x - markup.start.x;
               const dy = markup.end.y - markup.start.y;
               const angle = Math.atan2(dy, dx);
@@ -666,31 +680,37 @@ const ChartRegionSelector = () => {
                 </g>
               );
             case 'rectangle':
+              if (!markup.position) return null;
+              
               return (
                 <rect
                   key={index}
                   x={markup.position.x * scaleX}
                   y={markup.position.y * scaleY}
-                  width={markup.width * scaleX}
-                  height={markup.height * scaleX}
+                  width={(markup.width || 0) * scaleX}
+                  height={(markup.height || 0) * scaleY}
                   stroke={markup.color}
                   strokeWidth={markup.thickness || 2}
                   fill="none"
                 />
               );
             case 'circle':
+              if (!markup.center) return null;
+              
               return (
                 <circle
                   key={index}
                   cx={markup.center.x * scaleX}
                   cy={markup.center.y * scaleY}
-                  r={markup.radius * scaleX}
+                  r={(markup.radius || 0) * scaleX}
                   stroke={markup.color}
                   strokeWidth={markup.thickness || 2}
                   fill="none"
                 />
               );
             case 'label':
+              if (!markup.position) return null;
+              
               return (
                 <foreignObject
                   key={index}
@@ -720,7 +740,7 @@ const ChartRegionSelector = () => {
                 return (
                   <polyline
                     key={index}
-                    points={markup.points.map(p => `${p.x * scaleX},${p.y * scaleY}`).join(' ')}
+                    points={(markup.points || []).map(p => `${p.x * scaleX},${p.y * scaleY}`).join(' ')}
                     stroke={markup.color}
                     strokeWidth={markup.thickness || 2}
                     strokeDasharray="5,5"
@@ -731,15 +751,15 @@ const ChartRegionSelector = () => {
                 return (
                   <g key={index}>
                     <polyline
-                      points={markup.points.map(p => `${p.x * scaleX},${p.y * scaleY}`).join(' ')}
+                      points={(markup.points || []).map(p => `${p.x * scaleX},${p.y * scaleY}`).join(' ')}
                       stroke={markup.color}
                       strokeWidth={markup.thickness || 2}
                       fill="none"
                     />
                     {markup.label && (
                       <foreignObject
-                        x={(markup.points[0].x - 50) * scaleX}
-                        y={(markup.points[0].y - 25) * scaleY}
+                        x={((markup.points || [])[0]?.x || 0 - 50) * scaleX}
+                        y={((markup.points || [])[0]?.y || 0 - 25) * scaleY}
                         width="100"
                         height="30"
                       >

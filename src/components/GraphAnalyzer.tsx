@@ -100,35 +100,10 @@ const GraphAnalyzer = () => {
           ],
           timestamp: Date.now(),
           imageUrl: capturedImage,
-          manualRegion: true,
-          preciseEntryAnalysis: {
-            exactMinute: '12:45',
-            entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
-            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
-            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
-            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
-            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
-            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
-          },
-          marketContext: {
-            phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
-                   masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'tendência_baixa' : 'lateral' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
-            strength: (masterAnalysis.tripleScreen?.confidence || 0) > 0.8 ? 'forte' : 
-                     (masterAnalysis.tripleScreen?.confidence || 0) > 0.6 ? 'moderada' : 'fraca' as 'forte' | 'moderada' | 'fraca',
-            description: `Análise integrada dos mestres: ${(masterAnalysis.masterRecommendation || '').split('\n\n')[0] || 'Análise em progresso'}`,
-            dominantTimeframe: timeframe,
-            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
-                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro' as 'otimista' | 'pessimista' | 'neutro',
-            marketStructure: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'alta_altas' : 
-                            masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'baixa_baixas' : 'indefinida' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
-            breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
-                              (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo' as 'alto' | 'médio' | 'baixo',
-            momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
-            liquidityPools: masterAnalysis.murphy?.supportResistance?.map(sr => ({
-              level: sr.level,
-              strength: sr.strength === 'strong' ? 'alta' : sr.strength === 'moderate' ? 'média' : 'baixa' as 'alta' | 'média' | 'baixa'
-            })) || []
-          },
+          technicalElements: [],
+          candles: [],
+          scalpingSignals: [],
+          technicalIndicators: [],
           volumeData: {
             value: 1250000,
             trend: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
@@ -144,9 +119,61 @@ const GraphAnalyzer = () => {
             atr: 1.8,
             percentageRange: 1.2,
             isHigh: false,
-            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
+            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average',
+            impliedVolatility: 0
           },
-          masterAnalysis // Adicionando a análise dos mestres
+          warnings: [],
+          confluences: {},
+          priceActionSignals: [],
+          detailedMarketContext: {
+            phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
+                   masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'tendência_baixa' : 'lateral',
+            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
+                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro',
+            strength: (masterAnalysis.tripleScreen?.confidence || 0) > 0.8 ? 'forte' : 
+                     (masterAnalysis.tripleScreen?.confidence || 0) > 0.6 ? 'moderada' : 'fraca',
+            description: `Análise integrada dos mestres: ${(masterAnalysis.masterRecommendation || '').split('\n\n')[0] || 'Análise em progresso'}`,
+            marketStructure: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'alta_altas' : 
+                            masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'baixa_baixas' : 'indefinida',
+            breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
+                              (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo',
+            momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente',
+            institutionalBias: 'neutro',
+            volatilityState: 'normal',
+            liquidityCondition: 'adequada',
+            timeOfDay: 'horário_comercial',
+            trend: 'lateral'
+          },
+          entryRecommendations: [],
+          manualRegion: true,
+          preciseEntryAnalysis: {
+            exactMinute: '12:45',
+            entryType: 'reversão' as 'reversão' | 'continuação' | 'breakout',
+            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
+            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
+            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
+            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
+            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
+          },
+          marketContext: {
+            phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
+                   masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'tendência_baixa' : 'lateral',
+            strength: (masterAnalysis.tripleScreen?.confidence || 0) > 0.8 ? 'forte' : 
+                     (masterAnalysis.tripleScreen?.confidence || 0) > 0.6 ? 'moderada' : 'fraca',
+            description: `Análise integrada dos mestres: ${(masterAnalysis.masterRecommendation || '').split('\n\n')[0] || 'Análise em progresso'}`,
+            dominantTimeframe: timeframe,
+            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
+                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro',
+            marketStructure: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'alta_altas' : 
+                            masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'baixa_baixas' : 'indefinida',
+            breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
+                              (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo',
+            momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente',
+            advancedConditions: {},
+            operatingScore: 75,
+            confidenceReduction: 0.8
+          },
+          masterAnalysis
         };
         
         console.log('Final simulated result:', simulatedResult);
