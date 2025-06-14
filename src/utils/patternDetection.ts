@@ -32,8 +32,6 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
-// REMOVIDO: Todas as funções de simulação e dados mock
-
 // NOVA FUNÇÃO: Extração real de candles da imagem
 export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
   console.log('🔍 Extraindo candles REAIS da imagem capturada...');
@@ -41,7 +39,28 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   try {
     const realCandles = await extractRealCandlesFromImage(imageData);
     console.log(`✅ ${realCandles.length} candles reais extraídos da imagem`);
-    return realCandles;
+    
+    // Validação dos dados extraídos
+    if (realCandles.length === 0) {
+      console.warn('⚠️ Nenhum candle detectado - verifique se a imagem contém um gráfico válido');
+      return [];
+    }
+    
+    // Verificar integridade dos dados OHLC
+    const validCandles = realCandles.filter(candle => {
+      const isValid = candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
+                     candle.high >= Math.max(candle.open, candle.close) &&
+                     candle.low <= Math.min(candle.open, candle.close);
+      
+      if (!isValid) {
+        console.warn('⚠️ Candle com dados OHLC inválidos detectado:', candle);
+      }
+      
+      return isValid;
+    });
+    
+    console.log(`📊 ${validCandles.length} candles válidos após verificação de integridade`);
+    return validCandles;
   } catch (error) {
     console.error('❌ Erro ao extrair candles reais:', error);
     return [];
@@ -142,11 +161,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       warnings: ['Nenhum candle detectado na imagem capturada'],
       preciseEntryAnalysis: {
-        exactMinute: 'reversao',
-        entryType: 'reversao',
-        nextCandleExpectation: 'reversao',
-        priceAction: 'reversao',
-        confirmationSignal: 'reversao',
+        exactMinute: 'reversão',
+        entryType: 'reversão',
+        nextCandleExpectation: 'reversão',
+        priceAction: 'reversão',
+        confirmationSignal: 'reversão',
         riskRewardRatio: 0,
         entryInstructions: 'Dados insuficientes - aponte a câmera para um gráfico de candles válido'
       },
@@ -185,8 +204,33 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
 
   console.log(`📊 Analisando ${candles.length} candles REAIS extraídos da imagem`);
   
+  // Validação crítica dos dados OHLC
+  let validCandles = candles.filter(candle => {
+    const isValid = candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
+                   candle.high >= Math.max(candle.open, candle.close) &&
+                   candle.low <= Math.min(candle.open, candle.close) &&
+                   candle.position && candle.position.x >= 0 && candle.position.y >= 0;
+    
+    if (!isValid) {
+      console.warn('🚨 Candle com dados inválidos removido da análise:', candle);
+    }
+    
+    return isValid;
+  });
+  
+  if (validCandles.length < candles.length) {
+    console.warn(`⚠️ ${candles.length - validCandles.length} candles removidos por dados inválidos`);
+  }
+  
+  if (validCandles.length === 0) {
+    console.error('❌ Todos os candles extraídos possuem dados inválidos');
+    validCandles = candles; // Usar dados originais mesmo com problemas
+  }
+  
+  console.log(`✅ Usando ${validCandles.length} candles válidos para análise`);
+  
   // Análise avançada de condições de mercado (COM DADOS REAIS)
-  const advancedConditions = analyzeAdvancedMarketConditions(candles);
+  const advancedConditions = analyzeAdvancedMarketConditions(validCandles);
   const operatingScore = calculateOperatingScore(advancedConditions);
   const confidenceReduction = calculateConfidenceReduction(advancedConditions);
   
@@ -199,7 +243,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   }
   
   // Análise de volatilidade (COM DADOS REAIS)
-  const volatilityAnalysis = analyzeVolatility(candles);
+  const volatilityAnalysis = analyzeVolatility(validCandles);
   console.log(`📈 Volatilidade: ${volatilityAnalysis.value.toFixed(2)}% (trend: ${volatilityAnalysis.trend})`);
   
   // Detectar padrões reais dos candles extraídos
@@ -207,8 +251,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Padrões de candlestick (COM DADOS REAIS)
   let candlePatterns: DetectedPattern[] = [];
-  if (options.enableCandleDetection !== false && candles.length > 0) {
-    candlePatterns = detectCandlestickPatterns(candles);
+  if (options.enableCandleDetection !== false && validCandles.length > 0) {
+    candlePatterns = detectCandlestickPatterns(validCandles);
     console.log(`🕯️ Padrões de candlestick detectados: ${candlePatterns.length}`);
     
     // Converter padrões de candle para PatternResult
@@ -224,11 +268,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   }
   
   // Padrões gráficos (COM DADOS REAIS)
-  if (candles.length > 0) {
+  if (validCandles.length > 0) {
     const chartPatternTypes = ['triangulo', 'suporte_resistencia', 'canal', 'rompimento'];
     
     for (const patternType of chartPatternTypes) {
-      const detectedPatterns = await detectChartPatterns(candles, patternType, options);
+      const detectedPatterns = await detectChartPatterns(validCandles, patternType, options);
       
       detectedPatterns.forEach(pattern => {
         patterns.push({
@@ -250,11 +294,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   });
   
   // Price action analysis (COM DADOS REAIS)
-  const priceActionSignals = candles.length > 0 ? analyzePriceAction(candles) : [];
+  const priceActionSignals = validCandles.length > 0 ? analyzePriceAction(validCandles) : [];
   console.log(`⚡️ Price Action Signals: ${priceActionSignals.length} signals detected`);
   
   // Volume analysis (COM DADOS REAIS)
-  const volumeData: VolumeData = candles.length > 0 ? analyzeVolume(candles) : {
+  const volumeData: VolumeData = validCandles.length > 0 ? analyzeVolume(validCandles) : {
     value: 0,
     trend: 'neutral',
     abnormal: false,
@@ -266,18 +310,18 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   console.log(`📊 Volume Analysis: Trend - ${volumeData.trend}, Significance - ${volumeData.significance}`);
   
   // Divergence analysis (COM DADOS REAIS)
-  const divergences = candles.length > 0 ? detectDivergences(candles) : [];
+  const divergences = validCandles.length > 0 ? detectDivergences(validCandles) : [];
   console.log(`🔍 Divergências encontradas: ${divergences.length}`);
   
   // Technical indicators (COM DADOS REAIS)
-  const technicalIndicators: TechnicalIndicator[] = candles.length > 0 ? detectTechnicalIndicators(candles) : [];
+  const technicalIndicators: TechnicalIndicator[] = validCandles.length > 0 ? detectTechnicalIndicators(validCandles) : [];
   console.log(`⚙️ Indicadores técnicos detectados: ${technicalIndicators.length}`);
   
   // Scalping signals (COM DADOS REAIS)
   const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
     action: signal.action === 'compra' ? 'compra' : 'venda',
-    price: candles.length > 0 ? candles[candles.length - 1].close.toFixed(5) : '0.00000',
+    price: validCandles.length > 0 ? validCandles[validCandles.length - 1].close.toFixed(5) : '0.00000',
     confidence: signal.confidence,
     timeframe: options.timeframe || '1m',
     description: signal.description,
@@ -285,7 +329,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   console.log(`⚡️ Scalping Signals: ${scalpingSignals.length} signals detected`);
   
   // Market context (COM DADOS REAIS)
-  const marketContextAnalysis = candles.length > 0 ? analyzeMarketContext(candles) : {
+  const marketContextAnalysis = validCandles.length > 0 ? analyzeMarketContext(validCandles) : {
     phase: 'consolidacao' as const,
     sentiment: 'neutro' as const,
     volatilityState: 'normal' as const,
@@ -302,7 +346,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   console.log(`🌎 Market Context: Phase - ${marketContextAnalysis.phase}, Sentiment - ${marketContextAnalysis.sentiment}`);
   
   // Confluence analysis (COM DADOS REAIS)
-  const confluenceAnalysis = candles.length > 0 ? performConfluenceAnalysis(candles, candlePatterns) : {
+  const confluenceAnalysis = validCandles.length > 0 ? performConfluenceAnalysis(validCandles, candlePatterns) : {
     confluenceScore: 0,
     supportResistance: [],
     criticalLevels: [],
@@ -317,7 +361,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     strength: 'fraca',
     dominantTimeframe: options.timeframe || '1m',
     sentiment: 'neutro',
-    description: `Score: ${operatingScore}/100 - ${candles.length} candles analisados`,
+    description: `Score: ${operatingScore}/100 - ${validCandles.length} candles analisados`,
     marketStructure: 'indefinida',
     breakoutPotential: 'baixo',
     momentumSignature: 'estável',
@@ -326,14 +370,14 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     confidenceReduction
   };
   
-  const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
+  const currentPrice = validCandles.length > 0 ? validCandles[validCandles.length - 1].close : 0;
   
   return {
     patterns,
     timestamp: Date.now(),
     imageUrl: imageData,
     technicalElements: [],
-    candles: candles,
+    candles: validCandles,
     scalpingSignals: scalpingSignals,
     technicalIndicators: technicalIndicators,
     volumeData: volumeData,
@@ -342,8 +386,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     warnings: advancedConditions.warnings,
     preciseEntryAnalysis: {
       exactMinute: patterns.length > 0 ? 'confirmacao' : 'aguardar',
-      entryType: patterns.length > 0 ? 'breakout' : 'reversao',
-      nextCandleExpectation: patterns.length > 0 ? 'continuacao' : 'reversao',
+      entryType: patterns.length > 0 ? 'breakout' : 'reversão',
+      nextCandleExpectation: patterns.length > 0 ? 'continuacao' : 'reversão',
       priceAction: priceActionSignals.length > 0 ? 'forte' : 'fraco',
       confirmationSignal: patterns.length > 0 ? 'confirmado' : 'pendente',
       riskRewardRatio: patterns.length > 0 ? 2.5 : 0,
@@ -357,7 +401,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       phase: marketContextAnalysis.phase,
       sentiment: marketContextAnalysis.sentiment,
       strength: patterns.length > 0 ? 'forte' : 'fraca',
-      description: `${patterns.length} padrões detectados em ${candles.length} candles reais`,
+      description: `${patterns.length} padrões detectados em ${validCandles.length} candles reais`,
       marketStructure: 'definida',
       breakoutPotential: patterns.length > 0 ? 'alto' : 'baixo',
       momentumSignature: volatilityAnalysis.isHigh ? 'volatil' : 'estavel',
