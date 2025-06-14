@@ -1,5 +1,3 @@
-
-
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -396,16 +394,23 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     let divergences = [];
     let technicalIndicators: TechnicalIndicator[] = [];
     
-    // Corrigir o tipo da análise de contexto de mercado
+    // Definir tipos compatíveis com as interfaces corretas
+    type MarketSentiment = 'neutro' | 'otimista' | 'pessimista' | 'muito_otimista' | 'muito_pessimista';
+    type VolatilityState = 'normal' | 'baixa' | 'alta' | 'extrema';
+    type LiquidityCondition = 'normal' | 'seca' | 'abundante';
+    type InstitutionalBias = 'compra' | 'venda' | 'neutro';
+    type TimeOfDay = 'meio_dia' | 'abertura' | 'fechamento' | 'after_hours';
+    type MarketTrend = 'lateral' | 'baixa' | 'alta';
+    
     let marketContextAnalysis = {
       phase: 'consolidação' as const,
-      sentiment: 'neutro' as const,
-      volatilityState: 'normal' as const,
-      liquidityCondition: 'normal' as const,
-      institutionalBias: 'neutro' as const,
-      timeOfDay: 'meio_dia' as const,
+      sentiment: 'neutro' as MarketSentiment,
+      volatilityState: 'normal' as VolatilityState,
+      liquidityCondition: 'normal' as LiquidityCondition,
+      institutionalBias: 'neutro' as InstitutionalBias,
+      timeOfDay: 'meio_dia' as TimeOfDay,
       marketStructure: {
-        trend: 'lateral' as const,
+        trend: 'lateral' as MarketTrend,
         strength: 50,
         breakouts: false,
         pullbacks: false
@@ -460,20 +465,37 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       
       try {
         const fullMarketContext = analyzeMarketContext(validCandles);
-        // Mapear apenas as propriedades compatíveis
+        // Mapear apenas as propriedades compatíveis com validação de tipos
         marketContextAnalysis = {
           phase: 'consolidação' as const,
-          sentiment: fullMarketContext.sentiment || 'neutro',
-          volatilityState: fullMarketContext.volatilityState || 'normal',
-          liquidityCondition: fullMarketContext.liquidityCondition || 'normal',
-          institutionalBias: fullMarketContext.institutionalBias || 'neutro',
-          timeOfDay: fullMarketContext.timeOfDay || 'meio_dia',
-          marketStructure: fullMarketContext.marketStructure || {
-            trend: 'lateral' as const,
-            strength: 50,
-            breakouts: false,
-            pullbacks: false
-          }
+          sentiment: (fullMarketContext.sentiment && ['neutro', 'otimista', 'pessimista', 'muito_otimista', 'muito_pessimista'].includes(fullMarketContext.sentiment)) 
+            ? fullMarketContext.sentiment as MarketSentiment 
+            : 'neutro',
+          volatilityState: (fullMarketContext.volatilityState && ['normal', 'baixa', 'alta', 'extrema'].includes(fullMarketContext.volatilityState))
+            ? fullMarketContext.volatilityState as VolatilityState
+            : 'normal',
+          liquidityCondition: (fullMarketContext.liquidityCondition && ['normal', 'seca', 'abundante'].includes(fullMarketContext.liquidityCondition))
+            ? fullMarketContext.liquidityCondition as LiquidityCondition
+            : 'normal',
+          institutionalBias: (fullMarketContext.institutionalBias && ['compra', 'venda', 'neutro'].includes(fullMarketContext.institutionalBias))
+            ? fullMarketContext.institutionalBias as InstitutionalBias
+            : 'neutro',
+          timeOfDay: (fullMarketContext.timeOfDay && ['meio_dia', 'abertura', 'fechamento', 'after_hours'].includes(fullMarketContext.timeOfDay))
+            ? fullMarketContext.timeOfDay as TimeOfDay
+            : 'meio_dia',
+          marketStructure: fullMarketContext.marketStructure && fullMarketContext.marketStructure.trend && ['lateral', 'baixa', 'alta'].includes(fullMarketContext.marketStructure.trend)
+            ? {
+                trend: fullMarketContext.marketStructure.trend as MarketTrend,
+                strength: fullMarketContext.marketStructure.strength || 50,
+                breakouts: fullMarketContext.marketStructure.breakouts || false,
+                pullbacks: fullMarketContext.marketStructure.pullbacks || false
+              }
+            : {
+                trend: 'lateral' as MarketTrend,
+                strength: 50,
+                breakouts: false,
+                pullbacks: false
+              }
         };
         console.log(`🌎 Contexto: ${marketContextAnalysis.phase}`);
       } catch (error) {
@@ -667,4 +689,3 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     };
   }
 };
-
