@@ -11,6 +11,7 @@ import { analyzeChart } from '@/utils/patternDetection';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { validateTemporalEntry, calculateEntryTiming, TemporalValidation } from '@/utils/temporalEntryValidation';
+import { trackAllAnalysisComponents, logAnalysisDecision, FinalDecision } from '@/utils/analysisTracker';
 
 interface LiveAnalysisResult {
   timestamp: number;
@@ -189,7 +190,7 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar com validação temporal integrada
+  // Capturar frame e analisar com sistema de tracking integrado
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
@@ -222,7 +223,7 @@ const LiveAnalysis = () => {
         return;
       }
       
-      console.log('✅ Gráfico detectado! Iniciando análise com contexto de mercado...');
+      console.log('✅ Gráfico detectado! Iniciando análise completa com tracking...');
       
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
@@ -243,6 +244,50 @@ const LiveAnalysis = () => {
         enableMarketContext: true
       });
 
+      // NOVA INTEGRAÇÃO: Validação temporal
+      let temporalValidation: TemporalValidation | undefined;
+      let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
+      
+      // Determinar sinal preliminar dos padrões
+      const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
+      if (validPatterns.length > 0) {
+        const actions = validPatterns.map(p => p.action);
+        const uniqueActions = [...new Set(actions)];
+        
+        if (uniqueActions.length === 1) {
+          mainSignal = uniqueActions[0] as 'compra' | 'venda';
+        } else {
+          const strongestPattern = validPatterns.reduce((prev, current) => 
+            (current.confidence > prev.confidence) ? current : prev
+          );
+          mainSignal = strongestPattern.action as 'compra' | 'venda';
+        }
+      }
+
+      // Aplicar validação temporal se há sinal
+      if (mainSignal !== 'neutro') {
+        const entryTiming = calculateEntryTiming();
+        const baseConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
+        
+        temporalValidation = validateTemporalEntry(
+          analysisResult.candles,
+          mainSignal,
+          baseConfidence,
+          entryTiming
+        );
+        
+        console.log(`⏰ Validação Temporal: ${temporalValidation.reasoning}`);
+      }
+
+      // NOVA FUNCIONALIDADE: Sistema de Tracking Completo
+      const intelligentDecision: FinalDecision = trackAllAnalysisComponents(
+        analysisResult,
+        temporalValidation
+      );
+
+      // Log detalhado da decisão
+      logAnalysisDecision(intelligentDecision);
+
       // Armazenar detalhes das confluências e price action
       setConfluenceDetails(analysisResult.confluences);
       setPriceActionDetails({
@@ -251,84 +296,45 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Processar resultado para formato live com validação melhorada
-      let finalConfidence = 0;
+      // Usar a decisão inteligente para determinar o resultado final
+      const finalSignal = intelligentDecision.shouldTrade ? intelligentDecision.signal : 'neutro';
+      const finalConfidence = intelligentDecision.shouldTrade ? intelligentDecision.confidence : 0;
+      
+      // Determinar qualidade do sinal baseado na decisão inteligente
       let signalQuality = 'fraca';
-      let riskReward = 2.0;
-      let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
-      
-      // Determinar sinal principal baseado no padrão mais forte e consistente
-      const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
-      
-      if (validPatterns.length > 0) {
-        // Verificar consistência entre padrões
-        const actions = validPatterns.map(p => p.action);
-        const uniqueActions = [...new Set(actions)];
-        
-        if (uniqueActions.length === 1) {
-          // Sinais consistentes
-          mainSignal = uniqueActions[0] as 'compra' | 'venda';
-          finalConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
-        } else {
-          // Sinais conflitantes - usar o mais forte mas reduzir confiança
-          const strongestPattern = validPatterns.reduce((prev, current) => 
-            (current.confidence > prev.confidence) ? current : prev
-          );
-          mainSignal = strongestPattern.action as 'compra' | 'venda';
-          finalConfidence = strongestPattern.confidence * 0.7; // Penalizar conflito
-        }
-      }
-      
-      // Validar com price action
-      const alignedPASignals = analysisResult.priceActionSignals?.filter(pa => 
-        (mainSignal === 'compra' && pa.direction === 'alta') ||
-        (mainSignal === 'venda' && pa.direction === 'baixa')
-      ) || [];
-      
-      if (alignedPASignals.length > 0) {
-        const paConfidence = alignedPASignals.reduce((sum, pa) => sum + pa.confidence, 0) / alignedPASignals.length;
-        finalConfidence = (finalConfidence + paConfidence) / 2;
-      } else if (analysisResult.priceActionSignals?.length > 0 && mainSignal !== 'neutro') {
-        // Price action contradiz - reduzir confiança
-        finalConfidence *= 0.6;
-      }
-      
-      // Determinar qualidade do sinal
-      if (finalConfidence > 0.85) {
-        signalQuality = 'excelente';
-      } else if (finalConfidence > 0.75) {
-        signalQuality = 'forte';
-      } else if (finalConfidence > 0.65) {
-        signalQuality = 'boa';
-      } else if (finalConfidence > 0.55) {
-        signalQuality = 'moderada';
-      } else {
-        signalQuality = 'fraca';
-      }
-      
-      // Ajustar baseado em confluências
-      if (analysisResult.confluences) {
-        const confluenceBonus = analysisResult.confluences.confluenceScore / 100 * 0.1;
-        finalConfidence = Math.min(1, finalConfidence + confluenceBonus);
-        
-        if (analysisResult.confluences.confluenceScore > 80) {
+      if (intelligentDecision.shouldTrade) {
+        if (intelligentDecision.qualityScore > 85) {
           signalQuality = 'excelente';
+        } else if (intelligentDecision.qualityScore > 75) {
+          signalQuality = 'forte';
+        } else if (intelligentDecision.qualityScore > 65) {
+          signalQuality = 'boa';
+        } else if (intelligentDecision.qualityScore > 55) {
+          signalQuality = 'moderada';
+        }
+      } else {
+        // Se foi rejeitada, determinar tipo de rejeição
+        if (intelligentDecision.rejectionReasons.some(r => r.includes('temporal'))) {
+          signalQuality = 'rejeitada_temporal';
+        } else if (intelligentDecision.rejectionReasons.some(r => r.includes('mercado'))) {
+          signalQuality = 'rejeitada_mercado';
+        } else {
+          signalQuality = 'rejeitada';
         }
       }
-      
+
       // Obter melhor recomendação de entrada
       const bestEntry = analysisResult.entryRecommendations?.find(entry => 
-        entry.action === mainSignal
+        entry.action === finalSignal
       );
       
+      let riskReward = 2.0;
       if (bestEntry) {
         riskReward = bestEntry.riskReward;
-        finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
       }
 
       // Mapear tendência corretamente
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
-      
       if (analysisResult.detailedMarketContext?.trend) {
         const rawTrend = analysisResult.detailedMarketContext.trend;
         if (rawTrend === 'alta') {
@@ -338,59 +344,17 @@ const LiveAnalysis = () => {
         }
       }
 
-      // Calcular saúde da análise
-      const analysisHealth = calculateAnalysisHealth(
-        analysisResult.patterns,
-        analysisResult.priceActionSignals || [],
-        analysisResult.confluences?.confluenceScore || 0
-      );
-
-      // INTEGRAÇÃO: Validação temporal junto com contexto de mercado
-      let temporalValidation: TemporalValidation | undefined;
-      let shouldProceed = true;
-      
-      if (mainSignal !== 'neutro') {
-        const entryTiming = calculateEntryTiming();
-        temporalValidation = validateTemporalEntry(
-          analysisResult.candles,
-          mainSignal,
-          finalConfidence,
-          entryTiming
-        );
-        
-        console.log(`⏰ Validação Temporal + Mercado: ${temporalValidation.reasoning}`);
-        
-        // Aplicar decisão da validação temporal junto com o contexto de mercado existente
-        if (temporalValidation.recommendation === 'skip') {
-          mainSignal = 'neutro';
-          finalConfidence = 0;
-          signalQuality = 'rejeitada';
-          shouldProceed = false;
-          console.log('🚫 Entrada rejeitada pela validação temporal');
-        } else if (temporalValidation.recommendation === 'wait') {
-          mainSignal = 'neutro';
-          finalConfidence = 0;
-          signalQuality = 'aguardando';
-          shouldProceed = false;
-          console.log('⏳ Aguardando melhores condições temporais');
-        } else {
-          // Ajustar confiança baseada na probabilidade temporal
-          finalConfidence = Math.min(finalConfidence, temporalValidation.winProbability);
-          
-          // INTEGRAÇÃO: Considerar também o operating score do contexto de mercado
-          if (analysisResult.marketContext?.operatingScore !== undefined) {
-            const marketBonus = analysisResult.marketContext.operatingScore / 100;
-            finalConfidence = finalConfidence * (0.7 + marketBonus * 0.3); // Balancear temporal + mercado
-          }
-          
-          console.log(`✅ Validação temporal + mercado aprovada - Probabilidade: ${Math.round(temporalValidation.winProbability * 100)}%`);
-        }
-      }
+      // Calcular saúde da análise com base na decisão inteligente
+      const analysisHealth = {
+        consistency: Math.round(intelligentDecision.qualityScore),
+        reliability: Math.round(intelligentDecision.confidence * 100),
+        marketAlignment: intelligentDecision.shouldTrade
+      };
 
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
         confidence: finalConfidence,
-        signal: mainSignal,
+        signal: finalSignal,
         patterns: analysisResult.patterns.map(p => p.type),
         trend: mappedTrend,
         signalQuality,
@@ -401,7 +365,7 @@ const LiveAnalysis = () => {
         marketPhase: analysisResult.detailedMarketContext?.phase || 'indefinida',
         institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
         entryRecommendations: analysisResult.entryRecommendations?.filter(entry => 
-          entry.action === mainSignal
+          entry.action === finalSignal
         ).slice(0, 2) || [],
         riskReward,
         analysisHealth,
@@ -414,45 +378,40 @@ const LiveAnalysis = () => {
       // Atualizar estatísticas
       setAnalysisStats(prev => ({
         totalAnalyses: prev.totalAnalyses + 1,
-        validSignals: prev.validSignals + (mainSignal !== 'neutro' ? 1 : 0),
+        validSignals: prev.validSignals + (intelligentDecision.shouldTrade ? 1 : 0),
         avgConfidence: (prev.avgConfidence * prev.totalAnalyses + finalConfidence * 100) / (prev.totalAnalyses + 1),
-        lastValidSignalTime: mainSignal !== 'neutro' ? Date.now() : prev.lastValidSignalTime
+        lastValidSignalTime: intelligentDecision.shouldTrade ? Date.now() : prev.lastValidSignalTime
       }));
 
-      // Notificar apenas sinais aprovados pela validação temporal + contexto de mercado
-      if (shouldProceed && finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
+      // APENAS ALERTAR OPERAÇÕES APROVADAS - Não mostrar rejeitadas
+      if (intelligentDecision.shouldTrade && finalConfidence > 0.6 && finalSignal !== 'neutro') {
+        const alignedPASignals = analysisResult.priceActionSignals?.filter(pa => 
+          (finalSignal === 'compra' && pa.direction === 'alta') ||
+          (finalSignal === 'venda' && pa.direction === 'baixa')
+        ) || [];
+
         const paText = alignedPASignals.length > 0 ? 
           ` | PA: ${alignedPASignals[0].type}` : '';
         const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
         const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
         const temporalText = temporalValidation ? 
           ` | Expira: ${temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'} (${temporalValidation.timeToExpiry}s)` : '';
-        const marketText = analysisResult.marketContext?.operatingScore ? 
-          ` | Score: ${analysisResult.marketContext.operatingScore}/100` : '';
+        const qualityText = ` | Q:${Math.round(intelligentDecision.qualityScore)}%`;
         
         toast({
-          variant: mainSignal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA VALIDADA - ${mainSignal.toUpperCase()}${healthText}`,
-          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${marketText}${paText}${rrText}`,
+          variant: finalSignal === 'compra' ? "default" : "destructive",
+          title: `🚨 ENTRADA APROVADA - ${finalSignal.toUpperCase()}${healthText}`,
+          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${qualityText}${paText}${rrText}`,
           duration: 10000,
         });
-      } else if (temporalValidation && temporalValidation.recommendation === 'wait') {
-        toast({
-          variant: "default",
-          title: "⏳ AGUARDANDO",
-          description: `${temporalValidation.reasoning}`,
-          duration: 5000,
-        });
-      } else if (temporalValidation && temporalValidation.recommendation === 'skip') {
-        toast({
-          variant: "destructive",
-          title: "🚫 ENTRADA REJEITADA",
-          description: `${temporalValidation.reasoning}`,
-          duration: 6000,
-        });
       }
-
-      console.log(`✅ Análise completa - Sinal: ${mainSignal} (${Math.round(finalConfidence * 100)}%)`);
+      
+      // Log apenas das operações aprovadas
+      if (intelligentDecision.shouldTrade) {
+        console.log(`✅ OPERAÇÃO APROVADA - Sinal: ${finalSignal} (${Math.round(finalConfidence * 100)}%) | Qualidade: ${Math.round(intelligentDecision.qualityScore)}%`);
+      } else {
+        console.log(`🚫 Operação rejeitada: ${intelligentDecision.rejectionReasons.join(', ')}`);
+      }
 
     } catch (error) {
       console.error('❌ Erro na análise em tempo real:', error);
