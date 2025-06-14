@@ -1,4 +1,5 @@
 
+
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -394,6 +395,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     let volumeAnalysisResult: VolumeData;
     let divergences = [];
     let technicalIndicators: TechnicalIndicator[] = [];
+    
+    // Corrigir o tipo da análise de contexto de mercado
     let marketContextAnalysis = {
       phase: 'consolidação' as const,
       sentiment: 'neutro' as const,
@@ -408,6 +411,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         pullbacks: false
       }
     };
+    
     let confluenceAnalysis = {
       confluenceScore: 0,
       supportResistance: [],
@@ -455,7 +459,22 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       }
       
       try {
-        marketContextAnalysis = analyzeMarketContext(validCandles);
+        const fullMarketContext = analyzeMarketContext(validCandles);
+        // Mapear apenas as propriedades compatíveis
+        marketContextAnalysis = {
+          phase: 'consolidação' as const,
+          sentiment: fullMarketContext.sentiment || 'neutro',
+          volatilityState: fullMarketContext.volatilityState || 'normal',
+          liquidityCondition: fullMarketContext.liquidityCondition || 'normal',
+          institutionalBias: fullMarketContext.institutionalBias || 'neutro',
+          timeOfDay: fullMarketContext.timeOfDay || 'meio_dia',
+          marketStructure: fullMarketContext.marketStructure || {
+            trend: 'lateral' as const,
+            strength: 50,
+            breakouts: false,
+            pullbacks: false
+          }
+        };
         console.log(`🌎 Contexto: ${marketContextAnalysis.phase}`);
       } catch (error) {
         console.error('❌ Erro na análise de contexto:', error);
@@ -648,3 +667,4 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     };
   }
 };
+
