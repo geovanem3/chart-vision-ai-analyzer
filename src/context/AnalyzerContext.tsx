@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from 'react';
 
 export interface CandleData {
@@ -7,6 +6,7 @@ export interface CandleData {
   high: number;
   low: number;
   close: number;
+  timestamp?: number;
   position?: {
     x: number;
     y: number;
@@ -104,7 +104,18 @@ export interface DetectedPattern {
   action: 'compra' | 'venda';
 }
 
-export interface EnhancedMarketContext {
+export interface MarketContext {
+  phase: string;
+  strength: string;
+  dominantTimeframe: string;
+  sentiment: string;
+  description: string;
+  marketStructure: string;
+  breakoutPotential: string;
+  momentumSignature: string;
+}
+
+export interface EnhancedMarketContext extends MarketContext {
   phase: string;
   strength: string;
   dominantTimeframe: string;
