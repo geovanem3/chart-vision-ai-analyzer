@@ -1,7 +1,12 @@
 
 import { CandleData } from "../context/AnalyzerContext";
 
+// ATENÇÃO: Esta função é apenas para fallback quando não há dados reais
+// TODO: Remover completamente quando extração real de candles estiver implementada
 export const mockCandles = async (numCandles: number, timeframe: string): Promise<CandleData[]> => {
+  console.log('⚠️ AVISO: Usando dados simulados - DEVE SER SUBSTITUÍDO por extração real');
+  console.log('⚠️ Esta função só deve ser usada como fallback temporário');
+  
   const candles: CandleData[] = [];
   let basePrice = 1.2500;
   
@@ -23,5 +28,6 @@ export const mockCandles = async (numCandles: number, timeframe: string): Promis
     basePrice = close;
   }
   
+  console.log('⚠️ DADOS SIMULADOS GERADOS - Implementar extração real urgentemente');
   return candles;
 };
