@@ -304,18 +304,39 @@ const ControlPanel = () => {
         });
       }
       
-      // Definir resultados completos with enhanced analysis data
+      // Definir resultados completos with all required properties
       setAnalysisResults({
         patterns,
         timestamp: Date.now(),
         imageUrl: croppedResult.data,
         technicalElements,
         candles,
-        manualRegion: true,
-        preciseEntryAnalysis,
+        scalpingSignals: [],
+        technicalIndicators: [],
         volumeData,
         volatilityData,
-        marketContext
+        marketContext,
+        warnings: [],
+        preciseEntryAnalysis,
+        confluences: { confluenceScore: 0, signals: [] },
+        priceActionSignals: [],
+        detailedMarketContext: {
+          phase: 'lateral',
+          sentiment: 'neutro',
+          strength: 'moderada',
+          description: 'Análise em processamento',
+          marketStructure: 'indefinida',
+          breakoutPotential: 'baixo',
+          momentumSignature: 'estável',
+          institutionalBias: 'neutro',
+          volatilityState: 'normal',
+          liquidityCondition: 'adequada',
+          timeOfDay: 'horário_comercial',
+          trend: 'lateral'
+        },
+        entryRecommendations: [],
+        tradeSuccessPredictions: [],
+        manualRegion: true
       });
       
       toast({
