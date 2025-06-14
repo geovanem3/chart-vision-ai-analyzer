@@ -31,14 +31,14 @@ export const analyzeAdvancedMarketConditions = (candles: CandleData[]): Advanced
   const warnings: string[] = [];
   
   // Simular análise de condições avançadas com valores dinâmicos
-  let volatilityRegime: 'low' | 'normal' | 'high' | 'extreme' = 'normal';
-  let liquidityState: 'high' | 'medium' | 'low' = 'medium';
+  let volatilityRegime: AdvancedMarketConditions['volatilityRegime'] = 'normal';
+  let liquidityState: AdvancedMarketConditions['liquidityState'] = 'medium';
   const institutionalBias: 'bullish' | 'bearish' | 'neutral' = 'neutral';
   const marketStructure: 'trending' | 'ranging' | 'transitional' = 'ranging';
   
   // Determinar horário do dia (simulado) com períodos de sobreposição
   const hour = new Date().getHours();
-  let timeOfDay: 'asia' | 'london' | 'ny' | 'overlap' | 'quiet';
+  let timeOfDay: AdvancedMarketConditions['timeOfDay'];
   if (hour >= 0 && hour < 8) timeOfDay = 'asia';
   else if (hour >= 8 && hour < 9) timeOfDay = 'overlap'; // London-Asia overlap
   else if (hour >= 9 && hour < 13) timeOfDay = 'london';
