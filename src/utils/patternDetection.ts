@@ -1,5 +1,6 @@
+
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal } from "../context/AnalyzerContext";
-import { mockCandles } from "./mockData";
+import { mockCandles as generateMockCandles } from "./mockData";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
 import { analyzePriceAction, analyzeMarketContext } from "./priceActionAnalysis";
@@ -30,12 +31,12 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const numCandles = options.optimizeForScalping ? 60 : 120;
   const timeframe = options.timeframe || '1m';
   
-  const mockCandles = await mockCandles(numCandles, timeframe);
+  const candles = await generateMockCandles(numCandles, timeframe);
   
-  console.log(`📊 Gerados ${mockCandles.length} candles para análise`);
+  console.log(`📊 Gerados ${candles.length} candles para análise`);
   
   // NOVO: Análise avançada de condições de mercado
-  const advancedConditions = analyzeAdvancedMarketConditions(mockCandles);
+  const advancedConditions = analyzeAdvancedMarketConditions(candles);
   const operatingScore = calculateOperatingScore(advancedConditions);
   const confidenceReduction = calculateConfidenceReduction(advancedConditions);
   
@@ -48,7 +49,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   }
   
   // Analyze volatility
-  const volatilityAnalysis = analyzeVolatility(mockCandles);
+  const volatilityAnalysis = analyzeVolatility(candles);
   console.log(`📈 Volatilidade: ${volatilityAnalysis.currentVolatility.toFixed(2)}% (ratio: ${volatilityAnalysis.volatilityRatio.toFixed(2)})`);
   
   // Generate patterns with reduced confidence based on market conditions
@@ -56,7 +57,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const patterns: PatternResult[] = [];
   
   for (const patternType of patternTypes) {
-    const detectedPatterns = await detectChartPatterns(mockCandles, patternType, options);
+    const detectedPatterns = await detectChartPatterns(candles, patternType, options);
     
     detectedPatterns.forEach(pattern => {
       patterns.push({
@@ -80,32 +81,32 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   });
   
   // Price action analysis
-  const priceActionSignals = analyzePriceAction(mockCandles);
+  const priceActionSignals = analyzePriceAction(candles);
   console.log(`⚡️ Price Action Signals: ${priceActionSignals.length} signals detected`);
   
   // Volume analysis
-  const volumeData: VolumeData = analyzeVolume(mockCandles);
+  const volumeData: VolumeData = analyzeVolume(candles);
   console.log(`📊 Volume Analysis: Trend - ${volumeData.trend}, Significance - ${volumeData.significance}`);
   
   // Divergence analysis
-  const divergences = detectDivergences(mockCandles);
+  const divergences = detectDivergences(candles);
   console.log(`🔍 Divergências encontradas: ${divergences.length}`);
   
   // Candlestick patterns
   let candlePatterns: DetectedPattern[] = [];
   if (options.enableCandleDetection !== false) {
-    candlePatterns = detectCandlestickPatterns(mockCandles);
+    candlePatterns = detectCandlestickPatterns(candles);
     console.log(`🕯️ Padrões de candlestick detectados: ${candlePatterns.length}`);
   }
   
   // Technical indicators
-  const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(mockCandles);
+  const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
   console.log(`⚙️ Indicadores técnicos detectados: ${technicalIndicators.length}`);
   
   // Scalping signals
-  const scalpingSignals: ScalpingSignal[] = candlePatterns.filter(p => p.isScalpingSignal).map(signal => ({
+  const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
-    action: signal.action === 'buy' ? 'compra' : 'venda',
+    action: signal.action === 'compra' ? 'compra' : 'venda',
     price: '...',
     confidence: signal.confidence,
     timeframe: options.timeframe || '1m',
@@ -114,79 +115,48 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   console.log(`⚡️ Scalping Signals: ${scalpingSignals.length} signals detected`);
   
   // Market context
-  const marketContextAnalysis = analyzeMarketContext(mockCandles);
+  const marketContextAnalysis = analyzeMarketContext(candles);
   console.log(`🌎 Market Context: Phase - ${marketContextAnalysis.phase}, Sentiment - ${marketContextAnalysis.sentiment}`);
   
   // Confluence analysis
-  const confluenceAnalysis = performConfluenceAnalysis(mockCandles, candlePatterns);
+  const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
   console.log(`🤝 Confluence Score: ${confluenceAnalysis.confluenceScore}`);
-  
-  const result: any = {};
   
   // NOVO: Criar contexto de mercado aprimorado
   const enhancedMarketContext: EnhancedMarketContext = {
-    phase: result.detailedMarketContext?.phase || 'indefinida',
-    strength: result.detailedMarketContext?.strength || 'moderada',
+    phase: marketContextAnalysis.phase || 'indefinida',
+    strength: 'moderada',
     dominantTimeframe: options.timeframe || '1m',
-    sentiment: result.detailedMarketContext?.sentiment || 'neutro',
-    description: `${result.detailedMarketContext?.description || ''} | Score: ${operatingScore}/100`,
-    marketStructure: result.detailedMarketContext?.marketStructure || 'indefinida',
-    breakoutPotential: result.detailedMarketContext?.breakoutPotential || 'baixo',
-    momentumSignature: result.detailedMarketContext?.momentumSignature || 'estável',
+    sentiment: marketContextAnalysis.sentiment || 'neutro',
+    description: `Score: ${operatingScore}/100`,
+    marketStructure: 'indefinida',
+    breakoutPotential: 'baixo',
+    momentumSignature: 'estável',
     advancedConditions,
     operatingScore,
     confidenceReduction
   };
-  
-  // MODIFICADO: Ajustar recomendações de entrada baseadas nas condições
-  if (result.entryRecommendations) {
-    result.entryRecommendations = adjustEntryRecommendations(
-      result.entryRecommendations,
-      advancedConditions,
-      confidenceReduction
-    );
-  }
   
   return {
     patterns,
     timestamp: Date.now(),
     imageUrl: imageData,
     technicalElements: [],
-    candles: mockCandles,
-    scalpingSignals: result.scalpingSignals,
-    technicalIndicators: result.technicalIndicators,
-    volumeData: result.volumeData,
-    volatilityData: result.volatilityData,
+    candles: candles,
+    scalpingSignals: scalpingSignals,
+    technicalIndicators: technicalIndicators,
+    volumeData: volumeData,
+    volatilityData: volatilityAnalysis,
     marketContext: enhancedMarketContext,
-    warnings: [
-      ...result.warnings,
-      ...advancedConditions.warnings
-    ],
-    preciseEntryAnalysis: result.preciseEntryAnalysis,
-    entryRecommendations: result.entryRecommendations
+    warnings: advancedConditions.warnings,
+    preciseEntryAnalysis: {
+      exactMinute: 'agora',
+      entryType: 'reversão',
+      nextCandleExpectation: 'confirmação',
+      priceAction: 'bullish',
+      confirmationSignal: 'aguardando',
+      riskRewardRatio: 2.5,
+      entryInstructions: 'Aguardar confirmação no próximo candle'
+    }
   };
-};
-
-// NOVA função para ajustar recomendações baseadas nas condições de mercado
-const adjustEntryRecommendations = (
-  recommendations: AnalysisResult['entryRecommendations'],
-  conditions: any,
-  confidenceReduction: number
-): AnalysisResult['entryRecommendations'] => {
-  if (!recommendations) return recommendations;
-  
-  return recommendations.map(rec => ({
-    ...rec,
-    confidence: rec.confidence * confidenceReduction,
-    reasoning: `${rec.reasoning} | Condições: ${conditions.operatingDifficulty}`,
-    warnings: [
-      ...rec.warnings,
-      ...(conditions.recommendation === 'nao_operar' ? 
-          ['🚨 RECOMENDAÇÃO: NÃO OPERAR devido às condições adversas'] : []),
-      ...(conditions.recommendation === 'muito_cauteloso' ? 
-          ['⚠️ OPERAR COM EXTREMA CAUTELA'] : []),
-      ...(conditions.recommendation === 'operar_reduzido' ? 
-          ['💡 Reduzir tamanho da posição'] : [])
-    ]
-  }));
 };

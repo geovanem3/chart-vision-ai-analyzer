@@ -75,7 +75,7 @@ const AdvancedMarketAnalysis = () => {
   };
   
   // Determinar ícone baseado na recomendação
-  const getRecommendationIcon = (recommendation: string) => {
+  const getRecommendationIcon = (recommendation?: string) => {
     switch (recommendation) {
       case 'nao_operar': return <ShieldAlert className="h-5 w-5 text-red-500" />;
       case 'muito_cauteloso': return <AlertTriangle className="h-5 w-5 text-orange-500" />;
@@ -96,18 +96,11 @@ const AdvancedMarketAnalysis = () => {
   };
   
   const entryMinute = preciseEntryAnalysis.exactMinute || 'pendente';
-  const nextCandleExpectation = preciseEntryAnalysis.nextCandleExpectation || 'aguardando análise';
   
   // Ultra quick entry decision with market conditions consideration
   const quickEntrySignal = () => {
     // Se as condições são muito ruins, não dar sinal
     if (operatingScore < 30 || advancedConditions?.recommendation === 'nao_operar') {
-      toast({
-        title: "⛔ NÃO OPERAR",
-        description: `Condições adversas detectadas. Score: ${operatingScore}/100`,
-        variant: "destructive",
-      });
-      
       return (
         <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-500 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -124,11 +117,6 @@ const AdvancedMarketAnalysis = () => {
     
     if (isUptrend && operatingScore >= 40) {
       const adjustedConfidence = Math.round(confidenceReduction * 100);
-      toast({
-        title: "ENTRADA: COMPRA",
-        description: `Momento: ${entryMinute}. Confiança ajustada: ${adjustedConfidence}%`,
-        variant: operatingScore >= 60 ? "success" : "default",
-      });
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
@@ -156,11 +144,6 @@ const AdvancedMarketAnalysis = () => {
     
     if (isDowntrend && operatingScore >= 40) {
       const adjustedConfidence = Math.round(confidenceReduction * 100);
-      toast({
-        title: "ENTRADA: VENDA",
-        description: `Momento: ${entryMinute}. Confiança ajustada: ${adjustedConfidence}%`,
-        variant: operatingScore >= 60 ? "error" : "default",
-      });
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
