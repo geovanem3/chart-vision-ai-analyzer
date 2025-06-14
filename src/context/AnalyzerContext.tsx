@@ -27,9 +27,32 @@ export interface PatternResult {
 
 export interface TechnicalElement {
   id: string;
-  type: 'trendline' | 'rectangle' | 'circle' | 'ellipse' | 'fibonacci' | 'pattern' | 'line' | 'label';
-  points: Point[];
+  type: 'trendline' | 'rectangle' | 'circle' | 'ellipse' | 'fibonacci' | 'pattern' | 'line' | 'label' | 'arrow';
+  points?: Point[];
   color: string;
+  thickness?: number;
+  dashArray?: number[];
+  backgroundColor?: string;
+  
+  // For arrow elements
+  start?: Point;
+  end?: Point;
+  
+  // For rectangle elements
+  position?: Point;
+  width?: number;
+  height?: number;
+  
+  // For circle elements
+  center?: Point;
+  radius?: number;
+  
+  // For label elements
+  text?: string;
+  
+  // For pattern elements
+  patternType?: string;
+  label?: string;
 }
 
 export interface Point {
