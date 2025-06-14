@@ -15,6 +15,7 @@ import {
   calculateConfidenceReduction,
   EnhancedMarketContext
 } from "./advancedMarketContext";
+import { extractRealCandlesFromImage } from "./realCandleExtraction";
 
 interface AnalysisOptions {
   timeframe?: '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
@@ -31,17 +32,51 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
-// REMOVIDO: Funções de dados simulados que não devem ser usadas
+// REMOVIDO: Todas as funções de simulação e dados mock
+
+// NOVA FUNÇÃO: Extração real de candles da imagem
+export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
+  console.log('🔍 Extraindo candles REAIS da imagem capturada...');
+  
+  try {
+    const realCandles = await extractRealCandlesFromImage(imageData);
+    console.log(`✅ ${realCandles.length} candles reais extraídos da imagem`);
+    return realCandles;
+  } catch (error) {
+    console.error('❌ Erro ao extrair candles reais:', error);
+    return [];
+  }
+};
+
+// NOVA FUNÇÃO: Detectar padrões reais baseados nos candles extraídos
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
-  console.log('⚠️ ATENÇÃO: detectPatterns deve usar dados reais dos candles, não simulados');
-  return [];
+  console.log('🔍 Detectando padrões REAIS dos candles extraídos...');
+  
+  const candles = await detectCandles(imageData, 1280, 720);
+  
+  if (candles.length === 0) {
+    console.log('❌ Nenhum candle extraído - não é possível detectar padrões');
+    return [];
+  }
+  
+  // Detectar padrões de candlestick reais
+  const candlePatterns = detectCandlestickPatterns(candles);
+  
+  // Converter para PatternResult
+  return candlePatterns.map(pattern => ({
+    type: pattern.type,
+    confidence: pattern.confidence,
+    description: pattern.description,
+    recommendation: `Sinal de ${pattern.action}`,
+    action: pattern.action
+  }));
 };
 
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
   return patterns.map((pattern, index) => ({
     id: `pattern-${index}`,
     type: 'pattern' as const,
-    patternType: 'triangulo' as const,
+    patternType: pattern.type as any,
     points: [{ x: Math.random() * width * 0.8, y: Math.random() * height * 0.8 }],
     color: '#ff0000',
     pattern: pattern.type,
@@ -49,23 +84,15 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], width: number
   }));
 };
 
-// CORRIGIDO: Deve extrair candles reais da imagem, não gerar mock data
-export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
-  console.log('⚠️ IMPLEMENTAR: Extração real de candles da imagem');
-  // TODO: Implementar extração real de dados OHLC da imagem
-  // Por enquanto retorna array vazio até implementação real
-  return [];
-};
-
-// FUNÇÃO PRINCIPAL: Análise com dados reais dos candles (SEM SIMULAÇÃO)
+// FUNÇÃO PRINCIPAL: Análise REAL com dados extraídos da imagem
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
-  console.log('🚀 Iniciando análise completa do gráfico (APENAS DADOS REAIS)...');
+  console.log('🚀 Iniciando análise REAL do gráfico capturado...');
   
-  // CORRIGIDO: Deve extrair candles reais da imagem
-  const candles = await detectCandles(imageData, 1280, 720);
+  // Extrair candles REAIS da imagem capturada
+  const candles = await extractRealCandlesFromImage(imageData);
   
   if (candles.length === 0) {
-    console.log('❌ ERRO: Nenhum candle extraído da imagem. Análise cancelada.');
+    console.log('❌ ERRO: Nenhum candle extraído da imagem. Verifique se a imagem contém um gráfico de candles válido.');
     return {
       patterns: [],
       timestamp: Date.now(),
@@ -97,13 +124,13 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         strength: 'fraca',
         dominantTimeframe: '1m',
         sentiment: 'neutro',
-        description: 'Sem dados para análise',
+        description: 'Nenhum candle detectado na imagem',
         marketStructure: 'indefinida',
         breakoutPotential: 'baixo',
         momentumSignature: 'estável',
         advancedConditions: {
           recommendation: 'nao_operar',
-          warnings: ['Dados insuficientes'],
+          warnings: ['Dados insuficientes - imagem não contém candles detectáveis'],
           timeBasedFactors: {},
           marketPhaseAnalysis: {},
           volatilityProfile: {},
@@ -113,15 +140,15 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         operatingScore: 0,
         confidenceReduction: 1
       },
-      warnings: ['Nenhum candle detectado na imagem'],
+      warnings: ['Nenhum candle detectado na imagem capturada'],
       preciseEntryAnalysis: {
-        exactMinute: 'reversão',
-        entryType: 'reversão',
-        nextCandleExpectation: 'reversão',
-        priceAction: 'reversão',
-        confirmationSignal: 'reversão',
+        exactMinute: 'reversao',
+        entryType: 'reversao',
+        nextCandleExpectation: 'reversao',
+        priceAction: 'reversao',
+        confirmationSignal: 'reversao',
         riskRewardRatio: 0,
-        entryInstructions: 'Dados insuficientes'
+        entryInstructions: 'Dados insuficientes - aponte a câmera para um gráfico de candles válido'
       },
       confluences: {
         confluenceScore: 0,
@@ -142,7 +169,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         phase: 'indefinida',
         sentiment: 'neutro',
         strength: 'fraca',
-        description: 'Sem dados',
+        description: 'Sem dados válidos',
         marketStructure: 'indefinida',
         breakoutPotential: 'baixo',
         momentumSignature: 'estável',
@@ -156,7 +183,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     };
   }
 
-  console.log(`📊 Analisando ${candles.length} candles extraídos da imagem`);
+  console.log(`📊 Analisando ${candles.length} candles REAIS extraídos da imagem`);
   
   // Análise avançada de condições de mercado (COM DADOS REAIS)
   const advancedConditions = analyzeAdvancedMarketConditions(candles);
@@ -175,7 +202,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const volatilityAnalysis = analyzeVolatility(candles);
   console.log(`📈 Volatilidade: ${volatilityAnalysis.value.toFixed(2)}% (trend: ${volatilityAnalysis.trend})`);
   
-  // CORRIGIDO: Detectar padrões reais dos candles extraídos
+  // Detectar padrões reais dos candles extraídos
   const patterns: PatternResult[] = [];
   
   // Padrões de candlestick (COM DADOS REAIS)
@@ -259,7 +286,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Market context (COM DADOS REAIS)
   const marketContextAnalysis = candles.length > 0 ? analyzeMarketContext(candles) : {
-    phase: 'consolidação' as const,
+    phase: 'consolidacao' as const,
     sentiment: 'neutro' as const,
     volatilityState: 'normal' as const,
     liquidityCondition: 'normal' as const,
@@ -290,7 +317,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     strength: 'fraca',
     dominantTimeframe: options.timeframe || '1m',
     sentiment: 'neutro',
-    description: `Score: ${operatingScore}/100`,
+    description: `Score: ${operatingScore}/100 - ${candles.length} candles analisados`,
     marketStructure: 'indefinida',
     breakoutPotential: 'baixo',
     momentumSignature: 'estável',
@@ -298,6 +325,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     operatingScore,
     confidenceReduction
   };
+  
+  const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
   
   return {
     patterns,
@@ -312,30 +341,37 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     marketContext: enhancedMarketContext,
     warnings: advancedConditions.warnings,
     preciseEntryAnalysis: {
-      exactMinute: candles.length > 0 ? 'reversão' : 'reversão',
-      entryType: patterns.length > 0 ? 'reversão' : 'reversão',
-      nextCandleExpectation: patterns.length > 0 ? 'reversão' : 'reversão',
-      priceAction: priceActionSignals.length > 0 ? 'reversão' : 'reversão',
-      confirmationSignal: 'reversão',
+      exactMinute: patterns.length > 0 ? 'confirmacao' : 'aguardar',
+      entryType: patterns.length > 0 ? 'breakout' : 'reversao',
+      nextCandleExpectation: patterns.length > 0 ? 'continuacao' : 'reversao',
+      priceAction: priceActionSignals.length > 0 ? 'forte' : 'fraco',
+      confirmationSignal: patterns.length > 0 ? 'confirmado' : 'pendente',
       riskRewardRatio: patterns.length > 0 ? 2.5 : 0,
-      entryInstructions: patterns.length > 0 ? 'Aguardar confirmação no próximo candle' : 'Dados insuficientes'
+      entryInstructions: patterns.length > 0 ? 
+        `Entry próximo de ${currentPrice.toFixed(5)}` : 
+        'Aguardar melhor setup'
     },
     confluences: confluenceAnalysis,
     priceActionSignals: priceActionSignals,
     detailedMarketContext: {
       phase: marketContextAnalysis.phase,
       sentiment: marketContextAnalysis.sentiment,
-      strength: 'fraca',
-      description: 'Análise baseada em dados reais',
-      marketStructure: 'indefinida',
-      breakoutPotential: 'baixo',
-      momentumSignature: 'estável',
+      strength: patterns.length > 0 ? 'forte' : 'fraca',
+      description: `${patterns.length} padrões detectados em ${candles.length} candles reais`,
+      marketStructure: 'definida',
+      breakoutPotential: patterns.length > 0 ? 'alto' : 'baixo',
+      momentumSignature: volatilityAnalysis.isHigh ? 'volatil' : 'estavel',
       institutionalBias: marketContextAnalysis.institutionalBias,
       volatilityState: marketContextAnalysis.volatilityState,
       liquidityCondition: marketContextAnalysis.liquidityCondition,
       timeOfDay: marketContextAnalysis.timeOfDay,
       trend: marketContextAnalysis.marketStructure.trend
     },
-    entryRecommendations: []
+    entryRecommendations: patterns.slice(0, 3).map(p => ({
+      type: p.action,
+      confidence: p.confidence,
+      description: p.description,
+      price: currentPrice.toFixed(5)
+    }))
   };
 };
