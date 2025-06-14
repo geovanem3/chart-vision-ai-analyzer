@@ -17,7 +17,6 @@ export const mockCandles = async (numCandles: number, timeframe: string): Promis
       high,
       low,
       close,
-      volume: Math.random() * 1000 + 500,
       timestamp: Date.now() - (numCandles - i) * 60000
     });
     

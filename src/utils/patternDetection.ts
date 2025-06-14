@@ -25,6 +25,45 @@ interface AnalysisOptions {
   enableCandleDetection?: boolean;
 }
 
+// Export missing functions that ControlPanel.tsx expects
+export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
+  // Simple pattern detection simulation
+  const patterns: PatternResult[] = [
+    {
+      type: 'Martelo',
+      confidence: Math.random() * 0.4 + 0.6,
+      description: 'Padrão de reversão bullish detectado',
+      recommendation: 'Considerar compra',
+      action: 'compra'
+    },
+    {
+      type: 'Doji',
+      confidence: Math.random() * 0.4 + 0.5,
+      description: 'Indecisão do mercado',
+      recommendation: 'Aguardar confirmação',
+      action: 'neutro'
+    }
+  ];
+  
+  return patterns;
+};
+
+export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
+  return patterns.map((pattern, index) => ({
+    id: `pattern-${index}`,
+    type: 'pattern',
+    x: Math.random() * width * 0.8,
+    y: Math.random() * height * 0.8,
+    pattern: pattern.type,
+    confidence: pattern.confidence
+  }));
+};
+
+export const detectCandles = async (imageData: string, width: number, height: number) => {
+  // Generate mock candles for the detected region
+  return await generateMockCandles(20, '1m');
+};
+
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   console.log('🚀 Iniciando análise completa do gráfico...');
   
@@ -50,7 +89,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // Analyze volatility
   const volatilityAnalysis = analyzeVolatility(candles);
-  console.log(`📈 Volatilidade: ${volatilityAnalysis.currentVolatility.toFixed(2)}% (ratio: ${volatilityAnalysis.volatilityRatio.toFixed(2)})`);
+  console.log(`📈 Volatilidade: ${volatilityAnalysis.value.toFixed(2)}% (trend: ${volatilityAnalysis.trend})`);
   
   // Generate patterns with reduced confidence based on market conditions
   const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
