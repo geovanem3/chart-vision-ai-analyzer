@@ -391,19 +391,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     
     // Análises complementares COM DADOS REAIS e proteção contra erros
     let priceActionSignals = [];
-    let volumeData = {
-      value: 0,
-      trend: 'neutral' as const,
-      abnormal: false,
-      significance: 'low' as const,
-      relativeToAverage: 1,
-      distribution: 'neutral' as const,
-      divergence: false
-    };
+    let volumeAnalysisResult: VolumeData;
     let divergences = [];
     let technicalIndicators: TechnicalIndicator[] = [];
     let marketContextAnalysis = {
-      phase: 'consolidacao' as const,
+      phase: 'consolidação' as const,
       sentiment: 'neutro' as const,
       volatilityState: 'normal' as const,
       liquidityCondition: 'normal' as const,
@@ -433,10 +425,19 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       }
       
       try {
-        volumeData = analyzeVolume(validCandles);
-        console.log(`📊 Volume: ${volumeData.trend}`);
+        volumeAnalysisResult = analyzeVolume(validCandles);
+        console.log(`📊 Volume: ${volumeAnalysisResult.trend}`);
       } catch (error) {
         console.error('❌ Erro na análise de volume:', error);
+        volumeAnalysisResult = {
+          value: 0,
+          trend: 'neutral',
+          abnormal: false,
+          significance: 'low',
+          relativeToAverage: 1,
+          distribution: 'neutral',
+          divergence: false
+        };
       }
       
       try {
@@ -466,6 +467,16 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       } catch (error) {
         console.error('❌ Erro na análise de confluência:', error);
       }
+    } else {
+      volumeAnalysisResult = {
+        value: 0,
+        trend: 'neutral',
+        abnormal: false,
+        significance: 'low',
+        relativeToAverage: 1,
+        distribution: 'neutral',
+        divergence: false
+      };
     }
     
     // Scalping signals COM DADOS REAIS
@@ -481,14 +492,14 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     const currentPrice = validCandles.length > 0 ? validCandles[validCandles.length - 1].close : 0;
     
     const enhancedMarketContext: EnhancedMarketContext = {
-      phase: 'definida',
+      phase: 'indefinida',
       strength: patterns.length > 0 ? 'forte' : 'fraca',
       dominantTimeframe: options.timeframe || '1m',
       sentiment: 'neutro',
       description: `${patterns.length} padrões REAIS em ${validCandles.length} candles extraídos`,
-      marketStructure: 'definida',
+      marketStructure: 'indefinida',
       breakoutPotential: patterns.length > 0 ? 'alto' : 'baixo',
-      momentumSignature: volatilityAnalysis.isHigh ? 'volatil' : 'estavel',
+      momentumSignature: volatilityAnalysis.isHigh ? 'acelerando' : 'estável',
       advancedConditions,
       operatingScore,
       confidenceReduction
@@ -504,7 +515,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       candles: validCandles,
       scalpingSignals,
       technicalIndicators,
-      volumeData,
+      volumeData: volumeAnalysisResult,
       volatilityData: volatilityAnalysis,
       marketContext: enhancedMarketContext,
       warnings: advancedConditions.warnings,
@@ -526,9 +537,9 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         sentiment: marketContextAnalysis.sentiment,
         strength: patterns.length > 0 ? 'forte' : 'fraca',
         description: `${patterns.length} padrões REAIS detectados`,
-        marketStructure: 'definida',
+        marketStructure: 'indefinida',
         breakoutPotential: patterns.length > 0 ? 'alto' : 'baixo',
-        momentumSignature: volatilityAnalysis.isHigh ? 'volatil' : 'estavel',
+        momentumSignature: volatilityAnalysis.isHigh ? 'acelerando' : 'estável',
         institutionalBias: marketContextAnalysis.institutionalBias,
         volatilityState: marketContextAnalysis.volatilityState,
         liquidityCondition: marketContextAnalysis.liquidityCondition,
@@ -596,11 +607,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       warnings: ['Erro crítico na análise - verificar console para detalhes'],
       preciseEntryAnalysis: {
-        exactMinute: 'erro',
-        entryType: 'erro',
-        nextCandleExpectation: 'erro',
-        priceAction: 'erro',
-        confirmationSignal: 'erro',
+        exactMinute: 'reversão',
+        entryType: 'reversão',
+        nextCandleExpectation: 'reversão',
+        priceAction: 'reversão',
+        confirmationSignal: 'reversão',
         riskRewardRatio: 0,
         entryInstructions: 'Erro na análise - tentar novamente'
       },

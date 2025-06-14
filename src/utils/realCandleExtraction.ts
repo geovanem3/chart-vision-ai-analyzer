@@ -1,4 +1,3 @@
-
 import { CandleData } from "../context/AnalyzerContext";
 
 interface DetectedCandle {
@@ -260,7 +259,7 @@ const analyzeCandleColumn = (
     // Analisar coluna central e adjacentes
     for (let y = chartArea.y; y < chartArea.y + chartArea.height; y++) {
       let maxColorConfidence = 0;
-      let bestColor: typeof candleColor = 'black';
+      let bestColor: 'green' | 'red' | 'black' | 'white' = 'black';
       
       // Verificar pixels na largura do candle
       for (let dx = 0; dx < candleWidth; dx++) {
@@ -408,6 +407,9 @@ const convertToOHLCData = (
           throw new Error('Valores OHLC inválidos calculados');
         }
         
+        // Determinar cor correta para CandleData
+        const candleColor: 'verde' | 'vermelho' = (candle.color === 'green' || candle.color === 'white') ? 'verde' : 'vermelho';
+        
         return {
           open: parseFloat(openPrice.toFixed(5)),
           high: parseFloat(finalHigh.toFixed(5)),
@@ -419,7 +421,7 @@ const convertToOHLCData = (
             x: candle.x,
             y: candle.y + candle.height / 2
           },
-          color: candle.color === 'green' || candle.color === 'white' ? 'verde' : 'vermelho'
+          color: candleColor
         };
       } catch (candleConversionError) {
         console.error(`❌ Erro ao converter candle ${index}:`, candleConversionError);
@@ -434,7 +436,7 @@ const convertToOHLCData = (
           volume: 100,
           timestamp: Date.now() - (detectedCandles.length - index) * 60000,
           position: { x: candle.x || 0, y: candle.y || 0 },
-          color: 'verde'
+          color: 'verde' as const
         };
       }
     }).filter(candle => {
