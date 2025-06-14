@@ -103,12 +103,15 @@ export interface DetectedPattern {
   action: 'compra' | 'venda';
 }
 
-export interface EnhancedMarketContext {
+export interface MarketContext {
   phase: string;
-  strength: string;
-  dominantTimeframe: string;
   sentiment: string;
+  strength: string;
   description: string;
+}
+
+export interface EnhancedMarketContext extends MarketContext {
+  dominantTimeframe: string;
   marketStructure: string;
   breakoutPotential: string;
   momentumSignature: string;
@@ -118,18 +121,15 @@ export interface EnhancedMarketContext {
   keyLevels?: any[];
 }
 
-export interface MarketContext {
-  phase: string;
-  sentiment: string;
-  strength: string;
-  description: string;
-}
-
 export interface SelectedRegion {
   x: number;
   y: number;
   width: number;
   height: number;
+  type?: 'rectangle' | 'circle';
+  radius?: number;
+  centerX?: number;
+  centerY?: number;
 }
 
 export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';

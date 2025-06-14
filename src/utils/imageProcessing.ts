@@ -3,6 +3,7 @@
  */
 
 import { SelectedRegion, CandleData, TechnicalElement } from '@/context/AnalyzerContext';
+import { generateId } from './idGenerator';
 
 // Process the captured image to enhance chart features
 export const processImage = async (imageUrl: string): Promise<{success: boolean; data: string; error?: string}> => {
@@ -248,7 +249,7 @@ export const cropToRegion = async (
         try {
           const canvas = document.createElement('canvas');
           
-          if (region.type === 'rectangle') {
+          if (region.type === 'rectangle' || !region.type) {
             canvas.width = region.width;
             canvas.height = region.height;
             
@@ -272,7 +273,7 @@ export const cropToRegion = async (
               });
               return;
             }
-          } else {
+          } else if (region.type === 'circle' && region.radius && region.centerX !== undefined && region.centerY !== undefined) {
             // Para regiões circulares, o canvas deve acomodar o círculo
             const diameter = region.radius * 2;
             canvas.width = diameter;
@@ -513,15 +514,15 @@ export const checkImageQuality = async (imageUrl: string): Promise<{
 // Estimar valores OHLC com base na posição e tamanho dos candles
 const estimateOHLCValues = (candles: CandleData[]): void => {
   // Ordenar candles horizontalmente (presumindo que o eixo x representa o tempo)
-  candles.sort((a, b) => a.position.x - b.position.x);
+  candles.sort((a, b) => a.position!.x - b.position!.x);
   
   // Encontrar o range vertical para normalização
   let minY = Number.MAX_VALUE;
   let maxY = Number.MIN_VALUE;
   
   for (const candle of candles) {
-    const top = candle.position.y - candle.height / 2;
-    const bottom = candle.position.y + candle.height / 2;
+    const top = candle.position!.y - candle.height! / 2;
+    const bottom = candle.position!.y + candle.height! / 2;
     
     minY = Math.min(minY, top);
     maxY = Math.max(maxY, bottom);
@@ -535,8 +536,8 @@ const estimateOHLCValues = (candles: CandleData[]): void => {
   
   // Calcular valores OHLC para cada candle
   for (const candle of candles) {
-    const top = candle.position.y - candle.height / 2;
-    const bottom = candle.position.y + candle.height / 2;
+    const top = candle.position!.y - candle.height! / 2;
+    const bottom = candle.position!.y + candle.height! / 2;
     
     // Normalizar para o range de preço
     const normalizedTop = 1 - (top - minY) / range;
@@ -922,6 +923,7 @@ const generateTechnicalElementsFromDetection = (
     const isSupport = i % 2 === 0; // Alternar entre suporte e resistência para fins visuais
     
     technicalElements.push({
+      id: generateId(),
       type: 'line',
       points: [
         { x: line.startX, y: line.startY },
@@ -935,6 +937,7 @@ const generateTechnicalElementsFromDetection = (
     // Adicionar rótulo para linhas com alta confiança
     if (line.confidence > 75) {
       technicalElements.push({
+        id: generateId(),
         type: 'label',
         position: { x: 10, y: line.startY - 5 },
         text: isSupport ? 'Suporte' : 'Resistência',
@@ -947,7 +950,7 @@ const generateTechnicalElementsFromDetection = (
   // Detectar tendências de preço usando os candles
   if (candles.length > 5) {
     // Ordenar candles por posição x (tempo)
-    const sortedCandles = [...candles].sort((a, b) => a.position.x - b.position.x);
+    const sortedCandles = [...candles].filter(c => c.position).sort((a, b) => a.position!.x - b.position!.x);
     
     // Extrair preços de fechamento para análise de tendência
     const prices = sortedCandles.map(c => c.close);
@@ -970,14 +973,15 @@ const generateTechnicalElementsFromDetection = (
       const isBullish = slope > 0;
       const startCandle = sortedCandles[0];
       const endCandle = sortedCandles[sortedCandles.length - 1];
-      const startY = startCandle.position.y;
-      const endY = endCandle.position.y - (slope * (endCandle.position.x - startCandle.position.x));
+      const startY = startCandle.position!.y;
+      const endY = endCandle.position!.y - (slope * (endCandle.position!.x - startCandle.position!.x));
       
       technicalElements.push({
+        id: generateId(),
         type: 'line',
         points: [
-          { x: startCandle.position.x, y: startY },
-          { x: endCandle.position.x, y: endY }
+          { x: startCandle.position!.x, y: startY },
+          { x: endCandle.position!.x, y: endY }
         ],
         color: isBullish ? '#22c55e' : '#ef4444',
         thickness: 2,
@@ -986,8 +990,9 @@ const generateTechnicalElementsFromDetection = (
       
       // Adicionar rótulo indicando a tendência
       technicalElements.push({
+        id: generateId(),
         type: 'label',
-        position: { x: endCandle.position.x - 100, y: endY - 20 },
+        position: { x: endCandle.position!.x - 100, y: endY - 20 },
         text: isBullish ? 'Tendência de Alta' : 'Tendência de Baixa',
         color: isBullish ? '#22c55e' : '#ef4444',
         backgroundColor: '#1e293b'
@@ -1008,16 +1013,18 @@ const generateTechnicalElementsFromDetection = (
       // Identificar possível martelo (sombra inferior longa)
       if (lowerShadow > 2 * candleSize && upperShadow < 0.5 * candleSize) {
         technicalElements.push({
+          id: generateId(),
           type: 'circle',
-          center: { x: currCandle.position.x, y: currCandle.position.y },
+          center: { x: currCandle.position!.x, y: currCandle.position!.y },
           radius: 15,
           color: '#3b82f6',
           thickness: 2
         });
         
         technicalElements.push({
+          id: generateId(),
           type: 'label',
-          position: { x: currCandle.position.x - 30, y: currCandle.position.y - 30 },
+          position: { x: currCandle.position!.x - 30, y: currCandle.position!.y - 30 },
           text: 'Martelo',
           color: '#3b82f6',
           backgroundColor: '#1e293b'
@@ -1027,16 +1034,18 @@ const generateTechnicalElementsFromDetection = (
       // Identificar possível doji (abertura próxima do fechamento)
       if (candleSize < 0.1 * (upperShadow + lowerShadow) && (upperShadow + lowerShadow) > 0) {
         technicalElements.push({
+          id: generateId(),
           type: 'circle',
-          center: { x: currCandle.position.x, y: currCandle.position.y },
+          center: { x: currCandle.position!.x, y: currCandle.position!.y },
           radius: 15,
           color: '#f59e0b',
           thickness: 2
         });
         
         technicalElements.push({
+          id: generateId(),
           type: 'label',
-          position: { x: currCandle.position.x - 20, y: currCandle.position.y - 30 },
+          position: { x: currCandle.position!.x - 20, y: currCandle.position!.y - 30 },
           text: 'Doji',
           color: '#f59e0b',
           backgroundColor: '#1e293b'
