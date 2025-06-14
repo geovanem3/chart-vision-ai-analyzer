@@ -3,7 +3,7 @@ import { CandleData, TechnicalIndicator } from "../context/AnalyzerContext";
 
 export const detectTechnicalIndicators = (candles: CandleData[]): TechnicalIndicator[] => {
   return [{
-    type: 'rsi',
+    name: 'RSI',
     value: '65',
     signal: 'neutro',
     strength: 'moderada',

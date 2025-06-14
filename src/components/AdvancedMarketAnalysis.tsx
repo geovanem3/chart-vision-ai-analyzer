@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -63,9 +62,9 @@ const AdvancedMarketAnalysis = () => {
   
   // Safe access to enhanced market context
   const marketContext = analysisResults.marketContext || {};
-  const advancedConditions = marketContext.advancedConditions;
-  const operatingScore = marketContext.operatingScore || 50;
-  const confidenceReduction = marketContext.confidenceReduction || 1.0;
+  const advancedConditions = (marketContext as EnhancedMarketContext).advancedConditions;
+  const operatingScore = (marketContext as EnhancedMarketContext).operatingScore || 50;
+  const confidenceReduction = (marketContext as EnhancedMarketContext).confidenceReduction || 1.0;
   
   // Determinar cor do score baseado no valor
   const getScoreColor = (score: number) => {

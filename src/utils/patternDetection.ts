@@ -23,6 +23,13 @@ interface AnalysisOptions {
   considerVolume?: boolean;
   considerVolatility?: boolean;
   enableCandleDetection?: boolean;
+  scalpingStrategy?: string;
+  marketContextEnabled?: boolean;
+  marketAnalysisDepth?: string;
+  isLiveAnalysis?: boolean;
+  useConfluences?: boolean;
+  enablePriceAction?: boolean;
+  enableMarketContext?: boolean;
 }
 
 // Export missing functions that ControlPanel.tsx expects
@@ -51,17 +58,13 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
   return patterns.map((pattern, index) => ({
     id: `pattern-${index}`,
-    type: 'pattern',
-    x: Math.random() * width * 0.8,
-    y: Math.random() * height * 0.8,
+    type: 'pattern' as const,
+    patternType: 'triangulo' as const,
+    points: [{ x: Math.random() * width * 0.8, y: Math.random() * height * 0.8 }],
+    color: '#ff0000',
     pattern: pattern.type,
     confidence: pattern.confidence
   }));
-};
-
-export const detectCandles = async (imageData: string, width: number, height: number) => {
-  // Generate mock candles for the detected region
-  return await generateMockCandles(20, '1m');
 };
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
@@ -163,10 +166,10 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   // NOVO: Criar contexto de mercado aprimorado
   const enhancedMarketContext: EnhancedMarketContext = {
-    phase: marketContextAnalysis.phase || 'indefinida',
+    phase: 'lateral',
     strength: 'moderada',
     dominantTimeframe: options.timeframe || '1m',
-    sentiment: marketContextAnalysis.sentiment || 'neutro',
+    sentiment: 'neutro',
     description: `Score: ${operatingScore}/100`,
     marketStructure: 'indefinida',
     breakoutPotential: 'baixo',
@@ -196,6 +199,23 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       confirmationSignal: 'aguardando',
       riskRewardRatio: 2.5,
       entryInstructions: 'Aguardar confirmação no próximo candle'
-    }
+    },
+    confluences: confluenceAnalysis,
+    priceActionSignals: priceActionSignals,
+    detailedMarketContext: {
+      phase: 'lateral',
+      sentiment: 'neutro',
+      strength: 'moderada',
+      description: `Score: ${operatingScore}/100`,
+      marketStructure: 'indefinida',
+      breakoutPotential: 'baixo',
+      momentumSignature: 'estável',
+      institutionalBias: 'neutro',
+      volatilityState: 'normal',
+      liquidityCondition: 'adequada',
+      timeOfDay: 'horário_comercial',
+      trend: 'lateral'
+    },
+    entryRecommendations: []
   };
 };

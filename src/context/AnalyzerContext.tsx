@@ -39,10 +39,11 @@ export type CandleData = {
   high: number;
   low: number;
   close: number;
-  color: 'verde' | 'vermelho';
-  position: Point;
-  width: number;
-  height: number;
+  timestamp: number; // Add timestamp property
+  color?: 'verde' | 'vermelho';
+  position?: Point;
+  width?: number;
+  height?: number;
 };
 
 // Enhanced volume analysis type
@@ -82,6 +83,12 @@ export type MarketContext = {
   momentumSignature: 'acelerando' | 'estável' | 'desacelerando' | 'divergente';
 };
 
+export interface EnhancedMarketContext extends MarketContext {
+  advancedConditions?: any;
+  operatingScore?: number;
+  confidenceReduction?: number;
+}
+
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
@@ -89,23 +96,47 @@ export type AnalysisResult = {
   technicalElements?: TechnicalElement[];
   candles?: CandleData[];
   manualRegion?: boolean;
-  scalpingSignals?: ScalpingSignal[]; // Added for scalping signals
-  technicalIndicators?: TechnicalIndicator[]; // Added for technical indicators
-  volumeData?: VolumeData; // Enhanced volume analysis
-  volatilityData?: VolatilityData; // Enhanced volatility analysis
-  marketContext?: MarketContext; // Enhanced market context understanding
-  warnings?: string[]; // Warnings about potential false signals
-  preciseEntryAnalysis?: PreciseEntryAnalysis; // Added for precise entry timing
-  masterAnalysis?: any; // Added for master analysis
+  scalpingSignals?: ScalpingSignal[];
+  technicalIndicators?: TechnicalIndicator[];
+  volumeData?: VolumeData;
+  volatilityData?: VolatilityData;
+  marketContext?: EnhancedMarketContext;
+  warnings?: string[];
+  preciseEntryAnalysis?: PreciseEntryAnalysis;
+  masterAnalysis?: any;
+  // Add missing properties for advanced analysis
+  confluences?: {
+    confluenceScore: number;
+    supportResistance?: any[];
+    marketStructure?: any;
+    priceAction?: any;
+    criticalLevels?: any[];
+  };
+  priceActionSignals?: any[];
+  detailedMarketContext?: {
+    phase: string;
+    sentiment: string;
+    strength: string;
+    description: string;
+    marketStructure: string;
+    breakoutPotential: string;
+    momentumSignature: string;
+    institutionalBias: string;
+    volatilityState: string;
+    liquidityCondition: string;
+    timeOfDay: string;
+    trend?: string;
+  };
+  entryRecommendations?: any[];
 };
 
 // New type for technical indicators for enhanced M1 strategy
 export type TechnicalIndicator = {
   name: string;
   value: string;
-  trend: 'alta' | 'baixa' | 'neutro';
-  significance: 'alta' | 'média' | 'baixa';
-  description?: string;
+  signal: 'alta' | 'baixa' | 'neutro';
+  strength: 'forte' | 'moderada' | 'fraca';
+  description: string;
 };
 
 export type ScalpingSignal = {
