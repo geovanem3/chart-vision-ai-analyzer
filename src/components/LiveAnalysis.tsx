@@ -189,7 +189,7 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar frame e analisar com lógica melhorada
+  // Capturar frame e analisar com validação temporal integrada
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
@@ -222,7 +222,7 @@ const LiveAnalysis = () => {
         return;
       }
       
-      console.log('✅ Gráfico detectado! Iniciando análise...');
+      console.log('✅ Gráfico detectado! Iniciando análise com contexto de mercado...');
       
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
@@ -326,7 +326,7 @@ const LiveAnalysis = () => {
         finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
       }
 
-      // Mapear tendência corretamente - corrigir tipo de comparação
+      // Mapear tendência corretamente
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
       
       if (analysisResult.detailedMarketContext?.trend) {
@@ -345,7 +345,7 @@ const LiveAnalysis = () => {
         analysisResult.confluences?.confluenceScore || 0
       );
 
-      // NOVO: Validação temporal antes de confirmar entrada
+      // INTEGRAÇÃO: Validação temporal junto com contexto de mercado
       let temporalValidation: TemporalValidation | undefined;
       let shouldProceed = true;
       
@@ -358,9 +358,9 @@ const LiveAnalysis = () => {
           entryTiming
         );
         
-        console.log(`⏰ Validação Temporal: ${temporalValidation.reasoning}`);
+        console.log(`⏰ Validação Temporal + Mercado: ${temporalValidation.reasoning}`);
         
-        // Aplicar decisão da validação temporal
+        // Aplicar decisão da validação temporal junto com o contexto de mercado existente
         if (temporalValidation.recommendation === 'skip') {
           mainSignal = 'neutro';
           finalConfidence = 0;
@@ -376,7 +376,14 @@ const LiveAnalysis = () => {
         } else {
           // Ajustar confiança baseada na probabilidade temporal
           finalConfidence = Math.min(finalConfidence, temporalValidation.winProbability);
-          console.log(`✅ Validação temporal aprovada - Probabilidade: ${Math.round(temporalValidation.winProbability * 100)}%`);
+          
+          // INTEGRAÇÃO: Considerar também o operating score do contexto de mercado
+          if (analysisResult.marketContext?.operatingScore !== undefined) {
+            const marketBonus = analysisResult.marketContext.operatingScore / 100;
+            finalConfidence = finalConfidence * (0.7 + marketBonus * 0.3); // Balancear temporal + mercado
+          }
+          
+          console.log(`✅ Validação temporal + mercado aprovada - Probabilidade: ${Math.round(temporalValidation.winProbability * 100)}%`);
         }
       }
 
@@ -398,7 +405,7 @@ const LiveAnalysis = () => {
         ).slice(0, 2) || [],
         riskReward,
         analysisHealth,
-        temporalValidation // NOVO: Incluir validação temporal
+        temporalValidation
       };
 
       setCurrentAnalysis(liveResult);
@@ -412,7 +419,7 @@ const LiveAnalysis = () => {
         lastValidSignalTime: mainSignal !== 'neutro' ? Date.now() : prev.lastValidSignalTime
       }));
 
-      // MODIFICADO: Notificar apenas sinais aprovados pela validação temporal
+      // Notificar apenas sinais aprovados pela validação temporal + contexto de mercado
       if (shouldProceed && finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
         const paText = alignedPASignals.length > 0 ? 
           ` | PA: ${alignedPASignals[0].type}` : '';
@@ -420,16 +427,18 @@ const LiveAnalysis = () => {
         const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
         const temporalText = temporalValidation ? 
           ` | Expira: ${temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'} (${temporalValidation.timeToExpiry}s)` : '';
+        const marketText = analysisResult.marketContext?.operatingScore ? 
+          ` | Score: ${analysisResult.marketContext.operatingScore}/100` : '';
         
         toast({
           variant: mainSignal === 'compra' ? "default" : "destructive",
           title: `🚨 ENTRADA VALIDADA - ${mainSignal.toUpperCase()}${healthText}`,
-          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${paText}${rrText}`,
+          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${marketText}${paText}${rrText}`,
           duration: 10000,
         });
       } else if (temporalValidation && temporalValidation.recommendation === 'wait') {
         toast({
-          variant: "secondary",
+          variant: "default",
           title: "⏳ AGUARDANDO",
           description: `${temporalValidation.reasoning}`,
           duration: 5000,
@@ -518,14 +527,14 @@ const LiveAnalysis = () => {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live M1 - IA Aprimorada
+            Análise Live M1 - IA + Validação Temporal
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
               </Badge>
             )}
             {isLiveActive && !isChartVisible && (
-              <Badge variant="secondary" className="ml-2">
+              <Badge variant="outline" className="ml-2">
                 AGUARDANDO GRÁFICO
               </Badge>
             )}
@@ -608,7 +617,7 @@ const LiveAnalysis = () => {
         </Alert>
       )}
 
-      {/* Video feed com overlay aprimorado */}
+      {/* Video feed com overlay aprimorado incluindo validação temporal */}
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
         <video 
           ref={videoRef}
@@ -623,7 +632,7 @@ const LiveAnalysis = () => {
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
               <p className="text-sm">
-                {isChartVisible ? 'Analisando com IA Aprimorada...' : 'Procurando gráfico...'}
+                {isChartVisible ? 'Analisando com IA + Validação Temporal...' : 'Procurando gráfico...'}
               </p>
             </div>
           </div>
@@ -654,24 +663,24 @@ const LiveAnalysis = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <Badge 
                         variant={currentAnalysis.signal === 'compra' ? 'default' : 
-                                 currentAnalysis.signal === 'venda' ? 'destructive' : 'secondary'}
+                                 currentAnalysis.signal === 'venda' ? 'destructive' : 'outline'}
                       >
                         {currentAnalysis.signal.toUpperCase()}
                       </Badge>
                       {currentAnalysis.signalQuality && (
                         <Badge 
                           variant={currentAnalysis.signalQuality === 'excelente' || currentAnalysis.signalQuality === 'forte' ? 'default' : 
-                                   currentAnalysis.signalQuality === 'boa' || currentAnalysis.signalQuality === 'moderada' ? 'secondary' : 'destructive'}
+                                   currentAnalysis.signalQuality === 'boa' || currentAnalysis.signalQuality === 'moderada' ? 'outline' : 'destructive'}
                           className="text-xs"
                         >
                           {currentAnalysis.signalQuality}
                         </Badge>
                       )}
-                      {/* NOVO: Mostrar status da validação temporal */}
+                      {/* Mostrar status da validação temporal */}
                       {currentAnalysis.temporalValidation && (
                         <Badge 
                           variant={currentAnalysis.temporalValidation.recommendation === 'enter' ? 'default' : 
-                                   currentAnalysis.temporalValidation.recommendation === 'wait' ? 'secondary' : 'destructive'}
+                                   currentAnalysis.temporalValidation.recommendation === 'wait' ? 'outline' : 'destructive'}
                           className="text-xs"
                         >
                           {currentAnalysis.temporalValidation.recommendation === 'enter' ? '✅ VÁLIDA' :
@@ -681,7 +690,7 @@ const LiveAnalysis = () => {
                       {/* Indicador de saúde da análise */}
                       {currentAnalysis.analysisHealth && (
                         <Badge 
-                          variant={currentAnalysis.analysisHealth.consistency > 80 ? 'default' : 'secondary'}
+                          variant={currentAnalysis.analysisHealth.consistency > 80 ? 'default' : 'outline'}
                           className="text-xs"
                         >
                           {currentAnalysis.analysisHealth.consistency > 80 ? '✅' : '⚠️'}
@@ -691,7 +700,7 @@ const LiveAnalysis = () => {
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}%
                     </p>
-                    {/* NOVO: Mostrar informações temporais */}
+                    {/* Mostrar informações temporais */}
                     {currentAnalysis.temporalValidation && (
                       <p className="text-xs text-cyan-300">
                         Expira: {currentAnalysis.temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'} 
@@ -762,7 +771,7 @@ const LiveAnalysis = () => {
                         <span className={`font-medium ${signal.direction === 'alta' ? 'text-green-600' : 'text-red-600'}`}>
                           {signal.type} - {signal.direction}
                         </span>
-                        <Badge variant={signal.strength === 'forte' ? 'default' : 'secondary'}>
+                        <Badge variant={signal.strength === 'forte' ? 'default' : 'outline'}>
                           {signal.strength}
                         </Badge>
                       </div>
@@ -942,7 +951,7 @@ const LiveAnalysis = () => {
                     <div className="flex items-center gap-2">
                       <Badge 
                         variant={result.signal === 'compra' ? 'default' : 
-                                 result.signal === 'venda' ? 'destructive' : 'secondary'}
+                                 result.signal === 'venda' ? 'destructive' : 'outline'}
                         className="text-xs"
                       >
                         {result.signal}
