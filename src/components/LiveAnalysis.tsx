@@ -10,6 +10,7 @@ import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
 import { analyzeChart } from '@/utils/patternDetection';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { validateTemporalEntry, calculateEntryTiming, TemporalValidation } from '@/utils/temporalEntryValidation';
 
 interface LiveAnalysisResult {
   timestamp: number;
@@ -32,6 +33,7 @@ interface LiveAnalysisResult {
     reliability: number;
     marketAlignment: boolean;
   };
+  temporalValidation?: TemporalValidation;
 }
 
 const LiveAnalysis = () => {
@@ -343,6 +345,41 @@ const LiveAnalysis = () => {
         analysisResult.confluences?.confluenceScore || 0
       );
 
+      // NOVO: Validação temporal antes de confirmar entrada
+      let temporalValidation: TemporalValidation | undefined;
+      let shouldProceed = true;
+      
+      if (mainSignal !== 'neutro') {
+        const entryTiming = calculateEntryTiming();
+        temporalValidation = validateTemporalEntry(
+          analysisResult.candles,
+          mainSignal,
+          finalConfidence,
+          entryTiming
+        );
+        
+        console.log(`⏰ Validação Temporal: ${temporalValidation.reasoning}`);
+        
+        // Aplicar decisão da validação temporal
+        if (temporalValidation.recommendation === 'skip') {
+          mainSignal = 'neutro';
+          finalConfidence = 0;
+          signalQuality = 'rejeitada';
+          shouldProceed = false;
+          console.log('🚫 Entrada rejeitada pela validação temporal');
+        } else if (temporalValidation.recommendation === 'wait') {
+          mainSignal = 'neutro';
+          finalConfidence = 0;
+          signalQuality = 'aguardando';
+          shouldProceed = false;
+          console.log('⏳ Aguardando melhores condições temporais');
+        } else {
+          // Ajustar confiança baseada na probabilidade temporal
+          finalConfidence = Math.min(finalConfidence, temporalValidation.winProbability);
+          console.log(`✅ Validação temporal aprovada - Probabilidade: ${Math.round(temporalValidation.winProbability * 100)}%`);
+        }
+      }
+
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
         confidence: finalConfidence,
@@ -360,7 +397,8 @@ const LiveAnalysis = () => {
           entry.action === mainSignal
         ).slice(0, 2) || [],
         riskReward,
-        analysisHealth
+        analysisHealth,
+        temporalValidation // NOVO: Incluir validação temporal
       };
 
       setCurrentAnalysis(liveResult);
@@ -374,18 +412,34 @@ const LiveAnalysis = () => {
         lastValidSignalTime: mainSignal !== 'neutro' ? Date.now() : prev.lastValidSignalTime
       }));
 
-      // Notificar apenas sinais de alta qualidade
-      if (finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
+      // MODIFICADO: Notificar apenas sinais aprovados pela validação temporal
+      if (shouldProceed && finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
         const paText = alignedPASignals.length > 0 ? 
           ` | PA: ${alignedPASignals[0].type}` : '';
         const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
         const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
+        const temporalText = temporalValidation ? 
+          ` | Expira: ${temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'} (${temporalValidation.timeToExpiry}s)` : '';
         
         toast({
           variant: mainSignal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${mainSignal.toUpperCase()}${healthText}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
-          duration: 8000,
+          title: `🚨 ENTRADA VALIDADA - ${mainSignal.toUpperCase()}${healthText}`,
+          description: `Prob: ${Math.round(finalConfidence * 100)}%${temporalText}${paText}${rrText}`,
+          duration: 10000,
+        });
+      } else if (temporalValidation && temporalValidation.recommendation === 'wait') {
+        toast({
+          variant: "secondary",
+          title: "⏳ AGUARDANDO",
+          description: `${temporalValidation.reasoning}`,
+          duration: 5000,
+        });
+      } else if (temporalValidation && temporalValidation.recommendation === 'skip') {
+        toast({
+          variant: "destructive",
+          title: "🚫 ENTRADA REJEITADA",
+          description: `${temporalValidation.reasoning}`,
+          duration: 6000,
         });
       }
 
@@ -613,6 +667,17 @@ const LiveAnalysis = () => {
                           {currentAnalysis.signalQuality}
                         </Badge>
                       )}
+                      {/* NOVO: Mostrar status da validação temporal */}
+                      {currentAnalysis.temporalValidation && (
+                        <Badge 
+                          variant={currentAnalysis.temporalValidation.recommendation === 'enter' ? 'default' : 
+                                   currentAnalysis.temporalValidation.recommendation === 'wait' ? 'secondary' : 'destructive'}
+                          className="text-xs"
+                        >
+                          {currentAnalysis.temporalValidation.recommendation === 'enter' ? '✅ VÁLIDA' :
+                           currentAnalysis.temporalValidation.recommendation === 'wait' ? '⏳ AGUARDAR' : '❌ PULAR'}
+                        </Badge>
+                      )}
                       {/* Indicador de saúde da análise */}
                       {currentAnalysis.analysisHealth && (
                         <Badge 
@@ -626,6 +691,14 @@ const LiveAnalysis = () => {
                     <p className="text-xs">
                       Confiança: {Math.round(currentAnalysis.confidence * 100)}%
                     </p>
+                    {/* NOVO: Mostrar informações temporais */}
+                    {currentAnalysis.temporalValidation && (
+                      <p className="text-xs text-cyan-300">
+                        Expira: {currentAnalysis.temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'} 
+                        ({currentAnalysis.temporalValidation.timeToExpiry}s) | 
+                        Prob: {Math.round(currentAnalysis.temporalValidation.winProbability * 100)}%
+                      </p>
+                    )}
                     <p className="text-xs text-green-300">
                       R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
                     </p>
