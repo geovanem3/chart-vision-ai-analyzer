@@ -117,21 +117,35 @@ export const validateAnalysis = (analysisResult: AnalysisResult): {
   };
 };
 
-// Manter compatibilidade com componentes existentes
+// Manter compatibilidade com componentes existentes - versões simplificadas
 export const detectPatterns = async (imageUrl: string) => {
   const result = await analyzeChart(imageUrl);
   return result.patterns;
 };
 
-export const generateTechnicalMarkup = async (imageUrl: string) => {
-  const result = await analyzeChart(imageUrl);
-  return {
-    patterns: result.patterns,
-    levels: result.confluences?.supportResistance || []
-  };
+export const generateTechnicalMarkup = (patterns: any[], width?: number, height?: number) => {
+  // Gerar elementos técnicos baseados nos padrões detectados
+  const technicalElements: any[] = [];
+  
+  patterns.forEach((pattern, index) => {
+    if (pattern.coordinates) {
+      technicalElements.push({
+        id: `pattern-${index}`,
+        type: pattern.type,
+        x: pattern.coordinates.x,
+        y: pattern.coordinates.y,
+        width: pattern.coordinates.width || 50,
+        height: pattern.coordinates.height || 30,
+        confidence: pattern.confidence,
+        description: pattern.description
+      });
+    }
+  });
+  
+  return technicalElements;
 };
 
-export const detectCandles = async (imageUrl: string) => {
+export const detectCandles = async (imageUrl: string, width?: number, height?: number) => {
   const result = await analyzeChart(imageUrl);
   return result.candles;
 };
