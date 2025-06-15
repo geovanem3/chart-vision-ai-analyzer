@@ -9,7 +9,7 @@ interface ChartPattern {
 }
 
 export const detectChartPatterns = async (candles: CandleData[], patternType: string, options: any): Promise<ChartPattern[]> => {
-  if (candles.length < 15) return [];
+  if (candles.length < 10) return [];
   
   const patterns: ChartPattern[] = [];
   
@@ -89,39 +89,51 @@ const detectTrianglePattern = (candles: CandleData[]): ChartPattern | null => {
 };
 
 const detectSupportResistancePattern = (candles: CandleData[]): ChartPattern | null => {
-  if (candles.length < 15) return null;
+  if (candles.length < 10) return null;
   
-  const recent15 = candles.slice(-15);
-  const currentPrice = recent15[recent15.length - 1].close;
+  const recentCandles = candles.slice(-10);
+  const currentPrice = recentCandles[recentCandles.length - 1].close;
   
-  // Procurar por níveis testados múltiplas vezes
-  const prices = recent15.map(c => c.close);
-  const levels = findSignificantLevels(prices, currentPrice);
+  const levels = findSignificantLevels(recentCandles, currentPrice);
   
-  if (levels.support && levels.resistance) {
-    const distanceToSupport = Math.abs(currentPrice - levels.support.price) / currentPrice;
-    const distanceToResistance = Math.abs(currentPrice - levels.resistance.price) / currentPrice;
-    
+  if (levels.support || levels.resistance) {
     let action: 'compra' | 'venda' | 'neutro' = 'neutro';
     let confidence = 0.6;
+    let description = 'Níveis de Suporte/Resistência detectados.';
+    let recommendation = 'Aguardar reação do preço nos níveis.';
     
-    // Se próximo ao suporte, sinal de compra
-    if (distanceToSupport < 0.002 && levels.support.touches >= 2) {
-      action = 'compra';
-      confidence = Math.min(0.85, 0.6 + levels.support.touches * 0.1);
+    if (levels.support) {
+      const distanceToSupport = Math.abs(currentPrice - levels.support.price) / currentPrice;
+      if (distanceToSupport < 0.002) {
+        action = 'compra';
+        confidence = Math.min(0.9, 0.65 + levels.support.touches * 0.1);
+        description = `Preço testando suporte em ${levels.support.price.toFixed(5)} (${levels.support.touches} toques).`;
+        recommendation = 'Considerar compra com confirmação de rejeição do suporte.';
+      }
     }
-    // Se próximo à resistência, sinal de venda
-    else if (distanceToResistance < 0.002 && levels.resistance.touches >= 2) {
-      action = 'venda';
-      confidence = Math.min(0.85, 0.6 + levels.resistance.touches * 0.1);
+    
+    if (levels.resistance) {
+      const distanceToResistance = Math.abs(currentPrice - levels.resistance.price) / currentPrice;
+      if (distanceToResistance < 0.002) {
+        if (action !== 'compra') {
+          action = 'venda';
+          confidence = Math.min(0.9, 0.65 + levels.resistance.touches * 0.1);
+          description = `Preço testando resistência em ${levels.resistance.price.toFixed(5)} (${levels.resistance.touches} toques).`;
+          recommendation = 'Considerar venda com confirmação de rejeição da resistência.';
+        } else {
+          action = 'neutro';
+          description = `Preço em range apertado entre suporte ${levels.support?.price.toFixed(5)} e resistência ${levels.resistance.price.toFixed(5)}.`;
+          recommendation = 'Aguardar rompimento claro.'
+        }
+      }
     }
     
     if (action !== 'neutro') {
       return {
         pattern: 'Suporte/Resistência',
         confidence,
-        description: `Nível de ${action === 'compra' ? 'suporte' : 'resistência'} identificado`,
-        recommendation: `${action === 'compra' ? 'Considerar compra' : 'Considerar venda'} próximo ao nível`,
+        description,
+        recommendation,
         action
       };
     }
@@ -916,26 +928,32 @@ const calculateTrend = (data: number[]): number => {
   return (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
 };
 
-const findSignificantLevels = (prices: number[], currentPrice: number) => {
-  const tolerance = currentPrice * 0.002; // 0.2% de tolerância
-  const levels: { [key: string]: { price: number, touches: number } } = {};
-  
-  // Agrupar preços próximos
-  prices.forEach(price => {
-    const levelKey = Math.round(price / tolerance) * tolerance;
-    if (!levels[levelKey]) {
-      levels[levelKey] = { price: levelKey, touches: 0 };
-    }
-    levels[levelKey].touches++;
+const findSignificantLevels = (candles: CandleData[], currentPrice: number) => {
+  const tolerance = currentPrice * 0.0015; // Tolerância de 0.15%
+
+  const highLevels: { [key: string]: { price: number, touches: number } } = {};
+  candles.forEach(c => {
+    const levelKey = Math.round(c.high / tolerance) * tolerance;
+    if (!highLevels[levelKey]) highLevels[levelKey] = { price: levelKey, touches: 0 };
+    highLevels[levelKey].touches++;
   });
-  
-  // Encontrar níveis mais significativos
-  const significantLevels = Object.values(levels)
-    .filter(level => level.touches >= 2)
-    .sort((a, b) => b.touches - a.touches);
-  
-  const support = significantLevels.find(level => level.price < currentPrice);
-  const resistance = significantLevels.find(level => level.price > currentPrice);
-  
-  return { support, resistance };
+
+  const lowLevels: { [key: string]: { price: number, touches: number } } = {};
+  candles.forEach(c => {
+    const levelKey = Math.round(c.low / tolerance) * tolerance;
+    if (!lowLevels[levelKey]) lowLevels[levelKey] = { price: levelKey, touches: 0 };
+    lowLevels[levelKey].touches++;
+  });
+
+  // Encontra a resistência mais significativa ACIMA do preço atual
+  const significantResistances = Object.values(highLevels)
+    .filter(level => level.touches >= 2 && level.price > currentPrice)
+    .sort((a, b) => b.touches - a.touches); // Ordena pelo número de toques
+
+  // Encontra o suporte mais significativo ABAIXO do preço atual
+  const significantSupports = Object.values(lowLevels)
+    .filter(level => level.touches >= 2 && level.price < currentPrice)
+    .sort((a, b) => b.touches - a.touches); // Ordena pelo número de toques
+
+  return { resistance: significantResistances[0], support: significantSupports[0] };
 };
