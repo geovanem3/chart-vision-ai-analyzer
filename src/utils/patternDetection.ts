@@ -37,10 +37,11 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], width: number
   return patterns.map((pattern, index) => ({
     id: `pattern-${index}`,
     type: 'pattern' as const,
-    position: {
-      x: Math.random() * width,
-      y: Math.random() * height
-    },
+    patternType: 'trendline' as const,
+    points: [
+      { x: Math.random() * width, y: Math.random() * height },
+      { x: Math.random() * width, y: Math.random() * height }
+    ],
     color: pattern.action === 'compra' ? '#10b981' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
     confidence: pattern.confidence,
     description: pattern.description,
