@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -139,8 +138,8 @@ const GraphAnalyzer = () => {
       );
     }
 
-    // Se há resultados, mostrar apenas os resultados
-    if (analysisResults) {
+    // Se está analisando OU se já temos resultados, mostrar a tela de resultados/análise
+    if (isAnalyzing || analysisResults) {
       return (
         <div className="space-y-3 w-full">
           <div className="flex items-center justify-between">
@@ -150,10 +149,13 @@ const GraphAnalyzer = () => {
                 size="icon" 
                 onClick={resetAnalysis}
                 className="mr-1"
+                disabled={isAnalyzing}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-lg font-bold">Resultados Live IA</h2>
+              <h2 className="text-lg font-bold">
+                {isAnalyzing ? "Live IA Analisando..." : "Resultados Live IA"}
+              </h2>
             </div>
           </div>
           <AnalysisResults />
