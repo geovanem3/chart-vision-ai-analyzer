@@ -1,4 +1,3 @@
-
 import { CandleData } from "../context/AnalyzerContext";
 
 export interface M1ContextValidation {
@@ -24,10 +23,10 @@ export const validateM1Context = (
   confluences?: any
 ): M1ContextValidation => {
   
-  if (candles.length < 20 || signal === 'neutro') {
+  if (candles.length < 10) { // Reduzido de 20 para 10
     return {
       isValidForEntry: false,
-      rejectionReasons: ['Dados insuficientes ou sinal neutro'],
+      rejectionReasons: ['Dados de candles insuficientes'],
       contextScore: 0,
       trendDirection: 'lateral',
       pullbackDetected: false,
@@ -41,90 +40,84 @@ export const validateM1Context = (
   }
 
   const rejectionReasons: string[] = [];
-  let contextScore = 0;
+  let contextScore = 50; // Começar com uma base mais alta
   
   // 1. Detectar tendência (últimos 10 candles)
   const trendDirection = detectTrend(candles.slice(-10));
   
-  // Regra: Não entra em lateralização
+  // MUDANÇA: Não veta mais em lateralização, apenas penaliza
   if (trendDirection === 'lateral') {
-    rejectionReasons.push('Preço em lateralização - mercado sem direção');
-    return {
-      isValidForEntry: false,
-      rejectionReasons,
-      contextScore: 0,
-      trendDirection,
-      pullbackDetected: false,
-      strongCandleConfirmation: false,
-      supportResistanceLevel: false,
-      volumeConfirmation: false,
-      spaceToRun: false,
-      indecisionCandles: true,
-      recommendation: 'skip'
-    };
+    rejectionReasons.push('Preço em possível lateralização');
+    contextScore -= 25; 
+  } else {
+    contextScore += 10;
   }
-  
-  contextScore += 25; // Tendência definida
   
   // 2. Detectar pullback válido
   const pullbackDetected = detectPullback(candles.slice(-5), trendDirection);
   if (pullbackDetected) {
-    contextScore += 20;
+    contextScore += 15;
   }
   
   // 3. Verificar candle de confirmação forte
   const strongCandleConfirmation = checkStrongCandleConfirmation(candles.slice(-3), signal);
   if (strongCandleConfirmation) {
-    contextScore += 25;
+    contextScore += 20;
   } else {
-    rejectionReasons.push('Candle de confirmação fraco ou ausente');
+    rejectionReasons.push('Candle de confirmação um pouco fraco');
+    contextScore -= 10; // Penalidade mais branda
   }
   
   // 4. Verificar candles de indecisão (pavios dos dois lados)
   const indecisionCandles = checkIndecisionCandles(candles.slice(-3));
   if (indecisionCandles) {
-    rejectionReasons.push('Candles de indecisão detectados (pavios dos dois lados)');
-    contextScore -= 30;
+    rejectionReasons.push('Alguns candles de indecisão detectados');
+    contextScore -= 15; // Penalidade mais branda
   }
   
   // 5. Verificar nível de suporte/resistência
   const supportResistanceLevel = checkSupportResistanceLevel(candles, signal, confluences);
   if (supportResistanceLevel) {
-    contextScore += 20;
+    contextScore += 15;
   }
   
   // 6. Confirmar volume
   const volumeConfirmation = checkVolumeConfirmation(volumeData, signal);
   if (volumeConfirmation) {
-    contextScore += 15;
+    contextScore += 10;
   }
   
   // 7. Verificar espaço para correr
   const spaceToRun = checkSpaceToRun(candles, signal, confluences);
   if (!spaceToRun) {
-    rejectionReasons.push('Sem espaço suficiente para o preço correr');
-    contextScore -= 25;
+    rejectionReasons.push('Pouco espaço para o preço correr');
+    contextScore -= 20;
   }
   
   // 8. Verificar se trend e signal estão alinhados
   const trendSignalAlignment = checkTrendSignalAlignment(trendDirection, signal);
   if (!trendSignalAlignment) {
-    rejectionReasons.push('Sinal contra a tendência principal');
-    contextScore -= 20;
+    rejectionReasons.push('Sinal contra a tendência M1');
+    contextScore -= 30; // Penalidade forte mantida
   } else {
     contextScore += 10;
   }
   
-  // Determinar recomendação final
+  // Determinar recomendação final com thresholds mais baixos
   let recommendation: 'enter' | 'wait' | 'skip' = 'skip';
   
-  if (contextScore >= 70 && rejectionReasons.length === 0) {
+  if (contextScore >= 65) { // Reduzido de 70
     recommendation = 'enter';
-  } else if (contextScore >= 50 && rejectionReasons.length <= 1) {
+  } else if (contextScore >= 45) { // Reduzido de 50
     recommendation = 'wait';
   }
   
+  // A validação final só é positiva se a recomendação for 'enter'
   const isValidForEntry = recommendation === 'enter';
+  
+  if (!isValidForEntry && rejectionReasons.length === 0) {
+      rejectionReasons.push('Score de contexto M1 insuficiente');
+  }
   
   return {
     isValidForEntry,
@@ -183,17 +176,20 @@ const detectPullback = (candles: CandleData[], trendDirection: 'alta' | 'baixa' 
   }
 };
 
-// Verificar candle de confirmação forte
+// Verificar candle de confirmação forte - MAIS FLEXÍVEL
 const checkStrongCandleConfirmation = (candles: CandleData[], signal: 'compra' | 'venda'): boolean => {
   if (candles.length === 0) return false;
   
   const lastCandle = candles[candles.length - 1];
   const body = Math.abs(lastCandle.close - lastCandle.open);
   const totalRange = lastCandle.high - lastCandle.low;
+  
+  if (totalRange === 0) return false; // Evitar divisão por zero
+  
   const bodyRatio = body / totalRange;
   
-  // Candle forte: corpo representa pelo menos 60% do range total
-  const isStrongCandle = bodyRatio >= 0.6;
+  // Candle forte: corpo representa pelo menos 50% do range total (reduzido de 60%)
+  const isStrongCandle = bodyRatio >= 0.5;
   
   // Verificar se direção do candle alinha com o sinal
   const candleDirection = lastCandle.close > lastCandle.open ? 'compra' : 'venda';
@@ -202,7 +198,7 @@ const checkStrongCandleConfirmation = (candles: CandleData[], signal: 'compra' |
   return isStrongCandle && directionAlignment;
 };
 
-// Verificar candles de indecisão (pavios dos dois lados)
+// Verificar candles de indecisão (pavios dos dois lados) - MENOS PUNITIVO
 const checkIndecisionCandles = (candles: CandleData[]): boolean => {
   if (candles.length === 0) return false;
   
@@ -210,21 +206,23 @@ const checkIndecisionCandles = (candles: CandleData[]): boolean => {
   
   for (const candle of candles) {
     const body = Math.abs(candle.close - candle.open);
+    const totalRange = candle.high - candle.low;
+
+    if (totalRange === 0) continue;
+
     const upperWick = candle.high - Math.max(candle.open, candle.close);
     const lowerWick = Math.min(candle.open, candle.close) - candle.low;
-    const totalRange = candle.high - candle.low;
     
-    // Candle de indecisão: pavios dos dois lados representam mais que o corpo
-    const hasLargeUpperWick = upperWick > body * 0.8;
-    const hasLargeLowerWick = lowerWick > body * 0.8;
-    const smallBody = body < totalRange * 0.4;
+    // Candle de indecisão: corpo pequeno e pavios para ambos os lados
+    const smallBody = body < totalRange * 0.3; // Corpo menor que 30%
+    const hasBothWicks = upperWick > totalRange * 0.2 && lowerWick > totalRange * 0.2;
     
-    if (hasLargeUpperWick && hasLargeLowerWick && smallBody) {
+    if (smallBody && hasBothWicks) {
       indecisionCount++;
     }
   }
   
-  // Se mais de 1 candle de indecisão nos últimos 3, é problemático
+  // Se 2 ou mais candles de indecisão nos últimos 3, é um sinal de alerta
   return indecisionCount >= 2;
 };
 

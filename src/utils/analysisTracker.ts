@@ -318,47 +318,15 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
   const reasoning: string[] = [];
   const rejectionReasons: string[] = [];
   
-  console.log('🤖 Tomando decisão com lógica MELHORADA (menos restritiva)...');
+  console.log('🤖 Tomando decisão com lógica MAIS FLEXÍVEL...');
   
-  // NOVA VERIFICAÇÃO: M1 ainda veta, mas com mais detalhes
-  if (m1Context && !m1Context.isValidForEntry) {
-    console.log(`❌ M1 Context vetou entrada: ${m1Context.rejectionReasons.join(', ')}`);
-    
-    // MUDANÇA: Se a rejeição for apenas lateralização, mas outros sinais estão muito fortes, considerar
-    const isOnlyLateralization = m1Context.rejectionReasons.every(reason => 
-      reason.includes('lateral') || reason.includes('indecisão')
-    );
-    
-    if (isOnlyLateralization) {
-      // Verificar se há confluência muito forte que pode superar a lateralização
-      const confluenceScore = components.confluence.confidence * 100;
-      const patternConfidence = components.patterns.confidence * 100;
-      
-      if (confluenceScore > 70 && patternConfidence > 75) {
-        console.log('🎯 OVERRIDE: Sinais muito fortes superam lateralização M1');
-        reasoning.push('Override M1: Confluência excepcional');
-      } else {
-        rejectionReasons.push('Contexto M1 rejeitou entrada');
-        rejectionReasons.push(...m1Context.rejectionReasons);
+  // Verificação M1: veta se a recomendação for 'skip'
+  if (m1Context && m1Context.recommendation === 'skip') {
+    console.log(`❌ M1 Context vetou entrada (skip): ${m1Context.rejectionReasons.join(', ')}`);
+    rejectionReasons.push('Contexto M1 recomendou pular a entrada.');
+    rejectionReasons.push(...m1Context.rejectionReasons);
         
-        return {
-          shouldTrade: false,
-          signal: 'neutro',
-          confidence: 0,
-          reasoning: [],
-          rejectionReasons,
-          components,
-          riskLevel: 'alto',
-          qualityScore: m1Context.contextScore,
-          m1ContextValidation: m1Context
-        };
-      }
-    } else {
-      // Rejeições sérias (não apenas lateralização)
-      rejectionReasons.push('Contexto M1 rejeitou entrada');
-      rejectionReasons.push(...m1Context.rejectionReasons);
-      
-      return {
+    return {
         shouldTrade: false,
         signal: 'neutro',
         confidence: 0,
@@ -368,11 +336,10 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
         riskLevel: 'alto',
         qualityScore: m1Context.contextScore,
         m1ContextValidation: m1Context
-      };
-    }
+    };
   }
 
-  // NOVA LÓGICA: Verificações críticas mais flexíveis
+  // Verificações críticas mais flexíveis
   const criticalRejects = checkCriticalRejectsImproved(components);
   if (criticalRejects.length > 0) {
     console.log(`❌ Rejeições críticas: ${criticalRejects.join(', ')}`);
@@ -390,7 +357,7 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
     };
   }
 
-  // NOVA LÓGICA: Cálculo de scores mais permissivo
+  // Cálculo de scores mais permissivo
   let buyScore = 0;
   let sellScore = 0;
   let validComponentsCount = 0;
@@ -399,7 +366,7 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
   Object.values(components).forEach(component => {
     totalPossibleWeight += component.weight;
     
-    if (component.confidence > 0) { // MUDANÇA: Aceitar qualquer confiança > 0
+    if (component.isValid) { // Usar 'isValid' para contar componentes que passaram na validação
       validComponentsCount++;
       const weightedScore = component.confidence * component.weight;
       
@@ -409,7 +376,7 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
       } else if (component.signal === 'venda') {
         sellScore += weightedScore;
         reasoning.push(`${component.name}: VENDA (${Math.round(component.confidence * 100)}%, peso ${component.weight})`);
-      } else if (component.isValid) {
+      } else {
         reasoning.push(`${component.name}: Neutro mas válido (${Math.round(component.confidence * 100)}%)`);
       }
     }
@@ -417,26 +384,24 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
 
   console.log(`📊 Scores: BUY=${buyScore.toFixed(3)}, SELL=${sellScore.toFixed(3)}, Componentes válidos: ${validComponentsCount}/9`);
 
-  // NOVA LÓGICA: Determinar sinal final com thresholds mais baixos
+  // Determinar sinal final com thresholds mais baixos
   let finalSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
   let finalConfidence = 0;
 
-  const minThreshold = 0.25; // REDUZIDO de 0.35
+  const minThreshold = 0.20; // REDUZIDO de 0.25
 
   if (buyScore > sellScore && buyScore > minThreshold) {
     finalSignal = 'compra';
-    finalConfidence = Math.min(buyScore * 2.5, 1); // Amplificação ajustada
+    finalConfidence = Math.min(buyScore * 3, 1); // Amplificação ajustada
   } else if (sellScore > buyScore && sellScore > minThreshold) {
     finalSignal = 'venda';
-    finalConfidence = Math.min(sellScore * 2.5, 1);
+    finalConfidence = Math.min(sellScore * 3, 1);
   }
 
   console.log(`🎯 Sinal final: ${finalSignal} (${Math.round(finalConfidence * 100)}%)`);
 
-  // NOVA LÓGICA: Verificações mais permissivas
-  
   // Verificar componentes mínimos (REDUZIDO)
-  if (validComponentsCount < 2) { // REDUZIDO de 3
+  if (validComponentsCount < 2) { // MANTIDO em 2
     rejectionReasons.push(`Poucos componentes válidos (${validComponentsCount}/9)`);
     
     return {
@@ -453,7 +418,7 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
   }
 
   // Verificar confiança mínima (REDUZIDO)
-  if (finalConfidence < 0.45) { // REDUZIDO de 0.55
+  if (finalConfidence < 0.40) { // REDUZIDO de 0.45
     rejectionReasons.push(`Confiança insuficiente (${Math.round(finalConfidence * 100)}%)`);
     
     return {
@@ -468,6 +433,24 @@ const makeIntelligentDecisionImproved = (components: TrackedAnalysis, m1Context?
       m1ContextValidation: m1Context
     };
   }
+  
+  // Se m1Context recomendou 'wait', não aprova a operação, mas dá um feedback diferente
+  if (m1Context && m1Context.recommendation === 'wait') {
+    rejectionReasons.push('Contexto M1 recomendou aguardar por melhor confirmação.');
+    rejectionReasons.push(...m1Context.rejectionReasons);
+    return {
+        shouldTrade: false,
+        signal: finalSignal, // Mantém o sinal, mas não opera
+        confidence: finalConfidence,
+        reasoning,
+        rejectionReasons,
+        components,
+        riskLevel: 'medio',
+        qualityScore: m1Context.contextScore,
+        m1ContextValidation: m1Context
+    };
+  }
+
 
   // APROVAÇÃO: Calcular métricas finais
   const riskLevel = calculateRiskLevel(components, finalConfidence);
