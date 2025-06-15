@@ -1,3 +1,4 @@
+
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -35,13 +36,15 @@ interface AnalysisOptions {
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
   return patterns.map((pattern, index) => ({
     id: `pattern-${index}`,
-    type: pattern.type,
+    type: 'pattern' as const,
     position: {
       x: Math.random() * width,
       y: Math.random() * height
     },
+    color: pattern.action === 'compra' ? '#10b981' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
     confidence: pattern.confidence,
-    description: pattern.description
+    description: pattern.description,
+    label: pattern.type
   }));
 };
 
