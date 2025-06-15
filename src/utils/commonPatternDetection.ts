@@ -25,7 +25,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: 'compra',
         confidence: 0.75,
         description: `Hammer detectado: pavio inferior ${calculateLowerWickRatio(current).toFixed(1)}x maior que corpo`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 50,
+          height: 30
+        } : undefined
       });
       console.log(`🔨 HAMMER detectado em ${current.close.toFixed(5)}`);
     }
@@ -37,7 +42,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: 'venda',
         confidence: 0.75,
         description: `Shooting Star detectado: pavio superior ${calculateUpperWickRatio(current).toFixed(1)}x maior que corpo`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 50,
+          height: 30
+        } : undefined
       });
       console.log(`⭐ SHOOTING STAR detectado em ${current.close.toFixed(5)}`);
     }
@@ -49,7 +59,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: 'compra',
         confidence: 0.85,
         description: `Engolfamento de alta: candle atual (${current.close.toFixed(5)}) engolfa anterior (${prev.close.toFixed(5)})`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 60,
+          height: 40
+        } : undefined
       });
       console.log(`📈 ENGOLFAMENTO DE ALTA detectado: ${prev.close.toFixed(5)} -> ${current.close.toFixed(5)}`);
     }
@@ -61,7 +76,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: 'venda',
         confidence: 0.85,
         description: `Engolfamento de baixa: candle atual (${current.close.toFixed(5)}) engolfa anterior (${prev.close.toFixed(5)})`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 60,
+          height: 40
+        } : undefined
       });
       console.log(`📉 ENGOLFAMENTO DE BAIXA detectado: ${prev.close.toFixed(5)} -> ${current.close.toFixed(5)}`);
     }
@@ -73,7 +93,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: 'neutro',
         confidence: 0.65,
         description: `Doji detectado: abertura (${current.open.toFixed(5)}) ≈ fechamento (${current.close.toFixed(5)})`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 45,
+          height: 25
+        } : undefined
       });
       console.log(`⚖️ DOJI detectado em ${current.close.toFixed(5)}`);
     }
@@ -86,7 +111,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: isRejectionUp ? 'venda' : 'compra',
         confidence: 0.80,
         description: `Pin Bar: rejection ${isRejectionUp ? 'para cima' : 'para baixo'} em ${current.close.toFixed(5)}`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 55,
+          height: 35
+        } : undefined
       });
       console.log(`📍 PIN BAR detectado: rejection ${isRejectionUp ? 'para cima' : 'para baixo'}`);
     }
@@ -99,7 +129,12 @@ export const detectCommonPatterns = (candles: CandleData[]): DetectedPattern[] =
         action: isBullish ? 'compra' : 'venda',
         confidence: 0.70,
         description: `Marubozu ${isBullish ? 'bullish' : 'bearish'}: movimento forte sem pavios`,
-        coordinates: current.position ? { x: current.position.x, y: current.position.y } : undefined
+        coordinates: current.position ? { 
+          x: current.position.x, 
+          y: current.position.y,
+          width: 50,
+          height: 35
+        } : undefined
       });
       console.log(`💪 MARUBOZU ${isBullish ? 'BULLISH' : 'BEARISH'} detectado`);
     }
