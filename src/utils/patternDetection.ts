@@ -110,29 +110,37 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const volatilityAnalysis = analyzeVolatility(candles);
   console.log(`📈 Volatilidade: ${volatilityAnalysis.value.toFixed(2)}% (trend: ${volatilityAnalysis.trend})`);
   
-  // Generate patterns with reduced confidence based on market conditions
-  const patternTypes = ['Martelo', 'Engolfo de Alta', 'Estrela Cadente', 'Doji', 'Triângulo'];
-  const patterns: PatternResult[] = [];
-  
-  for (const patternType of patternTypes) {
-    const detectedPatterns = await detectChartPatterns(candles, patternType, options);
+  // CORRIGIDO: Detectar padrões reais de candlestick em vez de simulados
+  let candlePatterns: DetectedPattern[] = [];
+  if (options.enableCandleDetection !== false) {
+    candlePatterns = detectCandlestickPatterns(candles);
+    console.log(`🕯️ Padrões de candlestick detectados: ${candlePatterns.length}`);
     
-    detectedPatterns.forEach(pattern => {
-      patterns.push({
-        type: pattern.pattern,
-        confidence: pattern.confidence,
-        description: pattern.description,
-        recommendation: pattern.recommendation,
+    // Log detalhado dos padrões para debug
+    candlePatterns.forEach((pattern, index) => {
+      console.log(`Pattern ${index}:`, {
+        type: pattern.type,
         action: pattern.action,
+        confidence: pattern.confidence,
+        description: pattern.description
       });
     });
   }
   
-  // MODIFICADO: Aplicar redução de confiança baseada nas condições de mercado
+  // CORRIGIDO: Converter padrões de candlestick detectados para formato PatternResult
+  const patterns: PatternResult[] = candlePatterns.map(pattern => ({
+    type: pattern.type,
+    confidence: pattern.confidence * confidenceReduction,
+    description: pattern.description,
+    recommendation: pattern.action === 'compra' ? 'Considerar compra' : 
+                   pattern.action === 'venda' ? 'Considerar venda' : 'Aguardar confirmação',
+    action: pattern.action
+  }));
+  
+  console.log(`📋 Convertidos ${patterns.length} padrões para formato final`);
+  
+  // Adicionar warnings específicos se as condições são ruins
   patterns.forEach(pattern => {
-    pattern.confidence *= confidenceReduction;
-    
-    // Adicionar warnings específicos se as condições são ruins
     if (operatingScore < 30) {
       pattern.description += ` ⚠️ CUIDADO: Condições adversas de mercado (Score: ${operatingScore}/100)`;
     }
@@ -150,18 +158,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const divergences = detectDivergences(candles);
   console.log(`🔍 Divergências encontradas: ${divergences.length}`);
   
-  // Candlestick patterns
-  let candlePatterns: DetectedPattern[] = [];
-  if (options.enableCandleDetection !== false) {
-    candlePatterns = detectCandlestickPatterns(candles);
-    console.log(`🕯️ Padrões de candlestick detectados: ${candlePatterns.length}`);
-  }
-  
   // Technical indicators
   const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
   console.log(`⚙️ Indicadores técnicos detectados: ${technicalIndicators.length}`);
   
-  // Scalping signals
+  // Scalping signals - usar padrões reais detectados
   const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
     action: signal.action === 'compra' ? 'compra' : 'venda',
@@ -195,7 +196,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     confidenceReduction
   };
   
-  return {
+  const result: AnalysisResult = {
     patterns,
     timestamp: Date.now(),
     imageUrl: imageData,
@@ -234,4 +235,12 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     },
     entryRecommendations: []
   };
+  
+  console.log('📋 Resultado final da análise:', {
+    patternsCount: result.patterns.length,
+    patternTypes: result.patterns.map(p => p.type),
+    operatingScore: operatingScore
+  });
+  
+  return result;
 };

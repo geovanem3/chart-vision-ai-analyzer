@@ -20,6 +20,9 @@ const AdvancedMarketAnalysis = () => {
   } = useAnalyzer();
   const { toast } = useToast();
 
+  console.log('AdvancedMarketAnalysis - analysisResults:', analysisResults);
+  console.log('AdvancedMarketAnalysis - patterns:', analysisResults?.patterns);
+
   // Verificar se há uma imagem capturada
   if (!capturedImage) return null;
   
@@ -56,10 +59,23 @@ const AdvancedMarketAnalysis = () => {
   // Verificar o timeframe
   if (timeframe !== '1m') return null;
 
-  // Usar dados reais da análise ao invés de simulados
+  // CORRIGIDO: Usar dados reais da análise dos padrões detectados
   const patterns = analysisResults.patterns || [];
-  const buyPatterns = patterns.filter(p => p.action === 'compra' && p.confidence > 0.6);
-  const sellPatterns = patterns.filter(p => p.action === 'venda' && p.confidence > 0.6);
+  console.log('AdvancedMarketAnalysis - patterns disponíveis:', patterns);
+  
+  // Filtrar padrões por ação com dados reais
+  const buyPatterns = patterns.filter(p => {
+    console.log(`Checking pattern ${p.type}: action=${p.action}, confidence=${p.confidence}`);
+    return p.action === 'compra' && p.confidence > 0.5;
+  });
+  
+  const sellPatterns = patterns.filter(p => {
+    console.log(`Checking pattern ${p.type}: action=${p.action}, confidence=${p.confidence}`);
+    return p.action === 'venda' && p.confidence > 0.5;
+  });
+  
+  console.log('AdvancedMarketAnalysis - buyPatterns:', buyPatterns);
+  console.log('AdvancedMarketAnalysis - sellPatterns:', sellPatterns);
   
   const isUptrend = buyPatterns.length > 0;
   const isDowntrend = sellPatterns.length > 0;
@@ -102,6 +118,15 @@ const AdvancedMarketAnalysis = () => {
   
   // Ultra quick entry decision with real pattern data
   const quickEntrySignal = () => {
+    console.log('quickEntrySignal - Checking conditions:', {
+      operatingScore,
+      isUptrend,
+      isDowntrend,
+      buyPatternsCount: buyPatterns.length,
+      sellPatternsCount: sellPatterns.length,
+      advancedConditionsRecommendation: advancedConditions?.recommendation
+    });
+
     // Se as condições são muito ruins, não dar sinal
     if (operatingScore < 30 || advancedConditions?.recommendation === 'nao_operar') {
       return (
@@ -123,6 +148,8 @@ const AdvancedMarketAnalysis = () => {
         (current.confidence > prev.confidence) ? current : prev
       );
       const adjustedConfidence = Math.round(strongestBuyPattern.confidence * confidenceReduction * 100);
+      
+      console.log('Showing BUY signal for pattern:', strongestBuyPattern);
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
@@ -159,6 +186,8 @@ const AdvancedMarketAnalysis = () => {
       );
       const adjustedConfidence = Math.round(strongestSellPattern.confidence * confidenceReduction * 100);
       
+      console.log('Showing SELL signal for pattern:', strongestSellPattern);
+      
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
           operatingScore >= 60 ? 
@@ -188,6 +217,8 @@ const AdvancedMarketAnalysis = () => {
       );
     }
     
+    console.log('No clear signal - showing WAIT state');
+    
     return (
       <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -196,7 +227,9 @@ const AdvancedMarketAnalysis = () => {
         </div>
         <div className="text-right">
           <div className="font-mono text-sm">Score: {operatingScore}/100</div>
-          <div className="text-xs opacity-70">Sem sinal claro</div>
+          <div className="text-xs opacity-70">
+            {patterns.length > 0 ? `${patterns.length} padrões detectados` : 'Sem padrões detectados'}
+          </div>
         </div>
       </div>
     );
@@ -256,6 +289,15 @@ const AdvancedMarketAnalysis = () => {
           Score: {operatingScore}/100
         </span>
       </h3>
+      
+      {/* Debug info - para identificar problema */}
+      <div className="text-xs bg-blue-50 p-2 rounded border">
+        <div><strong>Debug AdvancedMarketAnalysis:</strong></div>
+        <div>Total patterns: {patterns.length}</div>
+        <div>Buy patterns: {buyPatterns.length}</div>
+        <div>Sell patterns: {sellPatterns.length}</div>
+        <div>Pattern types: {patterns.map(p => `${p.type}(${p.action})`).join(', ')}</div>
+      </div>
       
       {/* Clear entry signal with real pattern data */}
       {quickEntrySignal()}

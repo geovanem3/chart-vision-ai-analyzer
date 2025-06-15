@@ -9,7 +9,7 @@ import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
 
-  console.log('AnalysisResults - analysisResults:', analysisResults);
+  console.log('AnalysisResults - analysisResults completo:', JSON.stringify(analysisResults, null, 2));
 
   if (!analysisResults) {
     return (
@@ -27,23 +27,36 @@ const AnalysisResults = () => {
     masterAnalysis 
   } = analysisResults;
 
-  console.log('AnalysisResults - extracted data:', { 
-    patterns, 
-    marketContext, 
-    volumeData, 
-    volatilityData, 
-    masterAnalysis 
+  console.log('AnalysisResults - patterns extraídos:', patterns);
+  console.log('AnalysisResults - patterns length:', patterns.length);
+  
+  // Log detalhado de cada padrão
+  patterns.forEach((pattern, index) => {
+    console.log(`Pattern ${index}:`, {
+      type: pattern.type,
+      action: pattern.action,
+      confidence: pattern.confidence,
+      description: pattern.description
+    });
   });
 
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
+      {/* Debug info - remover depois */}
+      <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+        <div><strong>Debug Info:</strong></div>
+        <div>Total patterns: {patterns.length}</div>
+        <div>Patterns types: {patterns.map(p => p.type).join(', ')}</div>
+        <div>Has analysis: {analysisResults ? 'Sim' : 'Não'}</div>
+      </div>
+
       {/* Patterns Section */}
       {patterns.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Padrões Identificados
+              Padrões Identificados ({patterns.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -51,7 +64,7 @@ const AnalysisResults = () => {
               {patterns.map((pattern, index) => (
                 <div key={index} className="p-3 border rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{pattern.type || 'Padrão'}</h4>
+                    <h4 className="font-semibold">{pattern.type || 'Padrão Desconhecido'}</h4>
                     <Badge variant={pattern.confidence > 0.7 ? "default" : "secondary"}>
                       {Math.round((pattern.confidence || 0) * 100)}% confiança
                     </Badge>
@@ -69,6 +82,9 @@ const AnalysisResults = () => {
                       )}
                     </div>
                   )}
+                  <div className="text-xs mt-2 text-gray-500">
+                    Pattern source: {pattern.type}
+                  </div>
                 </div>
               ))}
             </div>
