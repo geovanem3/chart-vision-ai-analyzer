@@ -106,7 +106,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   // Converter para formato PatternResult
   const patterns: PatternResult[] = realCandlePatterns.map(pattern => ({
     type: pattern.type,
-    confidence: pattern.confidence * confidenceReduction, // Aplicar redução baseada no mercado
+    confidence: pattern.confidence * confidenceReduction,
     description: pattern.description + ` | Score Mercado: ${operatingScore}/100`,
     recommendation: `Considerar ${pattern.action}`,
     action: pattern.action as 'compra' | 'venda' | 'neutro'
@@ -189,7 +189,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const enhancedMarketContext: EnhancedMarketContext = {
     phase: marketContextAnalysis.phase,
     strength: 'moderada',
-    dominantTimeframe: options.timeframe || '1m',
     sentiment: marketContextAnalysis.sentiment,
     description: `Score: ${operatingScore}/100 | Padrões Reais: ${validPatterns.length}`,
     marketStructure: 'indefinida',
