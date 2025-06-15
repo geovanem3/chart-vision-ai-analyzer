@@ -1,4 +1,3 @@
-
 import { DetectedCandle, ChartArea, PriceAxis } from './types';
 import { detectCandlestickPatterns } from '../candlestickPatternDetection';
 import { performConfluenceAnalysis } from '../confluenceAnalysis';
@@ -39,7 +38,7 @@ export const analyzeIntelligentPatterns = (
   console.log('🧠 Iniciando análise inteligente de padrões...');
   
   // Converter candles detectados para formato CandleData
-  const candleData = convertToCandleData(detectedCandles, priceAxis);
+  const candleData = convertToCandleData(detectedCandles, priceAxis, chartArea);
   
   if (candleData.length < 5) {
     return {
@@ -76,7 +75,7 @@ export const analyzeIntelligentPatterns = (
   return intelligentDecision;
 };
 
-const convertToCandleData = (detectedCandles: DetectedCandle[], priceAxis: PriceAxis): CandleData[] => {
+const convertToCandleData = (detectedCandles: DetectedCandle[], priceAxis: PriceAxis, chartArea: ChartArea): CandleData[] => {
   return detectedCandles.map((candle, index) => {
     // Converter posições Y para preços usando o eixo de preços
     const high = priceAxis.minPrice + ((chartArea.height - candle.wickTop) * (priceAxis.maxPrice - priceAxis.minPrice)) / chartArea.height;
@@ -86,11 +85,16 @@ const convertToCandleData = (detectedCandles: DetectedCandle[], priceAxis: Price
     
     return {
       time: new Date(Date.now() - (detectedCandles.length - index) * 60000).toISOString(),
+      timestamp: Date.now() - (detectedCandles.length - index) * 60000,
       open: Math.min(open, close),
       high,
       low,
       close: Math.max(open, close),
-      volume: 1000 // Volume inferido
+      volume: 1000, // Volume inferido
+      position: {
+        x: candle.x,
+        y: candle.y
+      }
     };
   });
 };

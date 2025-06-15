@@ -29,6 +29,7 @@ interface AnalysisOptions {
   useConfluences?: boolean;
   enablePriceAction?: boolean;
   enableMarketContext?: boolean;
+  enableIntelligentAnalysis?: boolean;
 }
 
 // FUNÇÃO AUXILIAR: Gerar marcação técnica
@@ -203,9 +204,19 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     console.log('✅ ImageData válido, iniciando extração de candles...');
     
     let candles: CandleData[] = [];
+    let intelligentAnalysisResult = null;
+    
     try {
       candles = await extractRealCandlesFromImage(imageData);
       console.log(`📊 ${candles.length} candles extraídos da imagem`);
+      
+      // Se temos análise inteligente habilitada, vamos usar o resultado completo
+      if (options.enableIntelligentAnalysis && candles.length > 0) {
+        const { extractCandlesFromChart } = await import('./realCandleExtraction');
+        const fullResult = await extractCandlesFromChart(imageData);
+        intelligentAnalysisResult = fullResult.intelligentAnalysis;
+        console.log('🧠 Análise inteligente extraída:', intelligentAnalysisResult?.overallSignal);
+      }
     } catch (extractionError) {
       console.error('❌ ERRO na extração de candles:', extractionError);
       candles = [];
@@ -519,7 +530,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         confidence: p.confidence,
         description: p.description,
         price: String(currentPrice.toFixed(5))
-      }))
+      })),
+      intelligentAnalysis: intelligentAnalysisResult
     };
     
     console.log('🎯 Resultado final construído com sucesso');

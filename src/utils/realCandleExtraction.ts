@@ -90,8 +90,8 @@ export const extractCandlesFromChart = async (
 
     // Calcular confiança geral
     const overallConfidence = Math.min(100, 
-      (chartArea.confidence * 0.2) + 
-      (priceAxis.confidence * 0.2) + 
+      (chartArea.confidence || 0) * 0.2 + 
+      (priceAxis.confidence || 0) * 0.2 + 
       (detectedCandles.filter(c => c.confidence > 0.7).length / Math.max(1, detectedCandles.length) * 100 * 0.3) +
       (intelligentAnalysis.confidence * 0.3)
     );
@@ -105,8 +105,8 @@ export const extractCandlesFromChart = async (
       confidence: overallConfidence,
       metadata: {
         totalCandlesDetected: detectedCandles.length,
-        chartAreaConfidence: chartArea.confidence,
-        priceAxisConfidence: priceAxis.confidence,
+        chartAreaConfidence: chartArea.confidence || 0,
+        priceAxisConfidence: priceAxis.confidence || 0,
         analysisTimestamp: Date.now()
       }
     };
@@ -127,6 +127,17 @@ export const extractCandlesFromChart = async (
         analysisTimestamp: Date.now()
       }
     };
+  }
+};
+
+// Função para usar no patternDetection.ts
+export const extractRealCandlesFromImage = async (imageUrl: string): Promise<CandleData[]> => {
+  try {
+    const result = await extractCandlesFromChart(imageUrl);
+    return result.candles;
+  } catch (error) {
+    console.error('❌ Erro na extração de candles da imagem:', error);
+    return [];
   }
 };
 

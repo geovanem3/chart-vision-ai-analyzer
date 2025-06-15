@@ -2,7 +2,12 @@
 import { toast } from "@/hooks/use-toast";
 import { ChartArea, PriceAxis } from "./types";
 
-export const detectPriceAxis = (chartArea: ChartArea): PriceAxis => {
+export const detectPriceAxis = (
+  imageData: ImageData,
+  width: number,
+  height: number,
+  chartArea: ChartArea
+): PriceAxis => {
   try {
     const axisX = chartArea.x + chartArea.width + 5;
 
@@ -21,22 +26,27 @@ export const detectPriceAxis = (chartArea: ChartArea): PriceAxis => {
         minPrice: 0,
         maxPrice: 1000,
         pixelPerPrice: chartArea.height > 0 ? chartArea.height / 1000 : 1,
-        axisX
+        axisX,
+        confidence: 50
       };
     }
 
     console.log(`Eixo de Preço Normalizado: Range 0-1000, Pixel/Preço=${pixelPerPrice.toFixed(2)}`);
 
+    // Calcular confiança baseada na consistência dos dados
+    const confidence = chartArea.height > 100 ? 85 : 65;
+
     return {
       minPrice,
       maxPrice,
       pixelPerPrice,
-      axisX
+      axisX,
+      confidence
     };
   } catch (error) {
     console.error('❌ Erro na detecção do eixo de preços:', error);
     toast({
-      variant: "error",
+      variant: "destructive",
       title: "Erro de Detecção de Eixo",
       description: `Falha ao detectar o eixo de preços: ${String(error)}`,
     });
@@ -45,7 +55,8 @@ export const detectPriceAxis = (chartArea: ChartArea): PriceAxis => {
       minPrice: 0,
       maxPrice: 1000,
       pixelPerPrice: chartArea.height > 0 ? chartArea.height / 1000 : 1,
-      axisX: chartArea.x + chartArea.width
+      axisX: chartArea.x + chartArea.width,
+      confidence: 0
     };
   }
 };

@@ -7,6 +7,7 @@ export const detectChartArea = (imageData: ImageData, width: number, height: num
     const data = imageData.data;
     
     let minX = width, maxX = 0, minY = height, maxY = 0;
+    let detectedPixels = 0;
     
     // Procurar por pixels que formam estruturas de gráfico
     for (let y = 0; y < height; y += 2) {
@@ -26,6 +27,7 @@ export const detectChartArea = (imageData: ImageData, width: number, height: num
           maxX = Math.max(maxX, x);
           minY = Math.min(minY, y);
           maxY = Math.max(maxY, y);
+          detectedPixels++;
         }
       }
     }
@@ -38,17 +40,39 @@ export const detectChartArea = (imageData: ImageData, width: number, height: num
     
     if (chartWidth <= 0 || chartHeight <= 0) {
       console.warn('⚠️ Dimensões inválidas do gráfico, usando imagem inteira');
-      return { x: 0, y: 0, width, height };
+      return { 
+        x: 0, 
+        y: 0, 
+        width, 
+        height,
+        confidence: 50
+      };
     }
     
-    return { x: chartX, y: chartY, width: chartWidth, height: chartHeight };
+    // Calcular confiança baseada na quantidade de pixels detectados
+    const totalPixels = (width * height) / 4; // Amostragem a cada 2 pixels
+    const confidence = Math.min(95, (detectedPixels / totalPixels) * 100 * 10);
+    
+    return { 
+      x: chartX, 
+      y: chartY, 
+      width: chartWidth, 
+      height: chartHeight,
+      confidence: Math.round(confidence)
+    };
   } catch (error) {
     console.error('❌ Erro na detecção da área do gráfico:', error);
     toast({
-      variant: "error",
+      variant: "destructive",
       title: "Erro de Detecção de Área",
       description: `Falha ao detectar a área do gráfico: ${String(error)}`,
     });
-    return { x: 0, y: 0, width, height };
+    return { 
+      x: 0, 
+      y: 0, 
+      width, 
+      height,
+      confidence: 0
+    };
   }
 };

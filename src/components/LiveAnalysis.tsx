@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { validateTemporalEntry, calculateEntryTiming, TemporalValidation } from '@/utils/temporalEntryValidation';
 import { trackAllAnalysisComponents, logAnalysisDecision, FinalDecision } from '@/utils/analysisTracker';
+import { LiveAnalysisResult, AnalysisOptions } from '@/utils/analysis/types';
 
 interface LiveAnalysisResult {
   timestamp: number;
@@ -166,7 +167,7 @@ const LiveAnalysis = () => {
         useConfluences: true,
         enablePriceAction: true,
         enableMarketContext: true,
-        enableIntelligentAnalysis: true // Nova opção
+        enableIntelligentAnalysis: true
       });
 
       // Extrair análise inteligente
@@ -282,7 +283,7 @@ const LiveAnalysis = () => {
         riskReward: 2.0,
         analysisHealth,
         temporalValidation,
-        contextualInfo: contextualInfo.slice(0, 3) // Adicionar informações contextuais
+        contextualInfo: contextualInfo.slice(0, 3)
       };
 
       setCurrentAnalysis(liveResult);
