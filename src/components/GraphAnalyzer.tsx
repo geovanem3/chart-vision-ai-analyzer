@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -6,7 +7,7 @@ import AnalysisResults from './AnalysisResults';
 import MobileBottomBar from './MobileBottomBar';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock, Camera, Settings } from 'lucide-react';
+import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +16,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { getMasterAnalysis } from '@/utils/masterTechniques';
+import { analyzeChart } from '@/utils/patternDetection';
 
 const GraphAnalyzer = () => {
   const { 
@@ -65,7 +66,7 @@ const GraphAnalyzer = () => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
   };
   
-  const startAnalysis = () => {
+  const startAnalysis = async () => {
     if (!capturedImage || !selectedRegion) {
       toast({
         title: "Selecione uma região",
@@ -75,109 +76,53 @@ const GraphAnalyzer = () => {
       return;
     }
     
+    console.log('🔄 Iniciando análise REAL do gráfico...');
     setIsAnalyzing(true);
     
-    setTimeout(() => {
-      try {
-        console.log('Starting analysis with timeframe:', timeframe);
-        
-        // Análise baseada nos mestres
-        const masterAnalysis = getMasterAnalysis(timeframe, timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta');
-        
-        console.log('Master analysis result:', masterAnalysis);
-        
-        const simulatedResult = {
-          patterns: [
-            {
-              type: timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta',
-              confidence: masterAnalysis.bulkowski?.reliability || 0.78,
-              description: `Padrão identificado seguindo metodologia de Bulkowski: ${masterAnalysis.bulkowski?.name || 'Padrão de reversão'}`,
-              action: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'compra' : 
-                     masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'venda' : 'neutro' as 'compra' | 'venda' | 'neutro',
-              isScalpingSignal: timeframe === '1m',
-              recommendation: masterAnalysis.masterRecommendation
-            }
-          ],
-          timestamp: Date.now(),
-          imageUrl: capturedImage,
-          manualRegion: true,
-          preciseEntryAnalysis: {
-            exactMinute: '12:45',
-            entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
-            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
-            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
-            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
-            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
-            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
-          },
-          marketContext: {
-            phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
-                   masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'tendência_baixa' : 'lateral' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
-            strength: (masterAnalysis.tripleScreen?.confidence || 0) > 0.8 ? 'forte' : 
-                     (masterAnalysis.tripleScreen?.confidence || 0) > 0.6 ? 'moderada' : 'fraca' as 'forte' | 'moderada' | 'fraca',
-            description: `Análise integrada dos mestres: ${(masterAnalysis.masterRecommendation || '').split('\n\n')[0] || 'Análise em progresso'}`,
-            dominantTimeframe: timeframe,
-            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
-                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro' as 'otimista' | 'pessimista' | 'neutro',
-            marketStructure: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'alta_altas' : 
-                            masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'baixa_baixas' : 'indefinida' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
-            breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
-                              (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo' as 'alto' | 'médio' | 'baixo',
-            momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
-            liquidityPools: masterAnalysis.murphy?.supportResistance?.map(sr => ({
-              level: sr.level,
-              strength: sr.strength === 'strong' ? 'alta' : sr.strength === 'moderate' ? 'média' : 'baixa' as 'alta' | 'média' | 'baixa'
-            })) || []
-          },
-          volumeData: {
-            value: 1250000,
-            trend: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
-            abnormal: masterAnalysis.bulkowski?.volumeImportance === 'critical',
-            significance: masterAnalysis.murphy?.volumeAnalysis?.significance || 'high' as 'high' | 'medium' | 'low',
-            relativeToAverage: 1.35,
-            distribution: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'accumulation' : 'neutral' as 'accumulation' | 'distribution' | 'neutral',
-            divergence: masterAnalysis.murphy?.volumeAnalysis?.trend === 'diverging'
-          },
-          volatilityData: {
-            value: 2.3,
-            trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
-            atr: 1.8,
-            percentageRange: 1.2,
-            isHigh: false,
-            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
-          },
-          masterAnalysis // Adicionando a análise dos mestres
-        };
-        
-        console.log('Final simulated result:', simulatedResult);
-        
-        setAnalysisResults(simulatedResult);
-        
-        toast({
-          title: "Análise dos Mestres Completa",
-          description: "Análise baseada em Bulkowski, Elder, Murphy e Edwards & Magee",
-        });
-      } catch (error) {
-        console.error("Erro ao processar análise:", error);
-        toast({
-          title: "Erro na análise",
-          description: "Ocorreu um problema ao processar a análise. Tente novamente.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, 1500);
+    try {
+      // ANÁLISE REAL - sem dados simulados
+      const realAnalysisResult = await analyzeChart(capturedImage, {
+        timeframe,
+        optimizeForScalping: timeframe === '1m',
+        scalpingStrategy: 'M1',
+        considerVolume: true,
+        considerVolatility: true,
+        marketContextEnabled: true,
+        marketAnalysisDepth: 'deep',
+        enableCandleDetection: true,
+        isLiveAnalysis: false,
+        useConfluences: true,
+        enablePriceAction: true,
+        enableMarketContext: true
+      });
+
+      console.log('✅ Análise REAL concluída:', realAnalysisResult);
+
+      // Usar dados REAIS da análise
+      setAnalysisResults({
+        ...realAnalysisResult,
+        timestamp: Date.now(),
+        imageUrl: capturedImage,
+        manualRegion: true
+      });
+      
+      toast({
+        title: "✅ Análise Real Completa",
+        description: `${realAnalysisResult.patterns.length} padrões detectados`,
+      });
+    } catch (error) {
+      console.error("❌ Erro na análise real:", error);
+      toast({
+        title: "Erro na análise",
+        description: "Ocorreu um problema ao processar a análise. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
   
-  const fadeAnimation = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -10 },
-    transition: { duration: 0.3 }
-  };
-
-  // Renderização principal baseada no estado
+  // Renderização principal simplificada
   const renderMainContent = () => {
     // Se não há imagem capturada, mostrar a câmera
     if (!capturedImage) {
@@ -197,13 +142,7 @@ const GraphAnalyzer = () => {
     // Se há resultados, mostrar apenas os resultados
     if (analysisResults) {
       return (
-        <motion.div 
-          className="space-y-3 w-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          key="analysis-results"
-        >
+        <div className="space-y-3 w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Button 
@@ -214,60 +153,17 @@ const GraphAnalyzer = () => {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-lg font-bold">Resultados</h2>
+              <h2 className="text-lg font-bold">Resultados Live IA</h2>
             </div>
           </div>
-          <div className="w-full overflow-hidden">
-            <AnalysisResults />
-          </div>
-        </motion.div>
-      );
-    }
-
-    // Se está analisando, mostrar loading
-    if (isAnalyzing) {
-      return (
-        <motion.div 
-          className="space-y-3 w-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          key="analyzing"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={resetAnalysis}
-                className="mr-1"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-lg font-bold">Analisando...</h2>
-            </div>
-          </div>
-          
-          <div className="flex flex-col items-center justify-center p-6 bg-card/50 rounded-lg border border-border/30">
-            <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
-            <p className="text-base font-medium">Analisando região selecionada...</p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Processando padrões e indicadores técnicos
-            </p>
-          </div>
-        </motion.div>
+          <AnalysisResults />
+        </div>
       );
     }
 
     // Estado padrão: configuração da análise
     return (
-      <motion.div 
-        className="space-y-3 w-full"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        key="configuration"
-      >
+      <div className="space-y-3 w-full">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Button 
@@ -311,8 +207,9 @@ const GraphAnalyzer = () => {
                   startAnalysis();
                 }
               }}
+              disabled={isAnalyzing}
             >
-              {activeTab === "region" ? "Próximo" : "Analisar"}
+              {isAnalyzing ? "Analisando..." : activeTab === "region" ? "Próximo" : "Analisar"}
               <ChevronRight className="h-3 w-3" />
             </Button>
           </div>
@@ -362,7 +259,7 @@ const GraphAnalyzer = () => {
             <ControlPanel />
           </TabsContent>
         </Tabs>
-      </motion.div>
+      </div>
     );
   };
 

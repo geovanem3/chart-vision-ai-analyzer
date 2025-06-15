@@ -3,39 +3,41 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Activity, AlertTriangle } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle } from 'lucide-react';
 
 const AnalysisResults = () => {
   const { analysisResults, isAnalyzing } = useAnalyzer();
 
-  console.log('🔍 AnalysisResults - Renderizando:', { 
+  console.log('🔍 AnalysisResults - Estado atual:', { 
     hasResults: !!analysisResults, 
     isAnalyzing,
     patternsCount: analysisResults?.patterns?.length || 0,
     hasMasterAnalysis: !!analysisResults?.masterAnalysis
   });
 
-  // SEMPRE renderizar algo - nunca retornar null
-  return (
-    <div className="space-y-3 w-full overflow-hidden">
-      {/* Loading State */}
-      {isAnalyzing && (
-        <Card className="w-full border-blue-200 bg-blue-50">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2 text-blue-800">
-              <Activity className="animate-spin h-4 w-4" />
-              <span className="text-sm font-medium">Live IA Analisando...</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+  // Estado de carregamento
+  if (isAnalyzing) {
+    return (
+      <Card className="w-full border-blue-200 bg-blue-50">
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-2 text-blue-800">
+            <Activity className="animate-spin h-4 w-4" />
+            <span className="text-sm font-medium">Live IA Analisando...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-      {/* Patterns Display */}
-      {analysisResults?.patterns && analysisResults.patterns.length > 0 && (
+  // Estado com resultados
+  if (analysisResults?.patterns && analysisResults.patterns.length > 0) {
+    return (
+      <div className="space-y-3 w-full">
         <Card className="w-full">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              🎯 Live IA Sinais ({analysisResults.patterns.length})
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              Live IA Resultados ({analysisResults.patterns.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-2">
@@ -60,32 +62,31 @@ const AnalysisResults = () => {
             ))}
           </CardContent>
         </Card>
-      )}
 
-      {/* Master Analysis */}
-      {analysisResults?.masterAnalysis?.masterRecommendation && (
-        <Card className="w-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">🧠 Live IA Master</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-sm">{analysisResults.masterAnalysis.masterRecommendation}</p>
-          </CardContent>
-        </Card>
-      )}
+        {analysisResults.masterAnalysis?.masterRecommendation && (
+          <Card className="w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">🧠 Live IA Master</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-sm">{analysisResults.masterAnalysis.masterRecommendation}</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
 
-      {/* Empty State - sempre mostrar quando não há análise */}
-      {!isAnalyzing && (!analysisResults?.patterns || analysisResults.patterns.length === 0) && !analysisResults?.masterAnalysis && (
-        <Card className="w-full border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2 text-yellow-800">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-xs">Live IA aguardando gráfico para análise</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+  // Estado vazio
+  return (
+    <Card className="w-full border-yellow-200 bg-yellow-50">
+      <CardContent className="pt-4">
+        <div className="flex items-center gap-2 text-yellow-800">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="text-xs">Live IA aguardando gráfico para análise</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

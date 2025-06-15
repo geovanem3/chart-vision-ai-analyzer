@@ -53,50 +53,21 @@ export const extractRealCandlesFromImage = async (imageData: string): Promise<Ca
           
           console.log(`📊 Analisando imagem ${canvas.width}x${canvas.height}px`);
           
-          // 1. Detectar área do gráfico com proteção contra erros
-          let chartArea;
-          try {
-            chartArea = detectChartArea(imagePixelData, canvas.width, canvas.height);
-            console.log('📈 Área do gráfico detectada:', chartArea);
-          } catch (error) {
-            console.error('❌ Erro ao detectar área do gráfico:', error);
-            chartArea = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-          }
+          // 1. Detectar área do gráfico
+          const chartArea = detectChartArea(imagePixelData, canvas.width, canvas.height);
+          console.log('📈 Área do gráfico detectada:', chartArea);
           
-          // 2. Detectar eixo Y de preços com proteção contra erros
-          let priceAxis;
-          try {
-            priceAxis = detectPriceAxis(imagePixelData, canvas.width, canvas.height, chartArea);
-            console.log('💰 Eixo de preços detectado:', priceAxis);
-          } catch (error) {
-            console.error('❌ Erro ao detectar eixo de preços:', error);
-            priceAxis = {
-              minPrice: 1.0900,
-              maxPrice: 1.1000,
-              pixelPerPrice: chartArea.height / 0.01,
-              axisX: chartArea.x + chartArea.width
-            };
-          }
+          // 2. Detectar eixo Y de preços
+          const priceAxis = detectPriceAxis(imagePixelData, canvas.width, canvas.height, chartArea);
+          console.log('💰 Eixo de preços detectado:', priceAxis);
           
-          // 3. Detectar candles individuais com proteção contra erros
-          let detectedCandles: DetectedCandle[] = [];
-          try {
-            detectedCandles = detectIndividualCandles(imagePixelData, canvas.width, canvas.height, chartArea);
-            console.log(`🕯️ ${detectedCandles.length} candles detectados`);
-          } catch (error) {
-            console.error('❌ Erro ao detectar candles individuais:', error);
-            detectedCandles = [];
-          }
+          // 3. Detectar candles individuais
+          const detectedCandles = detectIndividualCandles(imagePixelData, canvas.width, canvas.height, chartArea);
+          console.log(`🕯️ ${detectedCandles.length} candles detectados`);
           
-          // 4. Converter para dados OHLC reais com proteção contra erros
-          let candleData: CandleData[] = [];
-          try {
-            candleData = convertToOHLCData(detectedCandles, priceAxis, chartArea);
-            console.log(`✅ ${candleData.length} candles com dados OHLC extraídos`);
-          } catch (error) {
-            console.error('❌ Erro ao converter para OHLC:', error);
-            candleData = [];
-          }
+          // 4. Converter para dados OHLC reais
+          const candleData = convertToOHLCData(detectedCandles, priceAxis, chartArea);
+          console.log(`✅ ${candleData.length} candles com dados OHLC extraídos`);
           
           resolve(candleData);
         } catch (processError) {
@@ -131,7 +102,7 @@ const detectChartArea = (imageData: ImageData, width: number, height: number) =>
     let minX = width, maxX = 0, minY = height, maxY = 0;
     
     // Procurar por pixels que formam estruturas de gráfico
-    for (let y = 0; y < height; y += 2) { // Otimização: pular pixels
+    for (let y = 0; y < height; y += 2) {
       for (let x = 0; x < width; x += 2) {
         const i = (y * width + x) * 4;
         const r = data[i];
@@ -152,14 +123,12 @@ const detectChartArea = (imageData: ImageData, width: number, height: number) =>
       }
     }
     
-    // Validação e ajuste de margens
     const margin = 20;
     const chartX = Math.max(0, minX - margin);
     const chartY = Math.max(0, minY - margin);
     const chartWidth = Math.min(width, maxX + margin) - chartX;
     const chartHeight = Math.min(height, maxY + margin) - chartY;
     
-    // Verificar se as dimensões são válidas
     if (chartWidth <= 0 || chartHeight <= 0) {
       console.warn('⚠️ Dimensões inválidas do gráfico, usando imagem inteira');
       return { x: 0, y: 0, width, height };
@@ -174,10 +143,9 @@ const detectChartArea = (imageData: ImageData, width: number, height: number) =>
 
 const detectPriceAxis = (imageData: ImageData, width: number, height: number, chartArea: any): PriceAxis => {
   try {
-    // Implementação simplificada mas funcional
     const axisX = chartArea.x + chartArea.width + 5;
     
-    // Estimativa baseada em análise típica de forex (pode ser refinada com OCR)
+    // Estimativa baseada em análise típica de forex
     const topPrice = 1.1000;
     const bottomPrice = 1.0900;
     const pixelPerPrice = chartArea.height / (topPrice - bottomPrice);
@@ -214,7 +182,6 @@ const detectIndividualCandles = (imageData: ImageData, width: number, height: nu
     const data = imageData.data;
     const candles: DetectedCandle[] = [];
     
-    // Estimar largura do candle baseada na largura do gráfico
     const candleWidth = Math.max(2, Math.floor(chartArea.width / 150));
     const candleSpacing = candleWidth + 1;
     
@@ -256,12 +223,10 @@ const analyzeCandleColumn = (
     let candleColor: 'green' | 'red' | 'black' | 'white' = 'black';
     let colorConfidence = 0;
     
-    // Analisar coluna central e adjacentes
     for (let y = chartArea.y; y < chartArea.y + chartArea.height; y++) {
       let maxColorConfidence = 0;
       let bestColor: 'green' | 'red' | 'black' | 'white' = 'black';
       
-      // Verificar pixels na largura do candle
       for (let dx = 0; dx < candleWidth; dx++) {
         const currentX = x + dx;
         if (currentX >= width) continue;
@@ -271,7 +236,6 @@ const analyzeCandleColumn = (
         const g = data[i + 1];
         const b = data[i + 2];
         
-        // Detectar cores dos candles com maior precisão
         const isGreen = g > r * 1.3 && g > b * 1.3 && g > 100;
         const isRed = r > g * 1.3 && r > b * 1.3 && r > 100;
         const isBlack = r < 80 && g < 80 && b < 80;
@@ -292,12 +256,10 @@ const analyzeCandleColumn = (
         }
       }
       
-      // Se encontrou pixels de candle nesta linha
       if (maxColorConfidence > 50) {
         if (topWick === -1) topWick = y;
         bottomWick = y;
         
-        // Verificar se é corpo do candle (área mais larga)
         let bodyPixels = 0;
         for (let dx = 0; dx < candleWidth; dx++) {
           const currentX = x + dx;
@@ -317,7 +279,6 @@ const analyzeCandleColumn = (
           if (matchesColor) bodyPixels++;
         }
         
-        // Se tem densidade suficiente, considerar como corpo
         if (bodyPixels >= candleWidth * 0.6) {
           if (bodyTop === -1) bodyTop = y;
           bodyBottom = y;
@@ -327,7 +288,6 @@ const analyzeCandleColumn = (
       }
     }
     
-    // Validar se encontrou estrutura de candle válida
     if (topWick === -1 || bottomWick === -1 || bodyTop === -1 || bodyBottom === -1) {
       return null;
     }
@@ -335,12 +295,10 @@ const analyzeCandleColumn = (
     const totalHeight = bottomWick - topWick;
     const bodyHeight = bodyBottom - bodyTop;
     
-    // Validar dimensões mínimas
     if (totalHeight < 3 || bodyHeight < 1) {
       return null;
     }
     
-    // Calcular confiança baseada na estrutura
     const structureConfidence = Math.min(1, (bodyHeight / totalHeight) + (colorConfidence / totalHeight));
     const confidence = Math.max(0, Math.min(1, structureConfidence * 0.8));
     
@@ -371,23 +329,19 @@ const convertToOHLCData = (
   try {
     return detectedCandles.map((candle, index) => {
       try {
-        // Validar entrada
         if (!candle || !priceAxis || !chartArea) {
           throw new Error('Dados inválidos para conversão');
         }
         
-        // Converter pixels para preços reais com validação
         const highPrice = priceAxis.maxPrice - (candle.wickTop - chartArea.y) / priceAxis.pixelPerPrice;
         const lowPrice = priceAxis.maxPrice - (candle.wickBottom - chartArea.y) / priceAxis.pixelPerPrice;
         const bodyTopPrice = priceAxis.maxPrice - (candle.bodyTop - chartArea.y) / priceAxis.pixelPerPrice;
         const bodyBottomPrice = priceAxis.maxPrice - (candle.bodyBottom - chartArea.y) / priceAxis.pixelPerPrice;
         
-        // Validar se os preços são números válidos
         if (!isFinite(highPrice) || !isFinite(lowPrice) || !isFinite(bodyTopPrice) || !isFinite(bodyBottomPrice)) {
           throw new Error('Preços calculados são inválidos');
         }
         
-        // Determinar open/close baseado na cor com validação
         let openPrice: number, closePrice: number;
         
         if (candle.color === 'green' || candle.color === 'white') {
@@ -398,16 +352,13 @@ const convertToOHLCData = (
           closePrice = Math.min(bodyTopPrice, bodyBottomPrice);
         }
         
-        // Validação final dos valores OHLC
         const finalHigh = Math.max(openPrice, closePrice, highPrice);
         const finalLow = Math.min(openPrice, closePrice, lowPrice);
         
-        // Garantir que os valores são positivos e fazem sentido
         if (finalLow <= 0 || finalHigh <= finalLow || openPrice <= 0 || closePrice <= 0) {
           throw new Error('Valores OHLC inválidos calculados');
         }
         
-        // Determinar cor correta para CandleData
         const candleColor: 'verde' | 'vermelho' = (candle.color === 'green' || candle.color === 'white') ? 'verde' : 'vermelho';
         
         return {
@@ -415,7 +366,7 @@ const convertToOHLCData = (
           high: parseFloat(finalHigh.toFixed(5)),
           low: parseFloat(finalLow.toFixed(5)),
           close: parseFloat(closePrice.toFixed(5)),
-          volume: Math.floor(Math.random() * 500) + 100, // Volume baseado em padrões típicos
+          volume: Math.floor(Math.random() * 500) + 100,
           timestamp: Date.now() - (detectedCandles.length - index) * 60000,
           position: {
             x: candle.x,
@@ -426,7 +377,6 @@ const convertToOHLCData = (
       } catch (candleConversionError) {
         console.error(`❌ Erro ao converter candle ${index}:`, candleConversionError);
         
-        // Retornar candle padrão válido em caso de erro
         const basePrice = 1.095;
         return {
           open: basePrice,
@@ -440,7 +390,6 @@ const convertToOHLCData = (
         };
       }
     }).filter(candle => {
-      // Filtrar candles com dados válidos
       return candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
              candle.high >= Math.max(candle.open, candle.close) &&
              candle.low <= Math.min(candle.open, candle.close);
