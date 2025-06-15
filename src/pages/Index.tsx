@@ -2,19 +2,55 @@ import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
+import ManualMarkupToolbar from '@/components/ManualMarkupToolbar';
+import AdvancedMarketAnalysis from '@/components/AdvancedMarketAnalysis';
 import UserMenu from '@/components/UserMenu';
 import { 
-  BarChart2, 
-  TrendingUp, 
-  ChartCandlestick, 
-  BarChartHorizontal,
-  Volume, 
-  Activity, 
-  Clock,
-  Zap
+  BarChart2, Eye, Scan, ZoomIn, AlertTriangle, 
+  ImageOff, Zap, TrendingUp, ChartCandlestick, BarChartHorizontal,
+  Volume, Activity, Clock
 } from 'lucide-react';
+import { useAnalyzer } from '@/context/AnalyzerContext';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
+
+// Wrapper component to access context
+const GraphAnalyzerWithMarkupToolbar = () => {
+  const { capturedImage, analysisResults, timeframe } = useAnalyzer();
+  const isMobile = useIsMobile();
+  
+  return (
+    <>
+      <GraphAnalyzer />
+      {capturedImage && <ManualMarkupToolbar />}
+      
+      {capturedImage && !analysisResults && (
+        <Alert className="my-2 rounded-lg" variant="warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle className="text-sm">Certifique-se que a imagem esteja clara</AlertTitle>
+          <AlertDescription className="text-xs">
+            Imagem nítida = análise precisa.
+            {!isMobile && " Use as ferramentas de marcação se necessário."}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {timeframe === '1m' && capturedImage && (
+        <Alert className="my-2 rounded-lg" variant="default">
+          <Zap className="h-4 w-4 text-amber-500" />
+          <AlertTitle className="text-sm">Modo Scalping Ativado</AlertTitle>
+          <AlertDescription className="text-xs">
+            Análise M1 com timing exato para entradas precisas.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Advanced 1-minute Market Analysis */}
+      {capturedImage && <AdvancedMarketAnalysis />}
+    </>
+  );
+};
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -50,16 +86,16 @@ const Index = () => {
               {!isMobile ? (
                 <>
                   <h1 className="text-3xl font-bold tracking-tight mb-2">
-                    Análise de Gráficos em Tempo Real
+                    Timing Perfeito para Operações
                   </h1>
                   <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                    Timing exato para suas operações com nossa IA de análise contínua, direto da sua câmera.
+                    Captura e análise avançada com timing exato para entradas em reversões, retrações, pullbacks e testes de níveis.
                   </p>
                 </>
               ) : (
                 <>
                   <h1 className="text-xl font-bold tracking-tight mb-1">
-                    Análise Live com IA
+                    Timing Perfeito
                   </h1>
                   <p className="text-sm text-muted-foreground">
                     Análise exata para entradas precisas
@@ -158,7 +194,7 @@ const Index = () => {
               )}
             </div>
             
-            <GraphAnalyzer />
+            <GraphAnalyzerWithMarkupToolbar />
           </main>
           
           {!isMobile && (
