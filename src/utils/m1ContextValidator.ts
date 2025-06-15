@@ -1,3 +1,4 @@
+
 import { CandleData } from "../context/AnalyzerContext";
 
 export interface M1ContextValidation {
@@ -36,6 +37,24 @@ export const validateM1Context = (
       spaceToRun: false,
       indecisionCandles: true,
       recommendation: 'skip'
+    };
+  }
+
+  // Se o sinal for neutro, não precisamos validar uma entrada.
+  // Podemos retornar um estado padrão de "espera".
+  if (signal === 'neutro') {
+    return {
+      isValidForEntry: false,
+      rejectionReasons: ['Sinal de entrada não detectado.'],
+      contextScore: 30, // Pontuação base
+      trendDirection: detectTrend(candles.slice(-10)),
+      pullbackDetected: false,
+      strongCandleConfirmation: false,
+      supportResistanceLevel: false,
+      volumeConfirmation: false,
+      spaceToRun: true,
+      indecisionCandles: checkIndecisionCandles(candles.slice(-3)),
+      recommendation: 'wait',
     };
   }
 
