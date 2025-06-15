@@ -8,14 +8,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 
 const AnalysisResults = () => {
-  const { analysisResults } = useAnalyzer();
+  const { analysisResults, isAnalyzing } = useAnalyzer();
   const isMobile = useIsMobile();
 
-  console.log('🔍 AnalysisResults - Estado atual:', { analysisResults });
+  console.log('🔍 AnalysisResults - Estado atual:', { analysisResults, isAnalyzing });
 
-  // PROTEÇÃO: Verificar se o hook retornou dados válidos
-  if (!analysisResults) {
-    console.log('⚠️ AnalysisResults - Nenhum resultado disponível');
+  // PROTEÇÃO CORRIGIDA: Só retorna mensagem se NÃO está analisando E não tem resultados
+  if (!analysisResults && !isAnalyzing) {
+    console.log('⚠️ AnalysisResults - Nenhum resultado e não está analisando');
     return (
       <div className="text-center p-4">
         <p className="text-muted-foreground">Nenhum resultado de análise disponível.</p>
@@ -23,12 +23,22 @@ const AnalysisResults = () => {
     );
   }
 
-  // PROTEÇÃO: Extrair dados com fallbacks seguros (DECLARAÇÃO ÚNICA)
-  const patterns = Array.isArray(analysisResults.patterns) ? analysisResults.patterns : [];
-  const marketContext = analysisResults.marketContext || null;
-  const volumeData = analysisResults.volumeData || null;
-  const volatilityData = analysisResults.volatilityData || null;
-  const masterAnalysis = analysisResults.masterAnalysis || null;
+  // Se está analisando mas ainda não tem resultados, mostra estado de carregamento
+  if (isAnalyzing && !analysisResults) {
+    console.log('📊 AnalysisResults - Analisando, aguardando resultados...');
+    return (
+      <div className="text-center p-4">
+        <p className="text-muted-foreground">Analisando gráfico...</p>
+      </div>
+    );
+  }
+
+  // PROTEÇÃO: Extrair dados com fallbacks seguros (só se tiver analysisResults)
+  const patterns = analysisResults?.patterns && Array.isArray(analysisResults.patterns) ? analysisResults.patterns : [];
+  const marketContext = analysisResults?.marketContext || null;
+  const volumeData = analysisResults?.volumeData || null;
+  const volatilityData = analysisResults?.volatilityData || null;
+  const masterAnalysis = analysisResults?.masterAnalysis || null;
 
   console.log('📊 AnalysisResults - Dados extraídos:', {
     patternsCount: patterns.length,
@@ -195,8 +205,8 @@ const AnalysisResults = () => {
           </Card>
         )}
 
-        {/* Warning if no data - Mobile */}
-        {patterns.length === 0 && !masterAnalysis && (
+        {/* Warning if no data and not analyzing - Mobile */}
+        {patterns.length === 0 && !masterAnalysis && !isAnalyzing && (
           <Card className="border-yellow-200 bg-yellow-50 w-full">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 text-yellow-800">
@@ -388,7 +398,7 @@ const AnalysisResults = () => {
         </div>
       )}
 
-      {patterns.length === 0 && !masterAnalysis && (
+      {patterns.length === 0 && !masterAnalysis && !isAnalyzing && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-800">
