@@ -68,3 +68,14 @@ export interface AnalysisOptions {
   enableMarketContext?: boolean;
   enableIntelligentAnalysis?: boolean;
 }
+
+// Exportar interface para uso em patternDetection.ts
+export interface AnalysisResult {
+  patterns: any[];
+  candles: any[];
+  confluences?: any;
+  detailedMarketContext?: any;
+  priceActionSignals?: any[];
+  entryRecommendations?: any[];
+  intelligentAnalysis?: any;
+}
