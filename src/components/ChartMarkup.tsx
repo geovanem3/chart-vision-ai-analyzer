@@ -41,11 +41,9 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
   if (!showTechnicalMarkup || !analysisResults) return null;
   
   const getSizeMultiplier = () => {
-    switch (markupSize) {
-      case 'small': return 0.7;
-      case 'large': return 1.3;
-      default: return 1;
-    }
+    if (markupSize <= 0.7) return 0.7;
+    if (markupSize >= 1.3) return 1.3;
+    return markupSize;
   };
   
   const sizeMultiplier = getSizeMultiplier();
@@ -100,10 +98,10 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
       {analysisResults.candles && analysisResults.candles.map((candle, idx) => (
         <g key={`candle-${idx}`}>
           <rect
-            x={candle.position.x - (candle.width / 2)}
-            y={candle.position.y - (candle.height / 2)}
-            width={candle.width}
-            height={candle.height}
+            x={(candle.position?.x || 0) - ((candle.width || 0) / 2)}
+            y={(candle.position?.y || 0) - ((candle.height || 0) / 2)}
+            width={candle.width || 0}
+            height={candle.height || 0}
             fill={candle.color === 'verde' ? 'rgba(0, 128, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)'}
             stroke={candle.color === 'verde' ? 'green' : 'red'}
             strokeWidth={1 * scale}
@@ -121,7 +119,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
             return (
               <polyline
                 key={`line-${index}`}
-                points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                points={(element.points || []).map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
                 stroke={element.color}
                 strokeWidth={scaledThickness}
                 strokeDasharray={element.dashArray?.join(' ')}
@@ -129,6 +127,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
               />
             );
           case 'arrow':
+            if (!element.start || !element.end) return null;
+            
             const start = scalePoint(element.start);
             const end = scalePoint(element.end);
             
@@ -164,9 +164,11 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
               </g>
             );
           case 'rectangle':
+            if (!element.position) return null;
+            
             const pos = scalePoint(element.position);
-            const scaledWidth = element.width * scale;
-            const scaledHeight = element.height * scale;
+            const scaledWidth = (element.width || 0) * scale;
+            const scaledHeight = (element.height || 0) * scale;
             
             return (
               <rect
@@ -183,8 +185,10 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
               />
             );
           case 'circle':
+            if (!element.center) return null;
+            
             const center = scalePoint(element.center);
-            const scaledRadius = element.radius * scale;
+            const scaledRadius = (element.radius || 0) * scale;
             
             return (
               <circle
@@ -200,11 +204,13 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
               />
             );
           case 'label':
+            if (!element.position) return null;
+            
             const labelPos = scalePoint(element.position);
             const fontSize = 14 * sizeMultiplier * scale;
             
             // Create a text element with a background rectangle
-            const text = element.text;
+            const text = element.text || '';
             const estimatedTextWidth = text.length * (fontSize * 0.6);
             const textHeight = fontSize * 1.2;
             
@@ -241,7 +247,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 return (
                   <polygon
                     key={`pattern-${index}`}
-                    points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                    points={(element.points || []).map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
                     stroke={element.color}
                     strokeWidth={scaledThickness}
                     fill={element.backgroundColor || "none"}
@@ -251,7 +257,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 );
               case 'OCO':
                 // Head and shoulders pattern
-                const points = element.points.map(p => scalePoint(p));
+                const points = (element.points || []).map(p => scalePoint(p));
                 return (
                   <g key={`pattern-${index}`}>
                     <polyline
@@ -263,8 +269,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                     />
                     {element.label && (
                       <text
-                        x={points[Math.floor(points.length / 2)].x}
-                        y={points[Math.floor(points.length / 2)].y - 10 * scale}
+                        x={points[Math.floor(points.length / 2)]?.x || 0}
+                        y={(points[Math.floor(points.length / 2)]?.y || 0) - 10 * scale}
                         fill={element.color}
                         fontSize={12 * sizeMultiplier * scale}
                         textAnchor="middle"
@@ -282,7 +288,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 return (
                   <g key={`pattern-${index}`}>
                     <polyline
-                      points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                      points={(element.points || []).map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
                       stroke={element.color}
                       strokeWidth={scaledThickness}
                       strokeDasharray={element.dashArray?.join(' ')}
@@ -290,8 +296,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                       fillOpacity={element.backgroundColor ? 0.2 : 0}
                     />
                     <text
-                      x={element.points[Math.floor(element.points.length / 2)].x}
-                      y={element.points[Math.floor(element.points.length / 2)].y - 15}
+                      x={(element.points || [])[Math.floor((element.points || []).length / 2)]?.x || 0}
+                      y={((element.points || [])[Math.floor((element.points || []).length / 2)]?.y || 0) - 15}
                       fill={element.color}
                       fontSize={12 * sizeMultiplier * scale}
                       textAnchor="middle"
@@ -307,14 +313,14 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 return (
                   <g key={`pattern-${index}`}>
                     <polyline
-                      points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                      points={(element.points || []).map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
                       stroke={element.color}
                       strokeWidth={scaledThickness}
                       strokeDasharray={element.dashArray?.join(' ')}
                       fill="none"
                     />
                     {/* Add wave numbers or direction indicators */}
-                    {element.points.map((point, i) => (
+                    {(element.points || []).map((point, i) => (
                       <circle
                         key={`point-${i}`}
                         cx={scalePoint(point).x}
@@ -324,8 +330,8 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                       />
                     ))}
                     <text
-                      x={element.points[0].x}
-                      y={element.points[0].y - 10}
+                      x={(element.points || [])[0]?.x || 0}
+                      y={((element.points || [])[0]?.y || 0) - 10}
                       fill={element.color}
                       fontSize={12 * sizeMultiplier * scale}
                       textAnchor="start"
@@ -338,7 +344,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
                 return (
                   <polyline
                     key={`pattern-${index}`}
-                    points={element.points.map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
+                    points={(element.points || []).map(p => `${scalePoint(p).x},${scalePoint(p).y}`).join(' ')}
                     stroke={element.color}
                     strokeWidth={scaledThickness}
                     strokeDasharray={element.dashArray?.join(' ')}
@@ -371,7 +377,7 @@ const ChartMarkup: React.FC<ChartMarkupProps> = ({
           
           {/* Key levels if available */}
           {analysisResults.marketContext.keyLevels && 
-            analysisResults.marketContext.keyLevels.map((level, i) => (
+            analysisResults.marketContext.keyLevels.map((level: any, i: number) => (
               <line
                 key={`level-${i}`}
                 x1={0}
