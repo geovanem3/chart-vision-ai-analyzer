@@ -915,7 +915,6 @@ const generateTechnicalElementsFromDetection = (
   height: number
 ): TechnicalElement[] => {
   const technicalElements: TechnicalElement[] = [];
-  let elementCounter = 0;
   
   // Converter linhas de suporte/resistência detectadas
   for (let i = 0; i < lines.length; i++) {
@@ -923,7 +922,6 @@ const generateTechnicalElementsFromDetection = (
     const isSupport = i % 2 === 0; // Alternar entre suporte e resistência para fins visuais
     
     technicalElements.push({
-      id: `line-${elementCounter++}`,
       type: 'line',
       points: [
         { x: line.startX, y: line.startY },
@@ -937,7 +935,6 @@ const generateTechnicalElementsFromDetection = (
     // Adicionar rótulo para linhas com alta confiança
     if (line.confidence > 75) {
       technicalElements.push({
-        id: `label-${elementCounter++}`,
         type: 'label',
         position: { x: 10, y: line.startY - 5 },
         text: isSupport ? 'Suporte' : 'Resistência',
@@ -977,7 +974,6 @@ const generateTechnicalElementsFromDetection = (
       const endY = endCandle.position.y - (slope * (endCandle.position.x - startCandle.position.x));
       
       technicalElements.push({
-        id: `trend-line-${elementCounter++}`,
         type: 'line',
         points: [
           { x: startCandle.position.x, y: startY },
@@ -990,7 +986,6 @@ const generateTechnicalElementsFromDetection = (
       
       // Adicionar rótulo indicando a tendência
       technicalElements.push({
-        id: `trend-label-${elementCounter++}`,
         type: 'label',
         position: { x: endCandle.position.x - 100, y: endY - 20 },
         text: isBullish ? 'Tendência de Alta' : 'Tendência de Baixa',
@@ -1013,7 +1008,6 @@ const generateTechnicalElementsFromDetection = (
       // Identificar possível martelo (sombra inferior longa)
       if (lowerShadow > 2 * candleSize && upperShadow < 0.5 * candleSize) {
         technicalElements.push({
-          id: `hammer-circle-${elementCounter++}`,
           type: 'circle',
           center: { x: currCandle.position.x, y: currCandle.position.y },
           radius: 15,
@@ -1022,7 +1016,6 @@ const generateTechnicalElementsFromDetection = (
         });
         
         technicalElements.push({
-          id: `hammer-label-${elementCounter++}`,
           type: 'label',
           position: { x: currCandle.position.x - 30, y: currCandle.position.y - 30 },
           text: 'Martelo',
@@ -1034,7 +1027,6 @@ const generateTechnicalElementsFromDetection = (
       // Identificar possível doji (abertura próxima do fechamento)
       if (candleSize < 0.1 * (upperShadow + lowerShadow) && (upperShadow + lowerShadow) > 0) {
         technicalElements.push({
-          id: `doji-circle-${elementCounter++}`,
           type: 'circle',
           center: { x: currCandle.position.x, y: currCandle.position.y },
           radius: 15,
@@ -1043,7 +1035,6 @@ const generateTechnicalElementsFromDetection = (
         });
         
         technicalElements.push({
-          id: `doji-label-${elementCounter++}`,
           type: 'label',
           position: { x: currCandle.position.x - 20, y: currCandle.position.y - 30 },
           text: 'Doji',
