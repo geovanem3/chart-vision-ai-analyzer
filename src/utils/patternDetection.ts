@@ -1,27 +1,19 @@
-import { extractRealCandlesFromImage } from './realCandleExtraction';
+
+import { extractCandlesFromChart } from './realCandleExtraction';
 import { detectCommonPatterns } from './commonPatternDetection';
 import { performConfluenceAnalysis } from './confluenceAnalysis';
 import { assessMarketContext } from './marketContextAnalyzer';
 import { detectPriceActionSignals } from './priceActionAnalyzer';
 import { identifyEntryPoints } from './entryPointIdentifier';
 import { CandleData } from '../context/AnalyzerContext';
-
-export interface AnalysisResult {
-  patterns: any[];
-  candles: any[];
-  confluences?: any;
-  detailedMarketContext?: any;
-  priceActionSignals?: any[];
-  entryRecommendations?: any[];
-  intelligentAnalysis?: any;
-}
+import { AnalysisResult } from './analysis/types';
 
 export const analyzeChart = async (imageUrl: string, options: any = {}): Promise<AnalysisResult> => {
   try {
     console.log('🔍 Iniciando análise completa do gráfico...');
     
     // Extrair candles reais da imagem usando o novo sistema
-    const extractionResult = await extractRealCandlesFromImage(imageUrl, options);
+    const extractionResult = await extractCandlesFromChart(imageUrl, options);
     
     if (!extractionResult || extractionResult.candles.length === 0) {
       console.warn('⚠️ Nenhum candle extraído da imagem');
@@ -123,4 +115,23 @@ export const validateAnalysis = (analysisResult: AnalysisResult): {
     issues,
     recommendations
   };
+};
+
+// Manter compatibilidade com componentes existentes
+export const detectPatterns = async (imageUrl: string) => {
+  const result = await analyzeChart(imageUrl);
+  return result.patterns;
+};
+
+export const generateTechnicalMarkup = async (imageUrl: string) => {
+  const result = await analyzeChart(imageUrl);
+  return {
+    patterns: result.patterns,
+    levels: result.confluences?.supportResistance || []
+  };
+};
+
+export const detectCandles = async (imageUrl: string) => {
+  const result = await analyzeChart(imageUrl);
+  return result.candles;
 };

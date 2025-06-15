@@ -12,31 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { validateTemporalEntry, calculateEntryTiming, TemporalValidation } from '@/utils/temporalEntryValidation';
 import { trackAllAnalysisComponents, logAnalysisDecision, FinalDecision } from '@/utils/analysisTracker';
-import { LiveAnalysisResult, AnalysisOptions } from '@/utils/analysis/types';
-
-interface LiveAnalysisResult {
-  timestamp: number;
-  confidence: number;
-  signal: 'compra' | 'venda' | 'neutro';
-  patterns: string[];
-  trend: 'alta' | 'baixa' | 'lateral';
-  signalQuality?: string;
-  confluenceScore?: number;
-  supportResistance?: any[];
-  criticalLevels?: any[];
-  priceActionSignals?: any[];
-  marketPhase?: string;
-  institutionalBias?: string;
-  entryRecommendations?: any[];
-  riskReward?: number;
-  warnings?: string[];
-  analysisHealth?: {
-    consistency: number;
-    reliability: number;
-    marketAlignment: boolean;
-  };
-  temporalValidation?: TemporalValidation;
-}
+import { LiveAnalysisResult as LiveAnalysisType } from '@/utils/analysis/types';
 
 const LiveAnalysis = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -45,8 +21,8 @@ const LiveAnalysis = () => {
   
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [analysisInterval, setAnalysisInterval] = useState(3000);
-  const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
-  const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
+  const [liveResults, setLiveResults] = useState<LiveAnalysisType[]>([]);
+  const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisType | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -232,8 +208,13 @@ const LiveAnalysis = () => {
       }
 
       // Tracking inteligente (mantido)
+      const mockAnalysisForTracker = {
+        ...analysisResult,
+        timestamp: Date.now()
+      };
+      
       const intelligentDecision: FinalDecision = trackAllAnalysisComponents(
-        analysisResult,
+        mockAnalysisForTracker,
         temporalValidation
       );
 
@@ -260,7 +241,7 @@ const LiveAnalysis = () => {
         marketAlignment: intelligentDecision.shouldTrade
       };
 
-      const liveResult: LiveAnalysisResult = {
+      const liveResult: LiveAnalysisType = {
         timestamp: Date.now(),
         confidence: finalConfidence,
         signal: mainSignal,
