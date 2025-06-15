@@ -1,4 +1,3 @@
-
 /**
  * Sistema de captura automática de tela para análise em tempo real
  */
@@ -110,13 +109,14 @@ class AutoScreenCaptureSystem {
         return null;
       }
 
-      // Capturar tela - esta chamada precisa ser autorizada pelo usuário uma vez
+      // Capturar tela - usando a API correta
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          mediaSource: 'screen',
           width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
       });
 
       // Criar vídeo element para capturar frame
