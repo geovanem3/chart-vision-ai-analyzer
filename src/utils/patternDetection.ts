@@ -31,6 +31,20 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
+// FUNÇÃO AUXILIAR: Gerar marcação técnica
+export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
+  return patterns.map((pattern, index) => ({
+    id: `pattern-${index}`,
+    type: pattern.type,
+    position: {
+      x: Math.random() * width,
+      y: Math.random() * height
+    },
+    confidence: pattern.confidence,
+    description: pattern.description
+  }));
+};
+
 // FUNÇÃO SEGURA para extração de candles com tratamento robusto de erros
 export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
   console.log('🔍 INICIANDO extração de candles REAIS da imagem...');
@@ -140,7 +154,7 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
           description: String(pattern.description || 'Padrão detectado'),
           recommendation: `Sinal de ${String(validAction)}`,
           action: validAction as "compra" | "venda" | "neutro"
-        } satisfies PatternResult;
+        } as PatternResult;
       } catch (error) {
         console.error('❌ Erro ao converter padrão:', error);
         return null;
