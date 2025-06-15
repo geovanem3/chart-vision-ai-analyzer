@@ -274,26 +274,19 @@ const ControlPanel = () => {
           dominantTimeframe: timeframe,
           sentiment: ['otimista', 'pessimista', 'neutro'][Math.floor(Math.random() * 3)] as any,
           description: `Mercado em fase de ${selectedPhase} com momentum ${volumeData.trend === 'increasing' ? 'crescente' : 'decrescente'}`,
-          trendAngle: parseFloat((Math.random() * (45 - 5) + 5).toFixed(2)),
           marketStructure: ['alta_altas', 'alta_baixas', 'baixa_altas', 'baixa_baixas'][Math.floor(Math.random() * 4)] as any,
-          liquidityPools: [
-            { level: parseFloat((Math.random() * 1000).toFixed(2)), strength: ['alta', 'média', 'baixa'][Math.floor(Math.random() * 3)] as any },
-            { level: parseFloat((Math.random() * 1000).toFixed(2)), strength: ['alta', 'média', 'baixa'][Math.floor(Math.random() * 3)] as any },
-          ],
+          breakoutPotential: ['alto', 'médio', 'baixo'][Math.floor(Math.random() * 3)] as any,
+          momentumSignature: ['acelerando', 'estável', 'desacelerando', 'divergente'][Math.floor(Math.random() * 4)] as any,
+          advancedConditions: {},
+          operatingScore: Math.floor(Math.random() * 40) + 60,
+          confidenceReduction: Math.random() * 0.3 + 0.7,
           keyLevels: [
             { 
               price: parseFloat((Math.random() * 1000).toFixed(2)), 
               type: Math.random() > 0.5 ? 'suporte' : 'resistência' as any, 
               strength: ['forte', 'moderada', 'fraca'][Math.floor(Math.random() * 3)] as any 
-            },
-            { 
-              price: parseFloat((Math.random() * 1000).toFixed(2)), 
-              type: Math.random() > 0.5 ? 'suporte' : 'resistência' as any, 
-              strength: ['forte', 'moderada', 'fraca'][Math.floor(Math.random() * 3)] as any 
             }
-          ],
-          breakoutPotential: ['alto', 'médio', 'baixo'][Math.floor(Math.random() * 3)] as any,
-          momentumSignature: ['acelerando', 'estável', 'desacelerando', 'divergente'][Math.floor(Math.random() * 4)] as any,
+          ]
         };
         
         // Notify successful advanced analysis
@@ -304,18 +297,86 @@ const ControlPanel = () => {
         });
       }
       
-      // Definir resultados completos with enhanced analysis data
+      // Definir resultados completos with enhanced analysis data and all required properties
       setAnalysisResults({
         patterns,
         timestamp: Date.now(),
         imageUrl: croppedResult.data,
         technicalElements,
         candles,
-        manualRegion: true,
-        preciseEntryAnalysis,
-        volumeData,
-        volatilityData,
-        marketContext
+        scalpingSignals: patterns.map(pattern => ({
+          type: 'entrada',
+          action: pattern.action as 'compra' | 'venda',
+          price: '1.2500',
+          confidence: pattern.confidence,
+          timeframe: timeframe || '1m',
+          description: pattern.description,
+        })),
+        technicalIndicators: [],
+        volumeData: volumeData || {
+          value: 1000,
+          trend: 'neutral',
+          abnormal: false,
+          significance: 'medium',
+          relativeToAverage: 1.0,
+          distribution: 'neutral',
+          divergence: false
+        },
+        volatilityData: volatilityData || {
+          value: 15,
+          trend: 'neutral',
+          atr: 1.0,
+          percentageRange: 1.5,
+          isHigh: false,
+          historicalComparison: 'average',
+          impliedVolatility: 20
+        },
+        marketContext: marketContext || {
+          phase: 'lateral',
+          strength: 'moderada',
+          dominantTimeframe: timeframe || '1m',
+          sentiment: 'neutro',
+          description: 'Análise de mercado padrão',
+          marketStructure: 'indefinida',
+          breakoutPotential: 'médio',
+          momentumSignature: 'estável',
+          institutionalBias: 'neutro',
+          volatilityState: 'normal',
+          liquidityCondition: 'adequada',
+          timeOfDay: 'horário_comercial',
+          trend: 'lateral'
+        },
+        warnings: [],
+        preciseEntryAnalysis: preciseEntryAnalysis || {
+          exactMinute: 'agora',
+          entryType: 'reversão',
+          nextCandleExpectation: 'confirmação',
+          priceAction: 'neutro',
+          confirmationSignal: 'aguardando',
+          riskRewardRatio: 2.5,
+          entryInstructions: 'Aguardar padrão válido'
+        },
+        confluences: {
+          confluenceScore: 0.5,
+          factors: []
+        },
+        priceActionSignals: [],
+        detailedMarketContext: {
+          phase: 'lateral',
+          sentiment: 'neutro',
+          strength: 'moderada',
+          description: 'Contexto padrão',
+          marketStructure: 'indefinida',
+          breakoutPotential: 'médio',
+          momentumSignature: 'estável',
+          institutionalBias: 'neutro',
+          volatilityState: 'normal',
+          liquidityCondition: 'adequada',
+          timeOfDay: 'horário_comercial',
+          trend: 'lateral'
+        },
+        entryRecommendations: [],
+        manualRegion: true
       });
       
       toast({
