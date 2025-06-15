@@ -2,8 +2,9 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
+import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
@@ -13,6 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { validateTemporalEntry, calculateEntryTiming, TemporalValidation } from '@/utils/temporalEntryValidation';
 import { trackAllAnalysisComponents, logAnalysisDecision, FinalDecision } from '@/utils/analysisTracker';
 import { LiveAnalysisResult as LiveAnalysisType } from '@/utils/analysis/types';
+import AutoCaptureControls from './AutoCaptureControls';
 
 const LiveAnalysis = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -27,6 +29,7 @@ const LiveAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('camera');
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -372,183 +375,202 @@ const LiveAnalysis = () => {
 
   return (
     <div className="w-full space-y-4">
-      {/* Controles */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Activity className="h-5 w-5" />
-            Análise Live M1 - IA Tempo Real
-            {isLiveActive && (
-              <Badge variant="default" className="ml-2 animate-pulse">
-                AO VIVO
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {!isLiveActive ? (
-              <Button onClick={startLiveAnalysis} className="gap-2">
-                <Play className="w-4 h-4" />
-                Iniciar Live
-              </Button>
-            ) : (
-              <Button onClick={stopLiveAnalysis} variant="destructive" className="gap-2">
-                <Pause className="w-4 h-4" />
-                Parar Live
-              </Button>
-            )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="camera" className="flex items-center gap-2">
+            <Camera className="w-4 h-4" />
+            Câmera Manual
+          </TabsTrigger>
+          <TabsTrigger value="auto" className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            Captura Automática
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="camera" className="space-y-4">
+          {/* Controles da Câmera */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Activity className="h-5 w-5" />
+                Análise Live M1 - Câmera
+                {isLiveActive && (
+                  <Badge variant="default" className="ml-2 animate-pulse">
+                    AO VIVO
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {!isLiveActive ? (
+                  <Button onClick={startLiveAnalysis} className="gap-2">
+                    <Play className="w-4 h-4" />
+                    Iniciar Live
+                  </Button>
+                ) : (
+                  <Button onClick={stopLiveAnalysis} variant="destructive" className="gap-2">
+                    <Pause className="w-4 h-4" />
+                    Parar Live
+                  </Button>
+                )}
+                
+                <Button 
+                  variant="outline" 
+                  onClick={toggleCameraFacing}
+                  disabled={isLiveActive}
+                  className="gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  {facingMode === 'environment' ? 'Traseira' : 'Frontal'}
+                </Button>
+
+                <select 
+                  value={analysisInterval} 
+                  onChange={(e) => setAnalysisInterval(Number(e.target.value))}
+                  disabled={isLiveActive}
+                  className="px-3 py-2 border rounded-md text-sm"
+                >
+                  <option value={2000}>2 segundos</option>
+                  <option value={3000}>3 segundos</option>
+                  <option value={5000}>5 segundos</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Erro da câmera */}
+          {cameraError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{cameraError}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Video feed */}
+          <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+            <video 
+              ref={videoRef}
+              autoPlay 
+              playsInline
+              muted 
+              className="w-full h-full object-cover"
+            />
             
-            <Button 
-              variant="outline" 
-              onClick={toggleCameraFacing}
-              disabled={isLiveActive}
-              className="gap-2"
-            >
-              <Camera className="w-4 h-4" />
-              {facingMode === 'environment' ? 'Traseira' : 'Frontal'}
-            </Button>
+            {/* Overlay de status */}
+            {(isAnalyzing || analysisStatus) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                <div className="text-white text-center">
+                  <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm font-medium">
+                    {analysisStatus || 'Analisando...'}
+                  </p>
+                </div>
+              </div>
+            )}
 
-            <select 
-              value={analysisInterval} 
-              onChange={(e) => setAnalysisInterval(Number(e.target.value))}
-              disabled={isLiveActive}
-              className="px-3 py-2 border rounded-md text-sm"
-            >
-              <option value={2000}>2 segundos</option>
-              <option value={3000}>3 segundos</option>
-              <option value={5000}>5 segundos</option>
-            </select>
+            {/* Resultado da análise com informações contextuais */}
+            {currentAnalysis && !isAnalyzing && (
+              <motion.div 
+                className="absolute top-4 left-4 right-4"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card className="bg-black/90 border-amber-200">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between text-white mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge 
+                            variant={currentAnalysis.signal === 'compra' ? 'default' : 
+                                   currentAnalysis.signal === 'venda' ? 'destructive' : 'outline'}
+                          >
+                            {currentAnalysis.signal.toUpperCase()}
+                          </Badge>
+                          {currentAnalysis.signalQuality && (
+                            <Badge variant="outline" className="text-xs">
+                              {currentAnalysis.signalQuality}
+                            </Badge>
+                          )}
+                          {currentAnalysis.temporalValidation && (
+                            <Badge 
+                              variant={currentAnalysis.temporalValidation.recommendation === 'enter' ? 'default' : 'outline'}
+                              className="text-xs"
+                            >
+                              {currentAnalysis.temporalValidation.recommendation === 'enter' ? '✅' : '⏳'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs">
+                          Confiança: {Math.round(currentAnalysis.confidence * 100)}%
+                        </p>
+                        <p className="text-xs text-green-300">
+                          R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
+                        </p>
+                        {/* Mostrar informação contextual */}
+                        {currentAnalysis.contextualInfo && currentAnalysis.contextualInfo.length > 0 && (
+                          <p className="text-xs text-yellow-300 mt-1">
+                            💡 {currentAnalysis.contextualInfo[0]}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right text-xs">
+                        <div className="text-yellow-300">
+                          Fase: {currentAnalysis.marketPhase}
+                        </div>
+                        <div className="text-gray-300">
+                          {new Date(currentAnalysis.timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            <canvas ref={canvasRef} className="hidden" />
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Erro da câmera */}
-      {cameraError && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{cameraError}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Video feed */}
-      <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
-        <video 
-          ref={videoRef}
-          autoPlay 
-          playsInline
-          muted 
-          className="w-full h-full object-cover"
-        />
-        
-        {/* Overlay de status */}
-        {(isAnalyzing || analysisStatus) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <div className="text-white text-center">
-              <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm font-medium">
-                {analysisStatus || 'Analisando...'}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Resultado da análise com informações contextuais */}
-        {currentAnalysis && !isAnalyzing && (
-          <motion.div 
-            className="absolute top-4 left-4 right-4"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card className="bg-black/90 border-amber-200">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between text-white mb-2">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge 
-                        variant={currentAnalysis.signal === 'compra' ? 'default' : 
-                               currentAnalysis.signal === 'venda' ? 'destructive' : 'outline'}
-                      >
-                        {currentAnalysis.signal.toUpperCase()}
-                      </Badge>
-                      {currentAnalysis.signalQuality && (
-                        <Badge variant="outline" className="text-xs">
-                          {currentAnalysis.signalQuality}
-                        </Badge>
-                      )}
-                      {currentAnalysis.temporalValidation && (
+          {/* Histórico da Câmera */}
+          {liveResults.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Histórico de Sinais - Câmera</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {liveResults.slice(0, 10).map((result) => (
+                    <div
+                      key={result.timestamp}
+                      className="flex items-center justify-between p-2 border rounded text-sm"
+                    >
+                      <div className="flex items-center gap-2">
                         <Badge 
-                          variant={currentAnalysis.temporalValidation.recommendation === 'enter' ? 'default' : 'outline'}
+                          variant={result.signal === 'compra' ? 'default' : 
+                                   result.signal === 'venda' ? 'destructive' : 'outline'}
                           className="text-xs"
                         >
-                          {currentAnalysis.temporalValidation.recommendation === 'enter' ? '✅' : '⏳'}
+                          {result.signal}
                         </Badge>
-                      )}
+                        <span className="text-xs">
+                          {Math.round(result.confidence * 100)}%
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(result.timestamp).toLocaleTimeString()}
+                      </div>
                     </div>
-                    <p className="text-xs">
-                      Confiança: {Math.round(currentAnalysis.confidence * 100)}%
-                    </p>
-                    <p className="text-xs text-green-300">
-                      R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
-                    </p>
-                    {/* Mostrar informação contextual */}
-                    {currentAnalysis.contextualInfo && currentAnalysis.contextualInfo.length > 0 && (
-                      <p className="text-xs text-yellow-300 mt-1">
-                        💡 {currentAnalysis.contextualInfo[0]}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right text-xs">
-                    <div className="text-yellow-300">
-                      Fase: {currentAnalysis.marketPhase}
-                    </div>
-                    <div className="text-gray-300">
-                      {new Date(currentAnalysis.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-        )}
+          )}
+        </TabsContent>
 
-        <canvas ref={canvasRef} className="hidden" />
-      </div>
-
-      {/* Histórico */}
-      {liveResults.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Histórico de Sinais</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {liveResults.slice(0, 10).map((result) => (
-                <div
-                  key={result.timestamp}
-                  className="flex items-center justify-between p-2 border rounded text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={result.signal === 'compra' ? 'default' : 
-                               result.signal === 'venda' ? 'destructive' : 'outline'}
-                      className="text-xs"
-                    >
-                      {result.signal}
-                    </Badge>
-                    <span className="text-xs">
-                      {Math.round(result.confidence * 100)}%
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(result.timestamp).toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="auto" className="space-y-4">
+          <AutoCaptureControls />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
