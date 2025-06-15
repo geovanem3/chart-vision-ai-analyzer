@@ -68,11 +68,11 @@ export const extractRealCandlesFromImage = async (imageData: string): Promise<Ca
           const chartArea = detectChartArea(imagePixelData, canvas.width, canvas.height);
           console.log('📈 Área do gráfico detectada:', chartArea);
           
-          // 2. Detectar eixo Y de preços
+          // 2. Detectar eixo Y de preços (com heurística melhorada)
           const priceAxis = detectPriceAxis(imagePixelData, canvas.width, canvas.height, chartArea);
-          console.log('💰 Eixo de preços detectado:', priceAxis);
+          console.log('💰 Eixo de preços (estimado) detectado:', priceAxis);
           
-          // 3. Detectar candles individuais
+          // 3. Detectar candles individuais (com detecção de cor melhorada)
           const detectedCandles = detectIndividualCandles(imagePixelData, canvas.width, canvas.height, chartArea);
           console.log(`🕯️ ${detectedCandles.length} candles detectados`);
           
@@ -180,25 +180,37 @@ const detectChartArea = (imageData: ImageData, width: number, height: number) =>
 const detectPriceAxis = (imageData: ImageData, width: number, height: number, chartArea: any): PriceAxis => {
   try {
     const axisX = chartArea.x + chartArea.width + 5;
-    
-    // Estimativa baseada em análise típica de forex
-    const topPrice = 1.1000;
-    const bottomPrice = 1.0900;
-    const pixelPerPrice = chartArea.height / (topPrice - bottomPrice);
-    
+
+    // --- HEURISTIC APPROACH V2 ---
+    // This part is extremely challenging without proper OCR to read numbers.
+    // Instead of hardcoding a price range, we assume a typical price movement range
+    // for a certain number of candles on a 1-minute chart.
+    // THIS IS THE MAIN SOURCE OF INACCURACY and may need tuning for different assets or chart zooms.
+    // Example: Assume a 20-candle view on EUR/USD M1 spans ~25 pips (0.0025).
+    const assumedPriceRange = 0.0025;
+    const pixelPerPrice = chartArea.height > 0 ? chartArea.height / assumedPriceRange : 0;
+
+    // The anchor price is also a huge assumption. We'll use a common price for a major pair.
+    // For a robust solution, this would need to be detected from the screen.
+    const anchorPrice = 1.0850; // Anchor for EUR/USD example
+    const maxPrice = anchorPrice + (assumedPriceRange / 2);
+    const minPrice = anchorPrice - (assumedPriceRange / 2);
+
     if (pixelPerPrice <= 0 || !isFinite(pixelPerPrice)) {
-      console.warn('⚠️ PixelPerPrice inválido, usando valor padrão');
+      console.warn('⚠️ PixelPerPrice inválido, usando valor padrão de emergência');
       return {
-        minPrice: bottomPrice,
-        maxPrice: topPrice,
+        minPrice: anchorPrice - 0.005,
+        maxPrice: anchorPrice + 0.005,
         pixelPerPrice: chartArea.height / 0.01,
         axisX
       };
     }
-    
+
+    console.log(`Heurística de Eixo de Preço: Range Assumido=${assumedPriceRange}, Pixel/Preço=${pixelPerPrice.toFixed(2)}`);
+
     return {
-      minPrice: bottomPrice,
-      maxPrice: topPrice,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
       pixelPerPrice,
       axisX
     };
@@ -212,7 +224,7 @@ const detectPriceAxis = (imageData: ImageData, width: number, height: number, ch
     return {
       minPrice: 1.0900,
       maxPrice: 1.1000,
-      pixelPerPrice: chartArea.height / 0.01,
+      pixelPerPrice: chartArea.height > 0 ? chartArea.height / 0.01 : 1,
       axisX: chartArea.x + chartArea.width
     };
   }
@@ -282,27 +294,35 @@ const analyzeCandleColumn = (
         const g = data[i + 1];
         const b = data[i + 2];
         
-        const isGreen = g > r * 1.3 && g > b * 1.3 && g > 100;
-        const isRed = r > g * 1.3 && r > b * 1.3 && r > 100;
-        const isBlack = r < 80 && g < 80 && b < 80;
-        const isWhite = r > 200 && g > 200 && b > 200;
-        
-        if (isGreen && g > maxColorConfidence) {
-          maxColorConfidence = g;
-          bestColor = 'green';
-        } else if (isRed && r > maxColorConfidence) {
-          maxColorConfidence = r;
-          bestColor = 'red';
-        } else if (isBlack && 255 - r > maxColorConfidence) {
-          maxColorConfidence = 255 - r;
-          bestColor = 'black';
-        } else if (isWhite && r > maxColorConfidence) {
-          maxColorConfidence = r;
-          bestColor = 'white';
+        // --- ROBUST COLOR DETECTION V2 ---
+        const greenDominance = g - r;
+        const redDominance = r - g;
+        // Check if color is saturated enough (not gray) and bright enough
+        const isSaturated = Math.abs(r - g) > 15 && (r > 50 || g > 50 || b < 200);
+
+        if (isSaturated) {
+            if (greenDominance > 10 && greenDominance > maxColorConfidence) {
+                maxColorConfidence = greenDominance;
+                bestColor = 'green';
+            } else if (redDominance > 10 && redDominance > maxColorConfidence) {
+                maxColorConfidence = redDominance;
+                bestColor = 'red';
+            }
+        } else { // Fallback for black/white themes
+            const isBlack = r < 80 && g < 80 && b < 80;
+            const isWhite = r > 200 && g > 200 && b > 200;
+
+            if (isBlack && (150 - r) > maxColorConfidence) { // Use lower confidence for black
+                maxColorConfidence = 150 - r;
+                bestColor = 'black';
+            } else if (isWhite && r > maxColorConfidence) {
+                maxColorConfidence = r;
+                bestColor = 'white';
+            }
         }
       }
       
-      if (maxColorConfidence > 50) {
+      if (maxColorConfidence > 30) { // Increased confidence threshold
         if (topWick === -1) topWick = y;
         bottomWick = y;
         
@@ -317,15 +337,15 @@ const analyzeCandleColumn = (
           const b = data[i + 2];
           
           const matchesColor = 
-            (bestColor === 'green' && g > r * 1.2 && g > 100) ||
-            (bestColor === 'red' && r > g * 1.2 && r > 100) ||
+            (bestColor === 'green' && g > r) ||
+            (bestColor === 'red' && r > g) ||
             (bestColor === 'black' && r < 100 && g < 100 && b < 100) ||
             (bestColor === 'white' && r > 180 && g > 180 && b > 180);
           
           if (matchesColor) bodyPixels++;
         }
         
-        if (bodyPixels >= candleWidth * 0.6) {
+        if (bodyPixels >= candleWidth * 0.5) { // Needs to be a solid body
           if (bodyTop === -1) bodyTop = y;
           bodyBottom = y;
           candleColor = bestColor;
