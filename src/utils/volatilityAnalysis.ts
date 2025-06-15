@@ -10,7 +10,7 @@ export const analyzeVolatility = (candles: CandleData[]): VolatilityData => {
       atr: 0,
       percentageRange: 0,
       isHigh: false,
-      historicalComparison: 'low',
+      historicalComparison: 'below_average', // Corrected from 'low'
       impliedVolatility: 0
     };
   }
