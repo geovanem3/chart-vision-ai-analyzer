@@ -11,8 +11,7 @@ import { DetectedPattern } from "./types";
 import { 
   analyzeAdvancedMarketConditions, 
   calculateOperatingScore, 
-  calculateConfidenceReduction,
-  EnhancedMarketContext
+  calculateConfidenceReduction
 } from "./advancedMarketContext";
 import { predictTradeSuccess, TradeSuccessPrediction } from "./tradeSuccessPrediction";
 import { detectCandlestickPatterns, validateRealtimePattern } from "./candlestickPatternDetection";
@@ -185,16 +184,16 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const confluenceAnalysis = performConfluenceAnalysis(candles, realCandlePatterns);
   console.log(`🤝 Confluence Score: ${confluenceAnalysis.confluenceScore}`);
   
-  // Criar contexto de mercado aprimorado
-  const enhancedMarketContext: EnhancedMarketContext = {
+  // Criar contexto de mercado aprimorado com todas as propriedades necessárias
+  const enhancedMarketContext = {
     phase: marketContextAnalysis.phase,
-    strength: 'moderada',
+    strength: 'moderada' as const,
     dominantTimeframe: options.timeframe || '1m',
     sentiment: marketContextAnalysis.sentiment,
     description: `Score: ${operatingScore}/100 | Padrões Reais: ${validPatterns.length}`,
-    marketStructure: 'indefinida',
-    breakoutPotential: 'baixo',
-    momentumSignature: 'estável',
+    marketStructure: 'indefinida' as const,
+    breakoutPotential: 'baixo' as const,
+    momentumSignature: 'estável' as const,
     advancedConditions,
     operatingScore,
     confidenceReduction
