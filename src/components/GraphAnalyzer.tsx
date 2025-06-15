@@ -6,7 +6,7 @@ import AnalysisResults from './AnalysisResults';
 import MobileBottomBar from './MobileBottomBar';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock } from 'lucide-react';
+import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -121,9 +121,9 @@ const GraphAnalyzer = () => {
     }
   };
   
-  // Renderização principal simplificada
+  // Renderização principal reestruturada para clareza e robustez
   const renderMainContent = () => {
-    // Se não há imagem capturada, mostrar a câmera
+    // 1. Estado Inicial: Sem imagem capturada.
     if (!capturedImage) {
       return (
         <div className="w-full">
@@ -138,8 +138,51 @@ const GraphAnalyzer = () => {
       );
     }
 
-    // Se está analisando OU se já temos resultados, mostrar a tela de resultados/análise
-    if (isAnalyzing || analysisResults) {
+    // 2. Estado de Carregamento: Análise em progresso.
+    if (isAnalyzing) {
+      return (
+        <div className="space-y-3 w-full">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={resetAnalysis}
+              className="mr-1"
+              disabled={true}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-bold">Live IA Analisando...</h2>
+          </div>
+          
+          <Card className="p-0 overflow-hidden bg-card/50 rounded-lg shadow-sm">
+            <CardContent className="p-2">
+              <div className="relative w-full overflow-hidden rounded-md">
+                <img 
+                  src={capturedImage} 
+                  alt="Gráfico em análise" 
+                  className="w-full object-contain opacity-50"
+                />
+                <div className="absolute inset-0 bg-black/10 flex items-center justify-center" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="w-full border-blue-200 bg-blue-50/80">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center justify-center gap-3 text-blue-800">
+                <Activity className="animate-spin h-6 w-6" />
+                <span className="text-base font-medium">Analisando Imagem...</span>
+                <p className="text-xs text-center text-blue-700">Extraindo candles e detectando padrões. Isso pode levar alguns segundos.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    
+    // 3. Estado de Resultados: Análise completa.
+    if (analysisResults) {
       return (
         <div className="space-y-3 w-full">
           <div className="flex items-center justify-between">
@@ -153,9 +196,7 @@ const GraphAnalyzer = () => {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-lg font-bold">
-                {isAnalyzing ? "Live IA Analisando..." : "Resultados Live IA"}
-              </h2>
+              <h2 className="text-lg font-bold">Resultados Live IA</h2>
             </div>
           </div>
           
@@ -165,13 +206,9 @@ const GraphAnalyzer = () => {
                 <div className="relative w-full overflow-hidden rounded-md">
                   <img 
                     src={capturedImage} 
-                    alt="Gráfico em análise" 
-                    className={`w-full object-contain ${isAnalyzing ? 'opacity-50' : ''}`}
+                    alt="Gráfico analisado" 
+                    className="w-full object-contain"
                   />
-                  {isAnalyzing && (
-                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -182,7 +219,7 @@ const GraphAnalyzer = () => {
       );
     }
 
-    // Estado padrão: configuração da análise
+    // 4. Estado de Configuração: Imagem capturada, aguardando análise (estado padrão).
     return (
       <div className="space-y-3 w-full">
         <div className="flex items-center justify-between">
