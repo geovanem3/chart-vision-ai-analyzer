@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -112,7 +111,7 @@ const LiveAnalysis = () => {
     }
   };
 
-  // Capturar e analisar com melhor controle de estado
+  // Capturar e analisar com sistema inteligente
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) {
       console.log('⏭️ Pulando análise - condições não atendidas');
@@ -151,55 +150,87 @@ const LiveAnalysis = () => {
       setAnalysisStatus('Processando imagem...');
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
       
-      setAnalysisStatus('Analisando padrões...');
+      setAnalysisStatus('Analisando com IA...');
+      
+      // USAR NOVO SISTEMA INTELIGENTE
       const analysisResult = await analyzeChart(enhancedImageUrl, {
         timeframe: '1m',
         optimizeForScalping: true,
         scalpingStrategy,
         considerVolume,
         considerVolatility,
-        marketContextEnabled,
+        marketContextEnabled: true,
         marketAnalysisDepth,
         enableCandleDetection: true,
         isLiveAnalysis: true,
         useConfluences: true,
         enablePriceAction: true,
-        enableMarketContext: true
+        enableMarketContext: true,
+        enableIntelligentAnalysis: true // Nova opção
       });
 
-      // Determinar sinal principal
-      let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
-      const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
+      // Extrair análise inteligente
+      const intelligentData = analysisResult.intelligentAnalysis;
       
-      if (validPatterns.length > 0) {
-        const actions = validPatterns.map(p => p.action);
-        const uniqueActions = [...new Set(actions)];
+      let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
+      let finalConfidence = 0;
+      let signalQuality = 'fraca';
+      let contextualInfo: string[] = [];
+
+      if (intelligentData) {
+        mainSignal = intelligentData.overallSignal;
+        finalConfidence = intelligentData.confidence / 100;
         
-        if (uniqueActions.length === 1) {
-          mainSignal = uniqueActions[0] as 'compra' | 'venda';
-        } else {
-          const strongestPattern = validPatterns.reduce((prev, current) => 
-            (current.confidence > prev.confidence) ? current : prev
-          );
-          mainSignal = strongestPattern.action as 'compra' | 'venda';
+        // Determinar qualidade baseada na análise inteligente
+        if (intelligentData.confidence > 85) signalQuality = 'excelente';
+        else if (intelligentData.confidence > 75) signalQuality = 'forte';
+        else if (intelligentData.confidence > 65) signalQuality = 'boa';
+        else if (intelligentData.confidence > 55) signalQuality = 'moderada';
+        
+        // Adicionar informações contextuais
+        contextualInfo = intelligentData.reasoning || [];
+        
+        console.log('🧠 Análise Inteligente:', {
+          signal: mainSignal,
+          confidence: intelligentData.confidence,
+          patterns: intelligentData.patterns.length,
+          context: intelligentData.marketContext.phase
+        });
+      } else {
+        // Fallback para análise tradicional
+        const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
+        
+        if (validPatterns.length > 0) {
+          const actions = validPatterns.map(p => p.action);
+          const uniqueActions = [...new Set(actions)];
+          
+          if (uniqueActions.length === 1) {
+            mainSignal = uniqueActions[0] as 'compra' | 'venda';
+          } else {
+            const strongestPattern = validPatterns.reduce((prev, current) => 
+              (current.confidence > prev.confidence) ? current : prev
+            );
+            mainSignal = strongestPattern.action as 'compra' | 'venda';
+          }
+          
+          finalConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
         }
       }
 
-      // Validação temporal
+      // Validação temporal (mantida)
       let temporalValidation: TemporalValidation | undefined;
       if (mainSignal !== 'neutro') {
         const entryTiming = calculateEntryTiming();
-        const baseConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
         
         temporalValidation = validateTemporalEntry(
           analysisResult.candles,
           mainSignal,
-          baseConfidence,
+          finalConfidence,
           entryTiming
         );
       }
 
-      // Tracking inteligente
+      // Tracking inteligente (mantido)
       const intelligentDecision: FinalDecision = trackAllAnalysisComponents(
         analysisResult,
         temporalValidation
@@ -207,20 +238,16 @@ const LiveAnalysis = () => {
 
       logAnalysisDecision(intelligentDecision);
 
-      // Criar resultado final
-      const finalSignal = intelligentDecision.shouldTrade ? intelligentDecision.signal : 'neutro';
-      const finalConfidence = intelligentDecision.shouldTrade ? intelligentDecision.confidence : 0;
-      
-      let signalQuality = 'fraca';
-      if (intelligentDecision.shouldTrade) {
-        if (intelligentDecision.qualityScore > 85) signalQuality = 'excelente';
-        else if (intelligentDecision.qualityScore > 75) signalQuality = 'forte';
-        else if (intelligentDecision.qualityScore > 65) signalQuality = 'boa';
-        else if (intelligentDecision.qualityScore > 55) signalQuality = 'moderada';
+      // Aplicar decisão final do tracking
+      if (!intelligentDecision.shouldTrade) {
+        mainSignal = 'neutro';
+        finalConfidence = 0;
       }
 
       let mappedTrend: 'alta' | 'baixa' | 'lateral' = 'lateral';
-      if (analysisResult.detailedMarketContext?.trend) {
+      if (intelligentData?.marketContext?.trend) {
+        mappedTrend = intelligentData.marketContext.trend;
+      } else if (analysisResult.detailedMarketContext?.trend) {
         const rawTrend = analysisResult.detailedMarketContext.trend;
         if (rawTrend === 'alta') mappedTrend = 'alta';
         else if (rawTrend === 'baixa') mappedTrend = 'baixa';
@@ -228,56 +255,61 @@ const LiveAnalysis = () => {
 
       const analysisHealth = {
         consistency: Math.round(intelligentDecision.qualityScore),
-        reliability: Math.round(intelligentDecision.confidence * 100),
+        reliability: Math.round(finalConfidence * 100),
         marketAlignment: intelligentDecision.shouldTrade
       };
 
       const liveResult: LiveAnalysisResult = {
         timestamp: Date.now(),
         confidence: finalConfidence,
-        signal: finalSignal,
-        patterns: analysisResult.patterns.map(p => p.type),
+        signal: mainSignal,
+        patterns: intelligentData?.patterns?.map(p => p.pattern) || 
+                 analysisResult.patterns.map(p => p.type),
         trend: mappedTrend,
         signalQuality,
         confluenceScore: analysisResult.confluences?.confluenceScore || 0,
-        supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
-        criticalLevels: analysisResult.confluences?.criticalLevels || [],
+        supportResistance: intelligentData?.keyLevels?.support?.map(price => ({ price, type: 'support' })) || 
+                          analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
+        criticalLevels: intelligentData?.keyLevels?.resistance?.map(price => ({ price, type: 'resistance' })) ||
+                       analysisResult.confluences?.criticalLevels || [],
         priceActionSignals: analysisResult.priceActionSignals?.slice(0, 2) || [],
-        marketPhase: analysisResult.detailedMarketContext?.phase || 'indefinida',
+        marketPhase: intelligentData?.marketContext?.phase || 
+                    analysisResult.detailedMarketContext?.phase || 'indefinida',
         institutionalBias: analysisResult.detailedMarketContext?.institutionalBias || 'neutro',
         entryRecommendations: analysisResult.entryRecommendations?.filter(entry => 
-          entry.action === finalSignal
+          entry.action === mainSignal
         ).slice(0, 2) || [],
         riskReward: 2.0,
         analysisHealth,
-        temporalValidation
+        temporalValidation,
+        contextualInfo: contextualInfo.slice(0, 3) // Adicionar informações contextuais
       };
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]);
       setAnalysisStatus(null);
 
-      // Toast apenas para operações aprovadas
-      if (intelligentDecision.shouldTrade && finalConfidence > 0.6 && finalSignal !== 'neutro') {
+      // Toast para operações aprovadas
+      if (intelligentDecision.shouldTrade && finalConfidence > 0.6 && mainSignal !== 'neutro') {
         const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
         const temporalText = temporalValidation ? 
           ` | Expira: ${temporalValidation.expiryCandle === 'current' ? 'Atual' : 'Próxima'}` : '';
+        const contextText = contextualInfo.length > 0 ? ` | ${contextualInfo[0]}` : '';
         
         toast({
-          variant: finalSignal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA M1 - ${finalSignal.toUpperCase()}${healthText}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}%${temporalText}`,
-          duration: 8000,
+          variant: mainSignal === 'compra' ? "default" : "destructive",
+          title: `🚨 ENTRADA M1 - ${mainSignal.toUpperCase()}${healthText}`,
+          description: `Confiança: ${Math.round(finalConfidence * 100)}%${temporalText}${contextText}`,
+          duration: 10000,
         });
       }
 
-      console.log(`✅ Análise concluída - Sinal: ${finalSignal} (${Math.round(finalConfidence * 100)}%)`);
+      console.log(`✅ Análise inteligente concluída - Sinal: ${mainSignal} (${Math.round(finalConfidence * 100)}%)`);
 
     } catch (error) {
       console.error('❌ Erro na análise:', error);
       setAnalysisStatus('Erro na análise');
       
-      // Não limpar a análise atual em caso de erro esporádico
       setTimeout(() => setAnalysisStatus(null), 3000);
     } finally {
       setIsAnalyzing(false);
@@ -439,7 +471,7 @@ const LiveAnalysis = () => {
           </div>
         )}
 
-        {/* Resultado da análise */}
+        {/* Resultado da análise com informações contextuais */}
         {currentAnalysis && !isAnalyzing && (
           <motion.div 
             className="absolute top-4 left-4 right-4"
@@ -453,7 +485,7 @@ const LiveAnalysis = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <Badge 
                         variant={currentAnalysis.signal === 'compra' ? 'default' : 
-                                 currentAnalysis.signal === 'venda' ? 'destructive' : 'outline'}
+                               currentAnalysis.signal === 'venda' ? 'destructive' : 'outline'}
                       >
                         {currentAnalysis.signal.toUpperCase()}
                       </Badge>
@@ -477,6 +509,12 @@ const LiveAnalysis = () => {
                     <p className="text-xs text-green-300">
                       R:R {currentAnalysis.riskReward?.toFixed(1) || '2.0'}
                     </p>
+                    {/* Mostrar informação contextual */}
+                    {currentAnalysis.contextualInfo && currentAnalysis.contextualInfo.length > 0 && (
+                      <p className="text-xs text-yellow-300 mt-1">
+                        💡 {currentAnalysis.contextualInfo[0]}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right text-xs">
                     <div className="text-yellow-300">
