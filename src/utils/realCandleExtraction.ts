@@ -327,10 +327,10 @@ const convertToOHLCData = (
 ): CandleData[] => {
   
   try {
-    return detectedCandles.map((candle, index) => {
+    const candles = detectedCandles.map((candle, index) => {
       try {
-        if (!candle || !priceAxis || !chartArea) {
-          throw new Error('Dados inválidos para conversão');
+        if (!candle || !priceAxis || !chartArea || !priceAxis.pixelPerPrice || priceAxis.pixelPerPrice <= 0 || !isFinite(priceAxis.pixelPerPrice)) {
+          throw new Error('Dados de entrada inválidos para conversão de candle');
         }
         
         const highPrice = priceAxis.maxPrice - (candle.wickTop - chartArea.y) / priceAxis.pixelPerPrice;
@@ -339,7 +339,7 @@ const convertToOHLCData = (
         const bodyBottomPrice = priceAxis.maxPrice - (candle.bodyBottom - chartArea.y) / priceAxis.pixelPerPrice;
         
         if (!isFinite(highPrice) || !isFinite(lowPrice) || !isFinite(bodyTopPrice) || !isFinite(bodyBottomPrice)) {
-          throw new Error('Preços calculados são inválidos');
+          throw new Error('Preços calculados são inválidos (não finitos)');
         }
         
         let openPrice: number, closePrice: number;
@@ -366,7 +366,6 @@ const convertToOHLCData = (
           high: parseFloat(finalHigh.toFixed(5)),
           low: parseFloat(finalLow.toFixed(5)),
           close: parseFloat(closePrice.toFixed(5)),
-          volume: Math.floor(Math.random() * 500) + 100,
           timestamp: Date.now() - (detectedCandles.length - index) * 60000,
           position: {
             x: candle.x,
@@ -375,25 +374,22 @@ const convertToOHLCData = (
           color: candleColor
         };
       } catch (candleConversionError) {
-        console.error(`❌ Erro ao converter candle ${index}:`, candleConversionError);
-        
-        const basePrice = 1.095;
-        return {
-          open: basePrice,
-          high: basePrice + 0.001,
-          low: basePrice - 0.001,
-          close: basePrice + (Math.random() - 0.5) * 0.001,
-          volume: 100,
-          timestamp: Date.now() - (detectedCandles.length - index) * 60000,
-          position: { x: candle.x || 0, y: candle.y || 0 },
-          color: 'verde' as const
-        };
+        console.warn(`⚠️ Erro ao converter candle individual ${index}, pulando:`, candleConversionError);
+        return null;
       }
-    }).filter(candle => {
-      return candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
+    }).filter((candle): candle is CandleData => {
+        if (candle === null) return false;
+        // Validação mais estrita dos dados do candle
+        return candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
              candle.high >= Math.max(candle.open, candle.close) &&
              candle.low <= Math.min(candle.open, candle.close);
     });
+
+    if (candles.length > 0) {
+        console.log(`✅ Conversão para OHLC finalizada. Retornando ${candles.length} candles válidos.`);
+    }
+    return candles;
+
   } catch (error) {
     console.error('❌ Erro na conversão para OHLC:', error);
     return [];

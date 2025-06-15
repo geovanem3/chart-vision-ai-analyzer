@@ -55,6 +55,7 @@ const LiveAnalysis = () => {
   const [showPriceActionDetails, setShowPriceActionDetails] = useState(false);
   const [entryRecommendations, setEntryRecommendations] = useState<any[]>([]);
   const [isChartVisible, setIsChartVisible] = useState(false);
+  const [detectionFailureCount, setDetectionFailureCount] = useState(0); // NOVO ESTADO
   const [analysisStats, setAnalysisStats] = useState({
     totalAnalyses: 0,
     validSignals: 0,
@@ -196,7 +197,6 @@ const LiveAnalysis = () => {
 
     try {
       setIsAnalyzing(true);
-      console.log('🎥 Capturando frame para análise...');
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -219,10 +219,18 @@ const LiveAnalysis = () => {
       
       if (!hasChart) {
         console.log('📊 Nenhum gráfico detectado na tela');
-        setCurrentAnalysis(null);
+        setDetectionFailureCount(prev => prev + 1);
+
+        // Limpar a análise apenas se a falha for persistente
+        if (detectionFailureCount > 3) {
+            console.log('🚫 Falha persistente na detecção. Limpando análise atual.');
+            setCurrentAnalysis(null);
+        }
         return;
       }
       
+      // Se o gráfico for detectado, reseta o contador de falhas
+      setDetectionFailureCount(0);
       console.log('✅ Gráfico detectado! Iniciando análise completa com tracking...');
       
       // Melhorar imagem para análise
@@ -422,10 +430,11 @@ const LiveAnalysis = () => {
 
     } catch (error) {
       console.error('❌ Erro na análise em tempo real:', error);
+      setDetectionFailureCount(prev => prev + 1); // Incrementar em caso de erro também
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
+  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast, detectionFailureCount]);
 
   // Iniciar análise em tempo real
   const startLiveAnalysis = async () => {
@@ -604,18 +613,20 @@ const LiveAnalysis = () => {
           </div>
         )}
 
-        {/* Aviso quando não há gráfico */}
+        {/* Aviso quando não há gráfico (agora considera falhas persistentes) */}
         {isLiveActive && !isChartVisible && !isAnalyzing && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70">
             <div className="text-white text-center">
               <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-400" />
               <p className="text-sm">Aponte a câmera para um gráfico</p>
-              <p className="text-xs text-gray-300">Aguardando detecção automática...</p>
+              <p className="text-xs text-gray-300">
+                {detectionFailureCount > 0 ? `Tentando detectar... (${detectionFailureCount})` : 'Aguardando detecção automática...'}
+              </p>
             </div>
           </div>
         )}
 
-        {currentAnalysis && isChartVisible && (
+        {currentAnalysis && (
           <motion.div 
             className="absolute top-4 left-4 right-4"
             initial={{ opacity: 0, y: -20 }}
