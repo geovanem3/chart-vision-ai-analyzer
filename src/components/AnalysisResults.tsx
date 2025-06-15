@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TrendingUp, Volume, Activity, BarChart3, AlertTriangle } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
+  const isMobile = useIsMobile();
 
   console.log('🔍 AnalysisResults - Estado atual:', { analysisResults });
 
@@ -17,6 +19,195 @@ const AnalysisResults = () => {
     return (
       <div className="text-center p-4">
         <p className="text-muted-foreground">Nenhum resultado de análise disponível.</p>
+      </div>
+    );
+  }
+
+  // PROTEÇÃO: Extrair dados com fallbacks seguros
+  const patterns = Array.isArray(analysisResults.patterns) ? analysisResults.patterns : [];
+  const marketContext = analysisResults.marketContext || null;
+  const volumeData = analysisResults.volumeData || null;
+  const volatilityData = analysisResults.volatilityData || null;
+  const masterAnalysis = analysisResults.masterAnalysis || null;
+
+  console.log('📊 AnalysisResults - Dados extraídos:', {
+    patternsCount: patterns.length,
+    hasMarketContext: !!marketContext,
+    hasVolumeData: !!volumeData,
+    hasVolatilityData: !!volatilityData,
+    hasMasterAnalysis: !!masterAnalysis
+  });
+
+  // Mobile-specific structure
+  if (isMobile) {
+    return (
+      <div className="space-y-3 w-full overflow-hidden">
+        {/* Patterns Section - Mobile Layout */}
+        {patterns.length > 0 && (
+          <Card className="w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="h-4 w-4" />
+                Padrões ({patterns.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {patterns.map((pattern, index) => {
+                  if (!pattern || typeof pattern !== 'object') {
+                    console.warn(`⚠️ Padrão ${index} inválido:`, pattern);
+                    return null;
+                  }
+
+                  return (
+                    <div key={`pattern-${index}`} className="p-2 border rounded text-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-medium text-sm">
+                          {String(pattern.type || 'Padrão')}
+                        </h4>
+                        <Badge variant={
+                          (pattern.confidence || 0) > 0.7 ? "default" : "secondary"
+                        } className="text-xs">
+                          {Math.round((pattern.confidence || 0) * 100)}%
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {String(pattern.description || 'Descrição não disponível')}
+                      </p>
+                      {pattern.action && pattern.action !== 'neutro' && (
+                        <div className="flex items-center gap-1">
+                          <Badge variant={
+                            pattern.action === 'compra' ? 'default' : 'destructive'
+                          } className="text-xs">
+                            {String(pattern.action).toUpperCase()}
+                          </Badge>
+                          {pattern.isScalpingSignal && (
+                            <Badge variant="outline" className="text-xs">
+                              M1
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Market Context - Mobile Compact */}
+        {marketContext && typeof marketContext === 'object' && (
+          <Card className="w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Activity className="h-4 w-4" />
+                Contexto
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="font-medium">Fase:</span>
+                  <span>{String(marketContext.phase || 'N/A').replace('_', ' ')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Força:</span>
+                  <span>{String(marketContext.strength || 'N/A')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Sentimento:</span>
+                  <span>{String(marketContext.sentiment || 'N/A')}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Volume and Volatility - Combined for Mobile */}
+        {(volumeData || volatilityData) && (
+          <div className="grid grid-cols-2 gap-2">
+            {volumeData && typeof volumeData === 'object' && (
+              <Card className="w-full">
+                <CardHeader className="pb-1">
+                  <CardTitle className="flex items-center gap-1 text-sm">
+                    <Volume className="h-3 w-3" />
+                    Volume
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="font-medium">Valor: </span>
+                      {typeof volumeData.value === 'number' 
+                        ? volumeData.value.toLocaleString() 
+                        : 'N/A'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Tendência: </span>
+                      {String(volumeData.trend || 'N/A')}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {volatilityData && typeof volatilityData === 'object' && (
+              <Card className="w-full">
+                <CardHeader className="pb-1">
+                  <CardTitle className="flex items-center gap-1 text-sm">
+                    <TrendingUp className="h-3 w-3" />
+                    Volatilidade
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="font-medium">Valor: </span>
+                      {typeof volatilityData.value === 'number'
+                        ? `${volatilityData.value.toFixed(2)}%`
+                        : 'N/A'}
+                    </div>
+                    <div>
+                      <span className="font-medium">ATR: </span>
+                      {typeof volatilityData.atr === 'number'
+                        ? volatilityData.atr.toFixed(2)
+                        : 'N/A'}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Master Analysis - Mobile Optimized */}
+        {masterAnalysis && typeof masterAnalysis === 'object' && (
+          <Card className="w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Análise Mestre</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="text-sm">
+                <p>{String(masterAnalysis.masterRecommendation || 'Análise em progresso...')}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Warning if no data - Mobile */}
+        {patterns.length === 0 && !masterAnalysis && (
+          <Card className="border-yellow-200 bg-yellow-50 w-full">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-yellow-800">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-xs">
+                  Nenhum padrão identificado na região selecionada.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }
@@ -50,7 +241,6 @@ const AnalysisResults = () => {
           <CardContent>
             <div className="space-y-3">
               {patterns.map((pattern, index) => {
-                // PROTEÇÃO: Validar cada padrão antes de renderizar
                 if (!pattern || typeof pattern !== 'object') {
                   console.warn(`⚠️ Padrão ${index} inválido:`, pattern);
                   return null;
@@ -127,7 +317,6 @@ const AnalysisResults = () => {
         </Card>
       )}
 
-      {/* Volume Analysis - COM PROTEÇÃO */}
       {volumeData && typeof volumeData === 'object' && (
         <Card>
           <CardHeader>
@@ -163,7 +352,6 @@ const AnalysisResults = () => {
         </Card>
       )}
 
-      {/* Volatility Analysis - COM PROTEÇÃO */}
       {volatilityData && typeof volatilityData === 'object' && (
         <Card>
           <CardHeader>
@@ -199,7 +387,6 @@ const AnalysisResults = () => {
         </Card>
       )}
 
-      {/* Master Analysis Display - COM PROTEÇÃO EXTRA */}
       {masterAnalysis && typeof masterAnalysis === 'object' && (
         <div className="w-full">
           <Card>
@@ -215,7 +402,6 @@ const AnalysisResults = () => {
         </div>
       )}
 
-      {/* Warning if no significant data - COM PROTEÇÃO */}
       {patterns.length === 0 && !masterAnalysis && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
@@ -228,18 +414,6 @@ const AnalysisResults = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Debug info - remover em produção */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="pt-4">
-          <div className="text-xs text-blue-700">
-            <strong>Debug:</strong> Padrões: {patterns.length}, 
-            Contexto: {marketContext ? 'Sim' : 'Não'}, 
-            Volume: {volumeData ? 'Sim' : 'Não'}, 
-            Volatilidade: {volatilityData ? 'Sim' : 'Não'}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
