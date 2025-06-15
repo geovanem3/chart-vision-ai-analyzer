@@ -23,7 +23,7 @@ const AnalysisResults = () => {
     );
   }
 
-  // PROTEÇÃO: Extrair dados com fallbacks seguros
+  // PROTEÇÃO: Extrair dados com fallbacks seguros (DECLARAÇÃO ÚNICA)
   const patterns = Array.isArray(analysisResults.patterns) ? analysisResults.patterns : [];
   const marketContext = analysisResults.marketContext || null;
   const volumeData = analysisResults.volumeData || null;
@@ -212,21 +212,7 @@ const AnalysisResults = () => {
     );
   }
 
-  // PROTEÇÃO: Extrair dados com fallbacks seguros
-  const patterns = Array.isArray(analysisResults.patterns) ? analysisResults.patterns : [];
-  const marketContext = analysisResults.marketContext || null;
-  const volumeData = analysisResults.volumeData || null;
-  const volatilityData = analysisResults.volatilityData || null;
-  const masterAnalysis = analysisResults.masterAnalysis || null;
-
-  console.log('📊 AnalysisResults - Dados extraídos:', {
-    patternsCount: patterns.length,
-    hasMarketContext: !!marketContext,
-    hasVolumeData: !!volumeData,
-    hasVolatilityData: !!volatilityData,
-    hasMasterAnalysis: !!masterAnalysis
-  });
-
+  // Desktop Layout - REUSING the same variables declared above
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
       {/* Patterns Section - COM PROTEÇÃO */}
