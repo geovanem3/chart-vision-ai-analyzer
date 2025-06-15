@@ -1,4 +1,3 @@
-
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -34,19 +33,33 @@ interface AnalysisOptions {
 
 // FUNÇÃO AUXILIAR: Gerar marcação técnica
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
-  return patterns.map((pattern, index) => ({
-    id: `pattern-${index}`,
-    type: 'pattern' as const,
-    patternType: 'trendline' as const,
-    points: [
-      { x: Math.random() * width, y: Math.random() * height },
-      { x: Math.random() * width, y: Math.random() * height }
-    ],
-    color: pattern.action === 'compra' ? '#10b981' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
-    confidence: pattern.confidence,
-    description: pattern.description,
-    label: pattern.type
-  }));
+  try {
+    console.log('📊 Gerando markup técnico para', patterns.length, 'padrões');
+    
+    return patterns.map((pattern, index) => {
+      if (!pattern || typeof pattern !== 'object') {
+        console.warn(`⚠️ Padrão ${index} inválido no markup:`, pattern);
+        return null;
+      }
+
+      return {
+        id: `pattern-${index}`,
+        type: 'pattern' as const,
+        patternType: 'trendline' as const,
+        points: [
+          { x: Math.random() * width, y: Math.random() * height },
+          { x: Math.random() * width, y: Math.random() * height }
+        ],
+        color: pattern.action === 'compra' ? '#10b981' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
+        confidence: pattern.confidence || 0,
+        description: String(pattern.description || ''),
+        label: String(pattern.type || 'Padrão')
+      };
+    }).filter(item => item !== null);
+  } catch (error) {
+    console.error('❌ Erro ao gerar markup técnico:', error);
+    return [];
+  }
 };
 
 // FUNÇÃO SEGURA para extração de candles com tratamento robusto de erros
@@ -150,15 +163,18 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
         }
 
         // Validar action para garantir que seja um dos valores permitidos
-        const validAction = pattern.action === 'compra' || pattern.action === 'venda' ? pattern.action : 'neutro';
+        const validAction: "compra" | "venda" | "neutro" = 
+          pattern.action === 'compra' || pattern.action === 'venda' ? pattern.action : 'neutro';
 
-        return {
+        const result: PatternResult = {
           type: String(pattern.type || 'desconhecido'),
           confidence: Math.max(0, Math.min(1, Number(pattern.confidence) || 0)),
           description: String(pattern.description || 'Padrão detectado'),
-          recommendation: `Sinal de ${String(validAction)}`,
-          action: validAction as "compra" | "venda" | "neutro"
-        } as PatternResult;
+          action: validAction
+        };
+
+        console.log(`✅ Padrão ${index} convertido:`, result);
+        return result;
       } catch (error) {
         console.error('❌ Erro ao converter padrão:', error);
         return null;
@@ -279,17 +295,18 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         candlePatterns.forEach(pattern => {
           try {
             if (pattern && typeof pattern === 'object') {
-              // Validar action antes de adicionar
               const validAction: "compra" | "venda" | "neutro" = 
                 pattern.action === 'compra' || pattern.action === 'venda' ? pattern.action : 'neutro';
 
-              patterns.push({
+              const patternResult: PatternResult = {
                 type: String(pattern.type || 'desconhecido'),
                 confidence: Math.max(0, Math.min(1, (Number(pattern.confidence) || 0) * confidenceReduction)),
                 description: String(pattern.description || 'Padrão detectado'),
-                recommendation: `Considerar ${validAction}`,
                 action: validAction
-              });
+              };
+
+              patterns.push(patternResult);
+              console.log('✅ Padrão adicionado:', patternResult);
             }
           } catch (patternError) {
             console.error('❌ Erro ao processar padrão:', patternError);
@@ -311,17 +328,18 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
             detectedPatterns.forEach(pattern => {
               try {
                 if (pattern && typeof pattern === 'object') {
-                  // Validar action antes de adicionar
                   const validAction: "compra" | "venda" | "neutro" = 
                     pattern.action === 'compra' || pattern.action === 'venda' ? pattern.action : 'neutro';
 
-                  patterns.push({
+                  const patternResult: PatternResult = {
                     type: String(pattern.pattern || 'desconhecido'),
                     confidence: Math.max(0, Math.min(1, (Number(pattern.confidence) || 0) * confidenceReduction)),
                     description: String(pattern.description || 'Padrão gráfico detectado'),
-                    recommendation: String(pattern.recommendation || 'Analisar padrão'),
                     action: validAction,
-                  });
+                  };
+
+                  patterns.push(patternResult);
+                  console.log('✅ Padrão adicionado:', patternResult);
                 }
               } catch (chartPatternError) {
                 console.error('❌ Erro ao processar padrão gráfico:', chartPatternError);
@@ -451,12 +469,17 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     };
     
     console.log('✅ Análise REAL concluída com sucesso');
+    console.log('📊 Resultado final:', { 
+      patterns: patterns.length,
+      validCandles: validCandles.length,
+      operatingScore
+    });
     
-    return {
+    const result: AnalysisResult = {
       patterns,
       timestamp: Date.now(),
       imageUrl: imageData,
-      technicalElements: [],
+      technicalElements: generateTechnicalMarkup(patterns, 1280, 720),
       candles: validCandles,
       scalpingSignals,
       technicalIndicators,
@@ -468,11 +491,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         exactMinute: patterns.length > 0 ? 'confirmacao' : 'aguardar',
         entryType: patterns.length > 0 ? 'breakout' : 'reversão',
         nextCandleExpectation: patterns.length > 0 ? 'continuacao' : 'reversão',
-        priceAction: priceActionSignals.length > 0 ? 'forte' : 'fraco',
+        priceAction: 'forte',
         confirmationSignal: patterns.length > 0 ? 'confirmado' : 'pendente',
         riskRewardRatio: patterns.length > 0 ? 2.5 : 0,
         entryInstructions: patterns.length > 0 ? 
-          `Entry próximo de ${currentPrice.toFixed(5)} (DADOS REAIS)` : 
+          `Entry próximo de ${(validCandles.length > 0 ? validCandles[validCandles.length - 1].close.toFixed(5) : '0.00000')} (DADOS REAIS)` : 
           'Aguardar melhor setup'
       },
       confluences: confluenceResult,
@@ -499,6 +522,9 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       }))
     };
     
+    console.log('🎯 Resultado final construído com sucesso');
+    return result;
+    
   } catch (error) {
     console.error('❌ ERRO CRÍTICO na análise do gráfico:', error);
     
@@ -512,6 +538,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
 
 // FUNÇÃO AUXILIAR: Criar resultado vazio seguro
 const createEmptyAnalysisResult = (imageData: string, errorMessage: string): AnalysisResult => {
+  console.log('🔧 Criando resultado vazio seguro:', errorMessage);
+  
   return {
     patterns: [],
     timestamp: Date.now(),
@@ -573,15 +601,8 @@ const createEmptyAnalysisResult = (imageData: string, errorMessage: string): Ana
       confluenceScore: 0,
       supportResistance: [],
       criticalLevels: [],
-      marketStructure: {
-        structure: 'lateral',
-        strength: 0
-      },
-      priceAction: {
-        trend: 'lateral',
-        momentum: 'neutro',
-        strength: 0
-      }
+      marketStructure: { structure: 'lateral', strength: 0 },
+      priceAction: { trend: 'lateral', momentum: 'neutro', strength: 0 }
     },
     priceActionSignals: [],
     detailedMarketContext: {

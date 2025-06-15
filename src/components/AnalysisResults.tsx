@@ -9,8 +9,11 @@ import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
 
+  console.log('🔍 AnalysisResults - Estado atual:', { analysisResults });
+
   // PROTEÇÃO: Verificar se o hook retornou dados válidos
   if (!analysisResults) {
+    console.log('⚠️ AnalysisResults - Nenhum resultado disponível');
     return (
       <div className="text-center p-4">
         <p className="text-muted-foreground">Nenhum resultado de análise disponível.</p>
@@ -25,6 +28,14 @@ const AnalysisResults = () => {
   const volatilityData = analysisResults.volatilityData || null;
   const masterAnalysis = analysisResults.masterAnalysis || null;
 
+  console.log('📊 AnalysisResults - Dados extraídos:', {
+    patternsCount: patterns.length,
+    hasMarketContext: !!marketContext,
+    hasVolumeData: !!volumeData,
+    hasVolatilityData: !!volatilityData,
+    hasMasterAnalysis: !!masterAnalysis
+  });
+
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
       {/* Patterns Section - COM PROTEÇÃO */}
@@ -33,7 +44,7 @@ const AnalysisResults = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Padrões Identificados
+              Padrões Identificados ({patterns.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -41,14 +52,17 @@ const AnalysisResults = () => {
               {patterns.map((pattern, index) => {
                 // PROTEÇÃO: Validar cada padrão antes de renderizar
                 if (!pattern || typeof pattern !== 'object') {
+                  console.warn(`⚠️ Padrão ${index} inválido:`, pattern);
                   return null;
                 }
+
+                console.log(`📈 Renderizando padrão ${index}:`, pattern);
 
                 return (
                   <div key={`pattern-${index}`} className="p-3 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold">
-                        {pattern.type || 'Padrão'}
+                        {String(pattern.type || 'Padrão')}
                       </h4>
                       <Badge variant={
                         (pattern.confidence || 0) > 0.7 ? "default" : "secondary"
@@ -57,7 +71,7 @@ const AnalysisResults = () => {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      {pattern.description || 'Descrição não disponível'}
+                      {String(pattern.description || 'Descrição não disponível')}
                     </p>
                     {pattern.action && pattern.action !== 'neutro' && (
                       <div className="flex items-center gap-2">
@@ -185,10 +199,19 @@ const AnalysisResults = () => {
         </Card>
       )}
 
-      {/* Master Analysis Display - COM PROTEÇÃO */}
+      {/* Master Analysis Display - COM PROTEÇÃO EXTRA */}
       {masterAnalysis && typeof masterAnalysis === 'object' && (
         <div className="w-full">
-          <MasterAnalysisDisplay masterAnalysis={masterAnalysis} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Análise Mestre</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm">
+                <p>{String(masterAnalysis.masterRecommendation || 'Análise em progresso...')}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -205,6 +228,18 @@ const AnalysisResults = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Debug info - remover em produção */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-4">
+          <div className="text-xs text-blue-700">
+            <strong>Debug:</strong> Padrões: {patterns.length}, 
+            Contexto: {marketContext ? 'Sim' : 'Não'}, 
+            Volume: {volumeData ? 'Sim' : 'Não'}, 
+            Volatilidade: {volatilityData ? 'Sim' : 'Não'}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
