@@ -1,3 +1,4 @@
+
 import { CandleData } from "../context/AnalyzerContext";
 
 interface DetectedCandle {
@@ -377,7 +378,7 @@ const convertToOHLCData = (
         console.warn(`⚠️ Erro ao converter candle individual ${index}, pulando:`, candleConversionError);
         return null;
       }
-    }).filter((candle): candle is CandleData => {
+    }).filter((candle): candle is NonNullable<typeof candle> => {
         if (candle === null) return false;
         // Validação mais estrita dos dados do candle
         return candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
