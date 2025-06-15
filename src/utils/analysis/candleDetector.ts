@@ -2,157 +2,179 @@
 import { toast } from "@/hooks/use-toast";
 import { ChartArea, DetectedCandle } from "./types";
 
-const analyzeCandleColumn = (
-  data: Uint8ClampedArray, 
+export const detectIndividualCandles = (
+  imageData: ImageData, 
   width: number, 
   height: number, 
-  x: number, 
-  chartArea: ChartArea, 
-  candleWidth: number
-): DetectedCandle | null => {
-  
+  chartArea: ChartArea
+): DetectedCandle[] => {
   try {
-    let topWick = -1, bottomWick = -1;
-    let bodyTop = -1, bodyBottom = -1;
-    let candleColor: 'green' | 'red' | 'black' | 'white' = 'black';
-    let colorConfidence = 0;
+    console.log('🕯️ Iniciando detecção de candles individuais...');
     
-    for (let y = chartArea.y; y < chartArea.y + chartArea.height; y++) {
-      let maxColorConfidence = 0;
-      let bestColor: 'green' | 'red' | 'black' | 'white' = 'black';
+    const data = imageData.data;
+    const detectedCandles: DetectedCandle[] = [];
+    
+    // Parâmetros de detecção mais flexíveis
+    const minCandleWidth = 3;
+    const maxCandleWidth = 25;
+    const minCandleHeight = 8;
+    
+    // Procurar por estruturas verticais que parecem candles
+    for (let x = chartArea.x; x < chartArea.x + chartArea.width - minCandleWidth; x += 2) {
+      let verticalStructure = 0;
+      let topY = chartArea.y + chartArea.height;
+      let bottomY = chartArea.y;
+      let wickTop = chartArea.y + chartArea.height;
+      let wickBottom = chartArea.y;
+      let bodyTop = chartArea.y + chartArea.height;
+      let bodyBottom = chartArea.y;
+      let hasColorVariation = false;
       
-      for (let dx = 0; dx < candleWidth; dx++) {
-        const currentX = x + dx;
-        if (currentX >= width) continue;
+      // Verificar coluna por estruturas verticais
+      for (let y = chartArea.y; y < chartArea.y + chartArea.height; y++) {
+        if (x >= width || y >= height) continue;
         
-        const i = (y * width + currentX) * 4;
+        const i = (y * width + x) * 4;
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
         
-        // --- ROBUST COLOR DETECTION V2 ---
-        const greenDominance = g - r;
-        const redDominance = r - g;
-        // Check if color is saturated enough (not gray) and bright enough
-        const isSaturated = Math.abs(r - g) > 15 && (r > 50 || g > 50 || b < 200);
-
-        if (isSaturated) {
-            if (greenDominance > 10 && greenDominance > maxColorConfidence) {
-                maxColorConfidence = greenDominance;
-                bestColor = 'green';
-            } else if (redDominance > 10 && redDominance > maxColorConfidence) {
-                maxColorConfidence = redDominance;
-                bestColor = 'red';
-            }
-        } else { // Fallback for black/white themes
-            const isBlack = r < 80 && g < 80 && b < 80;
-            const isWhite = r > 200 && g > 200 && b > 200;
-
-            if (isBlack && (150 - r) > maxColorConfidence) { // Use lower confidence for black
-                maxColorConfidence = 150 - r;
-                bestColor = 'black';
-            } else if (isWhite && r > maxColorConfidence) {
-                maxColorConfidence = r;
-                bestColor = 'white';
-            }
+        // Detectar elementos do candle (linhas verticais e corpos)
+        const isVerticalElement = 
+          // Linha fina (wick)
+          (Math.abs(r - g) < 15 && Math.abs(r - b) < 15 && r > 100) ||
+          // Corpo verde
+          (g > r + 20 && g > b + 20) ||
+          // Corpo vermelho
+          (r > g + 20 && r > b + 20) ||
+          // Corpo preto/branco
+          (r < 60 && g < 60 && b < 60) ||
+          (r > 200 && g > 200 && b > 200);
+        
+        if (isVerticalElement) {
+          verticalStructure++;
+          topY = Math.min(topY, y);
+          bottomY = Math.max(bottomY, y);
+          
+          // Detectar se é wick (linha fina) ou corpo
+          const isWick = Math.abs(r - g) < 15 && Math.abs(r - b) < 15;
+          const isBody = (g > r + 20) || (r > g + 20) || (r < 60 && g < 60 && b < 60) || (r > 200 && g > 200 && b > 200);
+          
+          if (isWick) {
+            wickTop = Math.min(wickTop, y);
+            wickBottom = Math.max(wickBottom, y);
+          }
+          
+          if (isBody) {
+            bodyTop = Math.min(bodyTop, y);
+            bodyBottom = Math.max(bodyBottom, y);
+            hasColorVariation = true;
+          }
         }
       }
       
-      if (maxColorConfidence > 30) { // Increased confidence threshold
-        if (topWick === -1) topWick = y;
-        bottomWick = y;
+      // Validar se encontrou uma estrutura de candle válida
+      const candleHeight = bottomY - topY;
+      const bodyHeight = bodyBottom - bodyTop;
+      
+      if (verticalStructure >= minCandleHeight && 
+          candleHeight >= minCandleHeight && 
+          hasColorVariation &&
+          bodyHeight > 0) {
         
-        let bodyPixels = 0;
-        for (let dx = 0; dx < candleWidth; dx++) {
-          const currentX = x + dx;
-          if (currentX >= width) continue;
-          
-          const i = (y * width + currentX) * 4;
+        // Determinar largura do candle
+        let candleWidth = minCandleWidth;
+        for (let w = 1; w <= maxCandleWidth && x + w < chartArea.x + chartArea.width; w++) {
+          let hasStructure = false;
+          for (let y = topY; y <= bottomY && y < height; y++) {
+            if (x + w >= width) break;
+            const i = (y * width + (x + w)) * 4;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            if ((g > r + 15) || (r > g + 15) || (r < 80 && g < 80) || (r > 180 && g > 180)) {
+              hasStructure = true;
+              break;
+            }
+          }
+          if (hasStructure) {
+            candleWidth = w;
+          } else {
+            break;
+          }
+        }
+        
+        // Determinar cor do candle
+        let color: 'green' | 'red' | 'black' | 'white' = 'black';
+        
+        // Amostrar cor do corpo do candle
+        const midBodyY = Math.floor((bodyTop + bodyBottom) / 2);
+        const midBodyX = Math.floor(x + candleWidth / 2);
+        
+        if (midBodyX < width && midBodyY < height) {
+          const i = (midBodyY * width + midBodyX) * 4;
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
           
-          const matchesColor = 
-            (bestColor === 'green' && g > r) ||
-            (bestColor === 'red' && r > g) ||
-            (bestColor === 'black' && r < 100 && g < 100 && b < 100) ||
-            (bestColor === 'white' && r > 180 && g > 180 && b > 180);
-          
-          if (matchesColor) bodyPixels++;
+          if (g > r + 20 && g > b + 10) {
+            color = 'green';
+          } else if (r > g + 20 && r > b + 10) {
+            color = 'red';
+          } else if (r > 200 && g > 200 && b > 200) {
+            color = 'white';
+          } else {
+            color = 'black';
+          }
         }
         
-        if (bodyPixels >= candleWidth * 0.5) { // Needs to be a solid body
-          if (bodyTop === -1) bodyTop = y;
-          bodyBottom = y;
-          candleColor = bestColor;
-          colorConfidence++;
-        }
+        // Calcular confiança baseada na estrutura
+        const confidence = Math.min(0.95, 
+          (verticalStructure / candleHeight) * 
+          (hasColorVariation ? 1.2 : 0.8) * 
+          (bodyHeight / candleHeight > 0.3 ? 1.1 : 0.9)
+        );
+        
+        const candle: DetectedCandle = {
+          x: x,
+          y: topY,
+          width: candleWidth,
+          height: candleHeight,
+          bodyTop: bodyTop || topY,
+          bodyBottom: bodyBottom || bottomY,
+          wickTop: wickTop || topY,
+          wickBottom: wickBottom || bottomY,
+          color,
+          confidence
+        };
+        
+        detectedCandles.push(candle);
+        
+        // Pular para a próxima área para evitar detectar o mesmo candle
+        x += candleWidth + 1;
       }
     }
     
-    if (topWick === -1 || bottomWick === -1 || bodyTop === -1 || bodyBottom === -1) {
-      return null;
-    }
+    // Filtrar candles sobrepostos
+    const filteredCandles = detectedCandles.filter((candle, index) => {
+      return !detectedCandles.some((other, otherIndex) => 
+        otherIndex !== index &&
+        Math.abs(candle.x - other.x) < 5 &&
+        other.confidence > candle.confidence
+      );
+    });
     
-    const totalHeight = bottomWick - topWick;
-    const bodyHeight = bodyBottom - bodyTop;
+    console.log(`✅ Detectados ${filteredCandles.length} candles válidos`);
     
-    if (totalHeight < 3 || bodyHeight < 1) {
-      return null;
-    }
+    return filteredCandles.slice(0, 50); // Limitar a 50 candles para performance
     
-    const structureConfidence = Math.min(1, (bodyHeight / totalHeight) + (colorConfidence / totalHeight));
-    const confidence = Math.max(0, Math.min(1, structureConfidence * 0.8));
-    
-    return {
-      x,
-      y: topWick,
-      width: candleWidth,
-      height: totalHeight,
-      bodyTop,
-      bodyBottom,
-      wickTop: topWick,
-      wickBottom: bottomWick,
-      color: candleColor,
-      confidence
-    };
   } catch (error) {
-    console.warn('⚠️ Erro na análise da coluna do candle:', error);
-    return null;
-  }
-};
-
-export const detectIndividualCandles = (imageData: ImageData, width: number, height: number, chartArea: ChartArea): DetectedCandle[] => {
-  try {
-    const data = imageData.data;
-    const candles: DetectedCandle[] = [];
-    
-    const candleWidth = Math.max(2, Math.floor(chartArea.width / 150));
-    const candleSpacing = candleWidth + 1;
-    
-    console.log(`🔍 Procurando candles com largura ${candleWidth}px...`);
-    
-    for (let x = chartArea.x; x < chartArea.x + chartArea.width - candleWidth; x += candleSpacing) {
-      try {
-        const candleData = analyzeCandleColumn(data, width, height, x, chartArea, candleWidth);
-        
-        if (candleData && candleData.confidence > 0.3) {
-          candles.push(candleData);
-        }
-      } catch (candleError) {
-        console.warn(`⚠️ Erro ao analisar coluna ${x}:`, candleError);
-        continue;
-      }
-    }
-    
-    console.log(`✅ ${candles.length} candles detectados com confiança > 30%`);
-    return candles.filter(c => c.confidence > 0.3);
-  } catch (error) {
-    console.error('❌ Erro na detecção de candles individuais:', error);
+    console.error('❌ Erro na detecção de candles:', error);
     toast({
       variant: "error",
-      title: "Erro na Detecção de Candles",
-      description: `Falha ao detectar os candles individuais: ${String(error)}`,
+      title: "Erro de Detecção de Candles",
+      description: `Falha ao detectar candles: ${String(error)}`,
     });
     return [];
   }
