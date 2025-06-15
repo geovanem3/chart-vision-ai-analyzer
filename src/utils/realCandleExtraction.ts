@@ -181,36 +181,30 @@ const detectPriceAxis = (imageData: ImageData, width: number, height: number, ch
   try {
     const axisX = chartArea.x + chartArea.width + 5;
 
-    // --- HEURISTIC APPROACH V2 ---
-    // This part is extremely challenging without proper OCR to read numbers.
-    // Instead of hardcoding a price range, we assume a typical price movement range
-    // for a certain number of candles on a 1-minute chart.
-    // THIS IS THE MAIN SOURCE OF INACCURACY and may need tuning for different assets or chart zooms.
-    // Example: Assume a 20-candle view on EUR/USD M1 spans ~25 pips (0.0025).
-    const assumedPriceRange = 0.0025;
-    const pixelPerPrice = chartArea.height > 0 ? chartArea.height / assumedPriceRange : 0;
-
-    // The anchor price is also a huge assumption. We'll use a common price for a major pair.
-    // For a robust solution, this would need to be detected from the screen.
-    const anchorPrice = 1.0850; // Anchor for EUR/USD example
-    const maxPrice = anchorPrice + (assumedPriceRange / 2);
-    const minPrice = anchorPrice - (assumedPriceRange / 2);
+    // --- HEURISTIC APPROACH V3: NORMALIZED PRICE SCALE ---
+    // This approach removes all assumptions about specific assets or price ranges.
+    // We create a normalized price scale from 0 to 1000 for readability.
+    // This makes the analysis robust and independent of the chart's zoom or asset.
+    const minPrice = 0;
+    const maxPrice = 1000;
+    
+    const pixelPerPrice = chartArea.height > 0 ? chartArea.height / (maxPrice - minPrice) : 0;
 
     if (pixelPerPrice <= 0 || !isFinite(pixelPerPrice)) {
       console.warn('⚠️ PixelPerPrice inválido, usando valor padrão de emergência');
       return {
-        minPrice: anchorPrice - 0.005,
-        maxPrice: anchorPrice + 0.005,
-        pixelPerPrice: chartArea.height / 0.01,
+        minPrice: 0,
+        maxPrice: 1000,
+        pixelPerPrice: chartArea.height > 0 ? chartArea.height / 1000 : 1,
         axisX
       };
     }
 
-    console.log(`Heurística de Eixo de Preço: Range Assumido=${assumedPriceRange}, Pixel/Preço=${pixelPerPrice.toFixed(2)}`);
+    console.log(`Eixo de Preço Normalizado: Range 0-1000, Pixel/Preço=${pixelPerPrice.toFixed(2)}`);
 
     return {
-      minPrice: minPrice,
-      maxPrice: maxPrice,
+      minPrice,
+      maxPrice,
       pixelPerPrice,
       axisX
     };
@@ -221,10 +215,11 @@ const detectPriceAxis = (imageData: ImageData, width: number, height: number, ch
       title: "Erro de Detecção de Eixo",
       description: `Falha ao detectar o eixo de preços: ${String(error)}`,
     });
+    // Return a safe default
     return {
-      minPrice: 1.0900,
-      maxPrice: 1.1000,
-      pixelPerPrice: chartArea.height > 0 ? chartArea.height / 0.01 : 1,
+      minPrice: 0,
+      maxPrice: 1000,
+      pixelPerPrice: chartArea.height > 0 ? chartArea.height / 1000 : 1,
       axisX: chartArea.x + chartArea.width
     };
   }
@@ -421,17 +416,17 @@ const convertToOHLCData = (
         const finalHigh = Math.max(openPrice, closePrice, highPrice);
         const finalLow = Math.min(openPrice, closePrice, lowPrice);
         
-        if (finalLow <= 0 || finalHigh <= finalLow || openPrice <= 0 || closePrice <= 0) {
+        if (finalLow < 0 || finalHigh <= finalLow || openPrice < 0 || closePrice < 0) {
           throw new Error('Valores OHLC inválidos calculados');
         }
         
         const candleColor: 'verde' | 'vermelho' = (candle.color === 'green' || candle.color === 'white') ? 'verde' : 'vermelho';
         
         return {
-          open: parseFloat(openPrice.toFixed(5)),
-          high: parseFloat(finalHigh.toFixed(5)),
-          low: parseFloat(finalLow.toFixed(5)),
-          close: parseFloat(closePrice.toFixed(5)),
+          open: parseFloat(openPrice.toFixed(2)),
+          high: parseFloat(finalHigh.toFixed(2)),
+          low: parseFloat(finalLow.toFixed(2)),
+          close: parseFloat(closePrice.toFixed(2)),
           timestamp: Date.now() - (detectedCandles.length - index) * 60000,
           position: {
             x: candle.x,
@@ -446,7 +441,7 @@ const convertToOHLCData = (
     }).filter((candle): candle is NonNullable<typeof candle> => {
         if (candle === null) return false;
         // Validação mais estrita dos dados do candle
-        return candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
+        return candle.open >= 0 && candle.high >= 0 && candle.low >= 0 && candle.close >= 0 &&
              candle.high >= Math.max(candle.open, candle.close) &&
              candle.low <= Math.min(candle.open, candle.close);
     });

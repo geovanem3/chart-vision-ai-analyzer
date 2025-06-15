@@ -1,4 +1,3 @@
-
 import { CandleData, VolatilityData } from "../context/AnalyzerContext";
 
 export const analyzeVolatility = (candles: CandleData[]): VolatilityData => {
@@ -40,7 +39,7 @@ export const analyzeVolatility = (candles: CandleData[]): VolatilityData => {
     trend: trend,
     atr: atr,
     percentageRange: parseFloat(volatilityPercentage.toFixed(2)),
-    isHigh: volatilityPercentage > 0.15, // Adjusted threshold for M1 charts
+    isHigh: volatilityPercentage > 1.5, // Adjusted threshold for normalized price scale
     historicalComparison: 'average', // This remains a heuristic without longer-term data
     impliedVolatility: parseFloat(impliedVolatility.toFixed(2))
   };
