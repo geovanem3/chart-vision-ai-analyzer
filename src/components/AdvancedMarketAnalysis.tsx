@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -57,10 +56,13 @@ const AdvancedMarketAnalysis = () => {
   // Verificar o timeframe
   if (timeframe !== '1m') return null;
 
-  // Safe access to pattern data
+  // Usar dados reais da análise ao invés de simulados
   const patterns = analysisResults.patterns || [];
-  const isUptrend = patterns.some(p => p.action === 'compra' && p.confidence > 0.65);
-  const isDowntrend = patterns.some(p => p.action === 'venda' && p.confidence > 0.65);
+  const buyPatterns = patterns.filter(p => p.action === 'compra' && p.confidence > 0.6);
+  const sellPatterns = patterns.filter(p => p.action === 'venda' && p.confidence > 0.6);
+  
+  const isUptrend = buyPatterns.length > 0;
+  const isDowntrend = sellPatterns.length > 0;
   
   // Safe access to enhanced market context
   const marketContext = analysisResults.marketContext || {};
@@ -98,7 +100,7 @@ const AdvancedMarketAnalysis = () => {
   
   const entryMinute = preciseEntryAnalysis.exactMinute || 'pendente';
   
-  // Ultra quick entry decision with market conditions consideration
+  // Ultra quick entry decision with real pattern data
   const quickEntrySignal = () => {
     // Se as condições são muito ruins, não dar sinal
     if (operatingScore < 30 || advancedConditions?.recommendation === 'nao_operar') {
@@ -117,7 +119,10 @@ const AdvancedMarketAnalysis = () => {
     }
     
     if (isUptrend && operatingScore >= 40) {
-      const adjustedConfidence = Math.round(confidenceReduction * 100);
+      const strongestBuyPattern = buyPatterns.reduce((prev, current) => 
+        (current.confidence > prev.confidence) ? current : prev
+      );
+      const adjustedConfidence = Math.round(strongestBuyPattern.confidence * confidenceReduction * 100);
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
@@ -129,11 +134,16 @@ const AdvancedMarketAnalysis = () => {
             <CircleArrowUp className={`h-7 w-7 animate-pulse ${
               operatingScore >= 60 ? 'text-green-500' : 'text-yellow-600'
             }`} />
-            <span className={`font-bold text-xl ${
-              operatingScore >= 60 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
-            }`}>
-              COMPRAR {operatingScore < 60 ? '(CAUTELOSO)' : ''}
-            </span>
+            <div>
+              <span className={`font-bold text-xl ${
+                operatingScore >= 60 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
+              }`}>
+                COMPRAR {operatingScore < 60 ? '(CAUTELOSO)' : ''}
+              </span>
+              <div className="text-xs opacity-80">
+                {strongestBuyPattern.type.toUpperCase()} - {strongestBuyPattern.description}
+              </div>
+            </div>
           </div>
           <div className="text-right">
             <div className="font-mono text-sm">{entryMinute}</div>
@@ -144,7 +154,10 @@ const AdvancedMarketAnalysis = () => {
     }
     
     if (isDowntrend && operatingScore >= 40) {
-      const adjustedConfidence = Math.round(confidenceReduction * 100);
+      const strongestSellPattern = sellPatterns.reduce((prev, current) => 
+        (current.confidence > prev.confidence) ? current : prev
+      );
+      const adjustedConfidence = Math.round(strongestSellPattern.confidence * confidenceReduction * 100);
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
@@ -156,11 +169,16 @@ const AdvancedMarketAnalysis = () => {
             <CircleArrowDown className={`h-7 w-7 animate-pulse ${
               operatingScore >= 60 ? 'text-red-500' : 'text-yellow-600'
             }`} />
-            <span className={`font-bold text-xl ${
-              operatingScore >= 60 ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'
-            }`}>
-              VENDER {operatingScore < 60 ? '(CAUTELOSO)' : ''}
-            </span>
+            <div>
+              <span className={`font-bold text-xl ${
+                operatingScore >= 60 ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'
+              }`}>
+                VENDER {operatingScore < 60 ? '(CAUTELOSO)' : ''}
+              </span>
+              <div className="text-xs opacity-80">
+                {strongestSellPattern.type.toUpperCase()} - {strongestSellPattern.description}
+              </div>
+            </div>
           </div>
           <div className="text-right">
             <div className="font-mono text-sm">{entryMinute}</div>
@@ -239,11 +257,33 @@ const AdvancedMarketAnalysis = () => {
         </span>
       </h3>
       
-      {/* Clear entry signal with market conditions consideration */}
+      {/* Clear entry signal with real pattern data */}
       {quickEntrySignal()}
       
       {/* Advanced market conditions awareness */}
       {marketConditionsDisplay()}
+      
+      {/* Real patterns detected - show actual patterns found by AI */}
+      {patterns.length > 0 && (
+        <div className="mt-3 p-3 border rounded-lg bg-muted/30">
+          <h4 className="text-sm font-semibold mb-2">Padrões Detectados pela IA:</h4>
+          <div className="space-y-1">
+            {patterns.slice(0, 3).map((pattern, index) => (
+              <div key={index} className="flex justify-between items-center text-xs">
+                <span className={`font-medium ${
+                  pattern.action === 'compra' ? 'text-green-600' : 
+                  pattern.action === 'venda' ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {pattern.type.toUpperCase()} - {pattern.action.toUpperCase()}
+                </span>
+                <span className="text-muted-foreground">
+                  {Math.round(pattern.confidence * 100)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Technical details - only if comprehensive analysis selected */}
       {marketAnalysisDepth === 'comprehensive' && analysisResults.volumeData && analysisResults.volatilityData && (
