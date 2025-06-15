@@ -1,5 +1,5 @@
-
 import { CandleData } from "../context/AnalyzerContext";
+import { toast } from "@/hooks/use-toast";
 
 interface DetectedCandle {
   x: number;
@@ -28,6 +28,11 @@ export const extractRealCandlesFromImage = async (imageData: string): Promise<Ca
     try {
       if (!imageData || imageData.length === 0) {
         console.error('❌ ImageData inválido ou vazio');
+        toast({
+          variant: "error",
+          title: "Erro de Imagem",
+          description: "A imagem de entrada está vazia ou inválida.",
+        });
         resolve([]);
         return;
       }
@@ -45,6 +50,11 @@ export const extractRealCandlesFromImage = async (imageData: string): Promise<Ca
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             console.error('❌ Falha ao criar contexto canvas');
+            toast({
+              variant: "error",
+              title: "Erro de Contexto Canvas",
+              description: "Não foi possível criar o contexto de desenho do canvas.",
+            });
             resolve([]);
             return;
           }
@@ -73,24 +83,44 @@ export const extractRealCandlesFromImage = async (imageData: string): Promise<Ca
           resolve(candleData);
         } catch (processError) {
           console.error('❌ Erro no processamento da imagem:', processError);
+          toast({
+            variant: "error",
+            title: "Erro de Processamento",
+            description: `Falha ao processar a imagem do gráfico: ${String(processError)}`,
+          });
           resolve([]);
         }
       };
       
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem:', error);
+        toast({
+          variant: "error",
+          title: "Erro de Imagem",
+          description: `Não foi possível carregar a imagem para análise: ${String(error)}`,
+        });
         resolve([]);
       };
       
       // Timeout de segurança
       setTimeout(() => {
         console.warn('⚠️ Timeout na extração de candles');
+        toast({
+          variant: "warning",
+          title: "Timeout na Análise",
+          description: "A extração de candles demorou demais e foi interrompida.",
+        });
         resolve([]);
       }, 10000);
       
       img.src = imageData;
     } catch (error) {
       console.error('❌ ERRO CRÍTICO na extração:', error);
+      toast({
+        variant: "error",
+        title: "Erro Crítico na Extração",
+        description: `Ocorreu um erro inesperado: ${String(error)}`,
+      });
       resolve([]);
     }
   });
@@ -138,6 +168,11 @@ const detectChartArea = (imageData: ImageData, width: number, height: number) =>
     return { x: chartX, y: chartY, width: chartWidth, height: chartHeight };
   } catch (error) {
     console.error('❌ Erro na detecção da área do gráfico:', error);
+    toast({
+      variant: "error",
+      title: "Erro de Detecção de Área",
+      description: `Falha ao detectar a área do gráfico: ${String(error)}`,
+    });
     return { x: 0, y: 0, width, height };
   }
 };
@@ -169,6 +204,11 @@ const detectPriceAxis = (imageData: ImageData, width: number, height: number, ch
     };
   } catch (error) {
     console.error('❌ Erro na detecção do eixo de preços:', error);
+    toast({
+      variant: "error",
+      title: "Erro de Detecção de Eixo",
+      description: `Falha ao detectar o eixo de preços: ${String(error)}`,
+    });
     return {
       minPrice: 1.0900,
       maxPrice: 1.1000,
@@ -205,6 +245,11 @@ const detectIndividualCandles = (imageData: ImageData, width: number, height: nu
     return candles.filter(c => c.confidence > 0.3);
   } catch (error) {
     console.error('❌ Erro na detecção de candles individuais:', error);
+    toast({
+      variant: "error",
+      title: "Erro na Detecção de Candles",
+      description: `Falha ao detectar os candles individuais: ${String(error)}`,
+    });
     return [];
   }
 };
@@ -393,6 +438,11 @@ const convertToOHLCData = (
 
   } catch (error) {
     console.error('❌ Erro na conversão para OHLC:', error);
+    toast({
+      variant: "error",
+      title: "Erro de Conversão OHLC",
+      description: `Falha ao converter os dados para OHLC: ${String(error)}`,
+    });
     return [];
   }
 };
