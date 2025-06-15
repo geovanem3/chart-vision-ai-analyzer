@@ -49,6 +49,8 @@ const LiveAnalysis = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [analysisStatus, setAnalysisStatus] = useState<string | null>(null); // NOVO ESTADO para feedback
+  const [isChartLost, setIsChartLost] = useState(false); // NOVO ESTADO para gráfico perdido
   const [confluenceDetails, setConfluenceDetails] = useState<any>(null);
   const [showConfluenceDetails, setShowConfluenceDetails] = useState(false);
   const [priceActionDetails, setPriceActionDetails] = useState<any>(null);
@@ -197,6 +199,7 @@ const LiveAnalysis = () => {
 
     try {
       setIsAnalyzing(true);
+      setAnalysisStatus('Capturando frame...');
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -213,30 +216,33 @@ const LiveAnalysis = () => {
       // Converter para base64
       const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
       
-      // Verificar se há um gráfico visível na tela
+      setAnalysisStatus('Detectando gráfico...');
       const hasChart = await detectChartInFrame(imageUrl);
       setIsChartVisible(hasChart);
       
       if (!hasChart) {
         console.log('📊 Nenhum gráfico detectado na tela');
         setDetectionFailureCount(prev => prev + 1);
+        setIsChartLost(true); // Informa a UI que o gráfico foi perdido
 
-        // Limpar a análise apenas se a falha for persistente
-        if (detectionFailureCount > 3) {
-            console.log('🚫 Falha persistente na detecção. Limpando análise atual.');
+        // Limpar a análise apenas se a falha for MUITO persistente
+        if (detectionFailureCount > 5) { // Limite aumentado para 5
+            console.log('🚫 Falha muito persistente na detecção. Limpando análise atual.');
             setCurrentAnalysis(null);
         }
+        setAnalysisStatus('Gráfico não encontrado. Aponte a câmera.');
         return;
       }
       
-      // Se o gráfico for detectado, reseta o contador de falhas
+      // Se o gráfico for detectado, reseta os contadores
       setDetectionFailureCount(0);
+      setIsChartLost(false);
       console.log('✅ Gráfico detectado! Iniciando análise completa com tracking...');
       
-      // Melhorar imagem para análise
+      setAnalysisStatus('Otimizando imagem...');
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
       
-      // Analisar com todas as funcionalidades ativadas
+      setAnalysisStatus('Analisando gráfico...');
       const analysisResult = await analyzeChart(enhancedImageUrl, {
         timeframe: '1m',
         optimizeForScalping: true,
@@ -252,7 +258,7 @@ const LiveAnalysis = () => {
         enableMarketContext: true
       });
 
-      // NOVA INTEGRAÇÃO: Validação temporal
+      setAnalysisStatus('Validando timing...');
       let temporalValidation: TemporalValidation | undefined;
       let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
       
@@ -287,7 +293,7 @@ const LiveAnalysis = () => {
         console.log(`⏰ Validação Temporal: ${temporalValidation.reasoning}`);
       }
 
-      // SISTEMA COMPLETO: Tracking + M1 Context integrados
+      setAnalysisStatus('Consolidando decisão...');
       const intelligentDecision: FinalDecision = trackAllAnalysisComponents(
         analysisResult,
         temporalValidation
@@ -384,6 +390,7 @@ const LiveAnalysis = () => {
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]); // Manter últimos 20 resultados
+      setAnalysisStatus(null); // Limpa o status no sucesso
 
       // Atualizar estatísticas
       setAnalysisStats(prev => ({
@@ -430,6 +437,7 @@ const LiveAnalysis = () => {
 
     } catch (error) {
       console.error('❌ Erro na análise em tempo real:', error);
+      setAnalysisStatus('Ocorreu um erro na análise.'); // Mensagem de erro
       setDetectionFailureCount(prev => prev + 1); // Incrementar em caso de erro também
     } finally {
       setIsAnalyzing(false);
@@ -464,6 +472,9 @@ const LiveAnalysis = () => {
     stopCamera();
     setCurrentAnalysis(null);
     setIsChartVisible(false);
+    setAnalysisStatus(null);
+    setIsChartLost(false);
+    setDetectionFailureCount(0);
 
     toast({
       variant: "default",
@@ -603,11 +614,11 @@ const LiveAnalysis = () => {
         />
         
         {isAnalyzing && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <div className="text-white text-center">
               <Activity className="animate-spin h-8 w-8 mx-auto mb-2" />
-              <p className="text-sm">
-                {isChartVisible ? 'Analisando com IA + Validação Temporal...' : 'Procurando gráfico...'}
+              <p className="text-sm font-medium">
+                {analysisStatus || 'Analisando...'}
               </p>
             </div>
           </div>
@@ -628,12 +639,18 @@ const LiveAnalysis = () => {
 
         {currentAnalysis && (
           <motion.div 
-            className="absolute top-4 left-4 right-4"
+            className={`absolute top-4 left-4 right-4 transition-opacity duration-300 ${isChartLost ? 'opacity-60' : 'opacity-100'}`}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="bg-black/90 border-amber-200">
+            {isChartLost && (
+              <div className="text-center text-yellow-300 bg-black/80 p-1 rounded-t-lg text-xs flex items-center justify-center">
+                <AlertTriangle className="h-3 w-3 mr-1.5" />
+                Sinal pode estar desatualizado. Procurando gráfico...
+              </div>
+            )}
+            <Card className={`bg-black/90 border-amber-200 ${isChartLost ? 'rounded-t-none' : ''}`}>
               <CardContent className="p-3">
                 <div className="flex items-center justify-between text-white mb-2">
                   <div>
