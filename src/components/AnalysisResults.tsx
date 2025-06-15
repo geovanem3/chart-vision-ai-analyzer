@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,27 +12,7 @@ const AnalysisResults = () => {
 
   console.log('🔍 AnalysisResults - Estado atual:', { analysisResults, isAnalyzing });
 
-  // PROTEÇÃO CORRIGIDA: Só retorna mensagem se NÃO está analisando E não tem resultados
-  if (!analysisResults && !isAnalyzing) {
-    console.log('⚠️ AnalysisResults - Nenhum resultado e não está analisando');
-    return (
-      <div className="text-center p-4">
-        <p className="text-muted-foreground">Nenhum resultado de análise disponível.</p>
-      </div>
-    );
-  }
-
-  // Se está analisando mas ainda não tem resultados, mostra estado de carregamento
-  if (isAnalyzing && !analysisResults) {
-    console.log('📊 AnalysisResults - Analisando, aguardando resultados...');
-    return (
-      <div className="text-center p-4">
-        <p className="text-muted-foreground">Analisando gráfico...</p>
-      </div>
-    );
-  }
-
-  // PROTEÇÃO: Extrair dados com fallbacks seguros (só se tiver analysisResults)
+  // SIMPLIFICADO: Sempre extrair dados com fallbacks seguros
   const patterns = analysisResults?.patterns && Array.isArray(analysisResults.patterns) ? analysisResults.patterns : [];
   const marketContext = analysisResults?.marketContext || null;
   const volumeData = analysisResults?.volumeData || null;
@@ -45,13 +24,28 @@ const AnalysisResults = () => {
     hasMarketContext: !!marketContext,
     hasVolumeData: !!volumeData,
     hasVolatilityData: !!volatilityData,
-    hasMasterAnalysis: !!masterAnalysis
+    hasMasterAnalysis: !!masterAnalysis,
+    isAnalyzing
   });
+
+  // MOSTRAR SEMPRE - mesmo que vazio
+  const showContent = patterns.length > 0 || marketContext || volumeData || volatilityData || masterAnalysis;
 
   // Mobile-specific structure
   if (isMobile) {
     return (
       <div className="space-y-3 w-full overflow-hidden">
+        {/* Estado de carregamento */}
+        {isAnalyzing && (
+          <Card className="w-full">
+            <CardContent className="pt-4">
+              <div className="text-center">
+                <p className="text-muted-foreground">🔍 Analisando gráfico...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Patterns Section - Mobile Layout */}
         {patterns.length > 0 && (
           <Card className="w-full">
@@ -205,14 +199,14 @@ const AnalysisResults = () => {
           </Card>
         )}
 
-        {/* Warning if no data and not analyzing - Mobile */}
-        {patterns.length === 0 && !masterAnalysis && !isAnalyzing && (
+        {/* Mensagem quando não há dados E não está analisando */}
+        {!showContent && !isAnalyzing && (
           <Card className="border-yellow-200 bg-yellow-50 w-full">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 text-yellow-800">
                 <AlertTriangle className="h-4 w-4" />
                 <span className="text-xs">
-                  Nenhum padrão identificado na região selecionada.
+                  Nenhum resultado disponível. Capture uma nova região do gráfico.
                 </span>
               </div>
             </CardContent>
@@ -222,9 +216,20 @@ const AnalysisResults = () => {
     );
   }
 
-  // Desktop Layout - REUSING the same variables declared above
+  // Desktop Layout
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
+      {/* Estado de carregamento */}
+      {isAnalyzing && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className="text-muted-foreground">🔍 Analisando gráfico...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Patterns Section - COM PROTEÇÃO */}
       {patterns.length > 0 && (
         <Card>
@@ -398,13 +403,13 @@ const AnalysisResults = () => {
         </div>
       )}
 
-      {patterns.length === 0 && !masterAnalysis && !isAnalyzing && (
+      {!showContent && !isAnalyzing && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-800">
               <AlertTriangle className="h-4 w-4" />
               <span className="text-sm">
-                Nenhum padrão significativo foi identificado na região selecionada.
+                Nenhum resultado disponível. Capture uma nova região do gráfico.
               </span>
             </div>
           </CardContent>
