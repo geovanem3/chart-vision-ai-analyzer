@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from 'react';
 
 export interface CandleData {
@@ -116,9 +115,13 @@ export interface SelectedRegion {
   y: number;
   width: number;
   height: number;
+  type?: 'rectangle' | 'circle';
+  radius?: number;
+  centerX?: number;
+  centerY?: number;
 }
 
-export type MarkupToolType = 'line' | 'rectangle' | 'circle' | 'label' | 'arrow';
+export type MarkupToolType = 'line' | 'rectangle' | 'circle' | 'label' | 'arrow' | 'trendline' | 'eliotwave' | 'dowtheory';
 
 export interface EnhancedMarketContext {
   phase: string;
