@@ -1,17 +1,17 @@
+
 /**
  * Sistema de captura automática de tela para análise em tempo real
+ * Modo completamente automático e independente
  */
 
 import { analyzeChart } from './patternDetection';
-import { validateTemporalEntry, calculateEntryTiming } from './temporalEntryValidation';
-import { trackAllAnalysisComponents, logAnalysisDecision } from './analysisTracker';
 
 export interface AutoCaptureConfig {
-  intervalMs: number; // Intervalo em milissegundos
-  maxCapturesPerSecond: number; // Limite de capturas por segundo
-  analysisTimeout: number; // Timeout para análise
-  deleteAfterAnalysis: boolean; // Apagar imagem após análise
-  enableAutoEntry: boolean; // Habilitar entradas automáticas
+  intervalMs: number;
+  enableContinuousCapture: boolean;
+  enableBackgroundAnalysis: boolean;
+  maxCapturesPerMinute: number;
+  autoDeleteImages: boolean;
 }
 
 export interface CaptureResult {
@@ -21,247 +21,350 @@ export interface CaptureResult {
   patterns: string[];
   shouldEnter: boolean;
   reasoning: string[];
+  priceData?: {
+    current: number;
+    support: number;
+    resistance: number;
+  };
 }
 
 class AutoScreenCaptureSystem {
-  private isCapturing = false;
+  private isRunning = false;
   private captureInterval: NodeJS.Timeout | null = null;
-  private lastCaptureTime = 0;
+  private backgroundAnalysisInterval: NodeJS.Timeout | null = null;
   private config: AutoCaptureConfig;
   private onResultCallback?: (result: CaptureResult) => void;
+  private captureStream: MediaStream | null = null;
+  private videoElement: HTMLVideoElement | null = null;
+  private canvas: HTMLCanvasElement | null = null;
+  private context: CanvasRenderingContext2D | null = null;
+  private lastCaptureTime = 0;
+  private analysisQueue: string[] = [];
+  private isAnalyzing = false;
 
   constructor(config: AutoCaptureConfig) {
     this.config = config;
+    this.initializeCapture();
   }
 
-  // Iniciar captura automática
-  start(onResult?: (result: CaptureResult) => void) {
-    if (this.isCapturing) {
-      console.warn('Sistema de captura já está ativo');
-      return;
+  // Inicializar sistema de captura
+  private async initializeCapture() {
+    try {
+      console.log('🔧 Inicializando sistema de captura...');
+      
+      // Criar elementos necessários
+      this.canvas = document.createElement('canvas');
+      this.context = this.canvas.getContext('2d');
+      this.videoElement = document.createElement('video');
+      this.videoElement.autoplay = true;
+      this.videoElement.muted = true;
+      
+      console.log('✅ Sistema de captura inicializado');
+    } catch (error) {
+      console.error('❌ Erro ao inicializar captura:', error);
+    }
+  }
+
+  // Iniciar captura contínua
+  async startContinuousCapture(onResult?: (result: CaptureResult) => void) {
+    if (this.isRunning) {
+      console.warn('⚠️ Sistema já está rodando');
+      return false;
     }
 
-    this.onResultCallback = onResult;
-    this.isCapturing = true;
-    
-    console.log(`🤖 Iniciando captura automática - ${this.config.intervalMs}ms`);
-    
+    try {
+      console.log('🚀 Iniciando captura contínua...');
+      
+      // Solicitar permissão de tela
+      await this.requestScreenPermission();
+      
+      this.onResultCallback = onResult;
+      this.isRunning = true;
+      
+      // Iniciar captura em intervalos
+      this.startCaptureLoop();
+      
+      // Iniciar análise em segundo plano
+      if (this.config.enableBackgroundAnalysis) {
+        this.startBackgroundAnalysis();
+      }
+      
+      console.log(`✅ Captura contínua ativa - ${this.config.intervalMs}ms`);
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Erro ao iniciar captura contínua:', error);
+      return false;
+    }
+  }
+
+  // Solicitar permissão de tela
+  private async requestScreenPermission() {
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error('Screen Capture API não disponível');
+      }
+
+      this.captureStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 60 }
+        },
+        audio: false
+      });
+
+      if (this.videoElement && this.captureStream) {
+        this.videoElement.srcObject = this.captureStream;
+        
+        // Aguardar vídeo carregar
+        await new Promise((resolve) => {
+          if (this.videoElement) {
+            this.videoElement.onloadedmetadata = resolve;
+          }
+        });
+
+        // Configurar canvas com dimensões do vídeo
+        if (this.canvas && this.videoElement) {
+          this.canvas.width = this.videoElement.videoWidth;
+          this.canvas.height = this.videoElement.videoHeight;
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao solicitar permissão:', error);
+      throw error;
+    }
+  }
+
+  // Loop de captura
+  private startCaptureLoop() {
     this.captureInterval = setInterval(() => {
-      this.performCapture();
+      this.performQuickCapture();
     }, this.config.intervalMs);
-
-    return true;
   }
 
-  // Parar captura automática
-  stop() {
-    if (this.captureInterval) {
-      clearInterval(this.captureInterval);
-      this.captureInterval = null;
-    }
-    
-    this.isCapturing = false;
-    console.log('⏹️ Sistema de captura parado');
-  }
-
-  // Realizar captura e análise
-  private async performCapture() {
+  // Captura rápida
+  private performQuickCapture() {
     const now = Date.now();
     
-    // Verificar limite de capturas por segundo
-    if (now - this.lastCaptureTime < (1000 / this.config.maxCapturesPerSecond)) {
+    // Controle de limite
+    if (now - this.lastCaptureTime < (60000 / this.config.maxCapturesPerMinute)) {
       return;
     }
 
     this.lastCaptureTime = now;
 
     try {
-      // Capturar tela
-      const screenshot = await this.captureScreen();
-      if (!screenshot) return;
-
-      console.log(`📸 Screenshot capturado - ${now}`);
-
-      // Analisar imediatamente
-      const analysisResult = await this.analyzeScreenshot(screenshot);
-      
-      // Apagar imagem se configurado
-      if (this.config.deleteAfterAnalysis) {
-        this.cleanupScreenshot(screenshot);
+      if (!this.videoElement || !this.canvas || !this.context) {
+        console.warn('⚠️ Elementos de captura não inicializados');
+        return;
       }
-
-      // Enviar resultado
-      if (this.onResultCallback && analysisResult) {
-        this.onResultCallback(analysisResult);
-      }
-
-    } catch (error) {
-      console.error('❌ Erro na captura automática:', error);
-    }
-  }
-
-  // Capturar tela usando Screen Capture API
-  private async captureScreen(): Promise<string | null> {
-    try {
-      // Verificar se Screen Capture API está disponível
-      if (!navigator.mediaDevices?.getDisplayMedia) {
-        console.warn('Screen Capture API não disponível');
-        return null;
-      }
-
-      // Capturar tela - usando a API correta
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 }
-        },
-        audio: false
-      });
-
-      // Criar vídeo element para capturar frame
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.muted = true;
-
-      // Aguardar vídeo carregar
-      await new Promise((resolve) => {
-        video.onloadedmetadata = resolve;
-      });
 
       // Capturar frame atual
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      this.context.drawImage(this.videoElement, 0, 0);
+      const imageData = this.canvas.toDataURL('image/jpeg', 0.7);
       
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Falha ao criar contexto canvas');
-
-      ctx.drawImage(video, 0, 0);
-
-      // Parar stream
-      stream.getTracks().forEach(track => track.stop());
-
-      // Converter para base64
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
+      console.log(`📸 Captura rápida realizada - ${new Date(now).toLocaleTimeString()}`);
       
-      return imageData;
+      // Adicionar à fila de análise
+      if (this.config.enableBackgroundAnalysis) {
+        this.analysisQueue.push(imageData);
+        
+        // Limitar fila para evitar acúmulo
+        if (this.analysisQueue.length > 5) {
+          this.analysisQueue.shift();
+        }
+      } else {
+        // Análise imediata
+        this.analyzeImageData(imageData);
+      }
 
     } catch (error) {
-      console.error('❌ Erro ao capturar tela:', error);
-      return null;
+      console.error('❌ Erro na captura rápida:', error);
     }
   }
 
-  // Analisar screenshot capturado
-  private async analyzeScreenshot(imageData: string): Promise<CaptureResult | null> {
+  // Análise em segundo plano
+  private startBackgroundAnalysis() {
+    this.backgroundAnalysisInterval = setInterval(() => {
+      if (!this.isAnalyzing && this.analysisQueue.length > 0) {
+        const imageData = this.analysisQueue.shift();
+        if (imageData) {
+          this.analyzeImageData(imageData);
+        }
+      }
+    }, 100); // Verificar fila a cada 100ms
+  }
+
+  // Analisar dados da imagem
+  private async analyzeImageData(imageData: string) {
+    if (this.isAnalyzing) return;
+    
+    this.isAnalyzing = true;
+    
     try {
-      const analysisStart = Date.now();
+      console.log('🔍 Iniciando análise em segundo plano...');
       
-      // Analisar com timeout
-      const analysisPromise = analyzeChart(imageData, {
+      const analysisResult = await analyzeChart(imageData, {
         timeframe: '1m',
         optimizeForScalping: true,
         enableCandleDetection: true,
         isLiveAnalysis: true,
         useConfluences: true,
-        enableIntelligentAnalysis: true
+        enableIntelligentAnalysis: true,
+        enableRealCandleExtraction: true
       });
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Análise timeout')), this.config.analysisTimeout)
-      );
+      if (analysisResult) {
+        const result = this.processAnalysisResult(analysisResult);
+        
+        if (this.onResultCallback && result) {
+          this.onResultCallback(result);
+        }
+        
+        console.log(`✅ Análise concluída: ${result?.signal || 'neutro'} (${Math.round((result?.confidence || 0) * 100)}%)`);
+      }
 
-      const analysisResult = await Promise.race([analysisPromise, timeoutPromise]) as any;
-      
-      const analysisTime = Date.now() - analysisStart;
-      console.log(`⚡ Análise concluída em ${analysisTime}ms`);
+      // Auto-deletar imagem
+      if (this.config.autoDeleteImages) {
+        this.cleanupImageData(imageData);
+      }
 
-      if (!analysisResult) return null;
+    } catch (error) {
+      console.error('❌ Erro na análise:', error);
+    } finally {
+      this.isAnalyzing = false;
+    }
+  }
 
-      // Extrair sinal principal
-      let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
+  // Processar resultado da análise
+  private processAnalysisResult(analysisResult: any): CaptureResult | null {
+    try {
+      let signal: 'compra' | 'venda' | 'neutro' = 'neutro';
       let confidence = 0;
       let patterns: string[] = [];
       let reasoning: string[] = [];
+      let priceData: any = null;
 
       // Usar análise inteligente se disponível
       if (analysisResult.intelligentAnalysis) {
-        mainSignal = analysisResult.intelligentAnalysis.overallSignal;
+        signal = analysisResult.intelligentAnalysis.overallSignal;
         confidence = analysisResult.intelligentAnalysis.confidence / 100;
         patterns = analysisResult.intelligentAnalysis.patterns?.map((p: any) => p.pattern) || [];
         reasoning = analysisResult.intelligentAnalysis.reasoning || [];
-      } else {
+      } else if (analysisResult.patterns?.length > 0) {
         // Fallback para padrões tradicionais
-        const validPatterns = analysisResult.patterns?.filter((p: any) => p.action !== 'neutro') || [];
+        const validPatterns = analysisResult.patterns.filter((p: any) => p.action !== 'neutro');
         if (validPatterns.length > 0) {
           const strongest = validPatterns.reduce((prev: any, current: any) => 
             current.confidence > prev.confidence ? current : prev
           );
-          mainSignal = strongest.action;
+          signal = strongest.action;
           confidence = strongest.confidence;
           patterns = validPatterns.map((p: any) => p.type);
         }
       }
 
-      // Validação temporal
-      const shouldEnter = mainSignal !== 'neutro' && confidence > 0.7;
+      // Extrair dados de preço se disponível
+      if (analysisResult.candleData?.length > 0) {
+        const lastCandle = analysisResult.candleData[analysisResult.candleData.length - 1];
+        priceData = {
+          current: lastCandle.close,
+          support: Math.min(...analysisResult.candleData.slice(-10).map((c: any) => c.low)),
+          resistance: Math.max(...analysisResult.candleData.slice(-10).map((c: any) => c.high))
+        };
+      }
 
       return {
         timestamp: Date.now(),
-        signal: mainSignal,
+        signal,
         confidence,
         patterns,
-        shouldEnter: shouldEnter && this.config.enableAutoEntry,
-        reasoning
+        shouldEnter: signal !== 'neutro' && confidence > 0.75,
+        reasoning,
+        priceData
       };
 
     } catch (error) {
-      console.error('❌ Erro na análise do screenshot:', error);
+      console.error('❌ Erro ao processar resultado:', error);
       return null;
     }
   }
 
-  // Limpar screenshot da memória
-  private cleanupScreenshot(imageData: string) {
-    // Liberar URL object se necessário
+  // Limpar dados da imagem
+  private cleanupImageData(imageData: string) {
     if (imageData.startsWith('blob:')) {
       URL.revokeObjectURL(imageData);
     }
-    // Log para confirmar limpeza
-    console.log('🗑️ Screenshot removido da memória');
+    // Forçar garbage collection se possível
+    if (window.gc) {
+      window.gc();
+    }
   }
 
-  // Verificar se está capturando
+  // Parar captura
+  stop() {
+    console.log('⏹️ Parando sistema de captura...');
+    
+    this.isRunning = false;
+    
+    if (this.captureInterval) {
+      clearInterval(this.captureInterval);
+      this.captureInterval = null;
+    }
+    
+    if (this.backgroundAnalysisInterval) {
+      clearInterval(this.backgroundAnalysisInterval);
+      this.backgroundAnalysisInterval = null;
+    }
+    
+    if (this.captureStream) {
+      this.captureStream.getTracks().forEach(track => track.stop());
+      this.captureStream = null;
+    }
+    
+    // Limpar fila
+    this.analysisQueue = [];
+    this.isAnalyzing = false;
+    
+    console.log('✅ Sistema parado');
+  }
+
+  // Verificar se está rodando
   isActive(): boolean {
-    return this.isCapturing;
+    return this.isRunning;
   }
 
   // Atualizar configuração
   updateConfig(newConfig: Partial<AutoCaptureConfig>) {
     this.config = { ...this.config, ...newConfig };
-    
-    // Reiniciar se estiver ativo
-    if (this.isCapturing) {
-      this.stop();
-      setTimeout(() => this.start(this.onResultCallback), 100);
-    }
+    console.log('⚙️ Configuração atualizada:', this.config);
+  }
+
+  // Obter estatísticas
+  getStats() {
+    return {
+      isRunning: this.isRunning,
+      queueSize: this.analysisQueue.length,
+      isAnalyzing: this.isAnalyzing,
+      lastCapture: this.lastCaptureTime
+    };
   }
 }
 
-// Instância global do sistema
+// Instância global otimizada
 export const autoCapture = new AutoScreenCaptureSystem({
-  intervalMs: 500, // 500ms = 2 capturas por segundo
-  maxCapturesPerSecond: 3,
-  analysisTimeout: 2000, // 2 segundos timeout
-  deleteAfterAnalysis: true,
-  enableAutoEntry: false // Desabilitado por padrão
+  intervalMs: 250, // 4 capturas por segundo
+  enableContinuousCapture: true,
+  enableBackgroundAnalysis: true,
+  maxCapturesPerMinute: 240, // 4 por segundo
+  autoDeleteImages: true
 });
 
 // Funções de conveniência
 export const startAutoCapture = (onResult?: (result: CaptureResult) => void) => {
-  return autoCapture.start(onResult);
+  return autoCapture.startContinuousCapture(onResult);
 };
 
 export const stopAutoCapture = () => {
@@ -272,59 +375,63 @@ export const configureAutoCapture = (config: Partial<AutoCaptureConfig>) => {
   autoCapture.updateConfig(config);
 };
 
-// Sistema de análise de múltiplas capturas para maior precisão
-export class MultiCaptureAnalyzer {
-  private recentResults: CaptureResult[] = [];
-  private maxResults = 5;
+export const getCaptureStats = () => {
+  return autoCapture.getStats();
+};
 
+// Sistema de monitoramento em tempo real
+export class RealTimeMonitor {
+  private results: CaptureResult[] = [];
+  private maxResults = 20;
+  
   addResult(result: CaptureResult) {
-    this.recentResults.unshift(result);
-    if (this.recentResults.length > this.maxResults) {
-      this.recentResults.pop();
+    this.results.unshift(result);
+    if (this.results.length > this.maxResults) {
+      this.results.pop();
+    }
+    
+    // Log de resultados importantes
+    if (result.shouldEnter) {
+      console.log(`🚨 SINAL DE ENTRADA: ${result.signal.toUpperCase()} - ${Math.round(result.confidence * 100)}%`);
     }
   }
-
-  // Análise de consenso dos últimos resultados
-  getConsensusSignal(): {
-    signal: 'compra' | 'venda' | 'neutro';
-    confidence: number;
-    stability: number;
+  
+  getRecentSignals(minutes = 5): CaptureResult[] {
+    const cutoff = Date.now() - (minutes * 60 * 1000);
+    return this.results.filter(r => r.timestamp > cutoff);
+  }
+  
+  getTrendAnalysis(): {
+    dominantSignal: 'compra' | 'venda' | 'neutro';
+    consistency: number;
+    avgConfidence: number;
   } {
-    if (this.recentResults.length < 3) {
-      return { signal: 'neutro', confidence: 0, stability: 0 };
+    if (this.results.length === 0) {
+      return { dominantSignal: 'neutro', consistency: 0, avgConfidence: 0 };
     }
-
-    // Contar sinais
-    const signals = this.recentResults.map(r => r.signal);
+    
+    const signals = this.results.map(r => r.signal);
     const signalCounts = {
       compra: signals.filter(s => s === 'compra').length,
       venda: signals.filter(s => s === 'venda').length,
       neutro: signals.filter(s => s === 'neutro').length
     };
-
-    // Determinar sinal majoritário
+    
     const maxCount = Math.max(...Object.values(signalCounts));
     const dominantSignal = Object.keys(signalCounts).find(
       key => signalCounts[key as keyof typeof signalCounts] === maxCount
     ) as 'compra' | 'venda' | 'neutro';
-
-    // Calcular confiança média dos sinais dominantes
-    const dominantResults = this.recentResults.filter(r => r.signal === dominantSignal);
-    const avgConfidence = dominantResults.reduce((sum, r) => sum + r.confidence, 0) / dominantResults.length;
-
-    // Calcular estabilidade (consistência dos sinais)
-    const stability = maxCount / this.recentResults.length;
-
-    return {
-      signal: dominantSignal,
-      confidence: avgConfidence,
-      stability
-    };
+    
+    const consistency = maxCount / this.results.length;
+    const avgConfidence = this.results.reduce((sum, r) => sum + r.confidence, 0) / this.results.length;
+    
+    return { dominantSignal, consistency, avgConfidence };
   }
-
+  
   clear() {
-    this.recentResults = [];
+    this.results = [];
   }
 }
 
-export const multiAnalyzer = new MultiCaptureAnalyzer();
+export const realTimeMonitor = new RealTimeMonitor();
+

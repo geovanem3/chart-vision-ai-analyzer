@@ -5,62 +5,77 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { 
   startAutoCapture, 
   stopAutoCapture, 
-  configureAutoCapture, 
-  autoCapture,
-  multiAnalyzer,
+  configureAutoCapture,
+  getCaptureStats,
+  realTimeMonitor,
   CaptureResult 
 } from '@/utils/autoScreenCapture';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Camera, 
   Zap, 
-  Settings, 
   Activity, 
   TrendingUp, 
-  AlertTriangle,
-  Target
+  Target,
+  Brain,
+  BarChart3,
+  Timer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AutoCaptureControls = () => {
   const [isActive, setIsActive] = useState(false);
   const [currentResult, setCurrentResult] = useState<CaptureResult | null>(null);
-  const [recentResults, setRecentResults] = useState<CaptureResult[]>([]);
-  const [config, setConfig] = useState({
-    intervalMs: 500,
-    enableAutoEntry: false,
-    maxCapturesPerSecond: 3
+  const [stats, setStats] = useState({
+    isRunning: false,
+    queueSize: 0,
+    isAnalyzing: false,
+    lastCapture: 0
   });
-  const [consensusSignal, setConsensusSignal] = useState({
-    signal: 'neutro' as 'compra' | 'venda' | 'neutro',
-    confidence: 0,
-    stability: 0
+  const [trendAnalysis, setTrendAnalysis] = useState({
+    dominantSignal: 'neutro' as 'compra' | 'venda' | 'neutro',
+    consistency: 0,
+    avgConfidence: 0
+  });
+  const [config, setConfig] = useState({
+    intervalMs: 250,
+    enableBackgroundAnalysis: true,
+    maxCapturesPerMinute: 240
   });
 
   const { toast } = useToast();
 
-  // Iniciar sistema de captura
+  // Atualizar estatísticas em tempo real
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentStats = getCaptureStats();
+      setStats(currentStats);
+      
+      const trend = realTimeMonitor.getTrendAnalysis();
+      setTrendAnalysis(trend);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Iniciar sistema
   const handleStart = async () => {
     try {
-      const success = startAutoCapture((result) => {
+      const success = await startAutoCapture((result) => {
         setCurrentResult(result);
-        setRecentResults(prev => [result, ...prev.slice(0, 9)]);
+        realTimeMonitor.addResult(result);
         
-        // Adicionar ao analisador multi-captura
-        multiAnalyzer.addResult(result);
-        const consensus = multiAnalyzer.getConsensusSignal();
-        setConsensusSignal(consensus);
-
         // Toast para sinais fortes
-        if (result.shouldEnter && result.confidence > 0.8) {
+        if (result.shouldEnter) {
           toast({
             variant: result.signal === 'compra' ? "default" : "destructive",
-            title: `🚨 ENTRADA AUTOMÁTICA - ${result.signal.toUpperCase()}`,
-            description: `Confiança: ${Math.round(result.confidence * 100)}% | Estabilidade: ${Math.round(consensus.stability * 100)}%`,
-            duration: 5000,
+            title: `🚨 ENTRADA DETECTADA - ${result.signal.toUpperCase()}`,
+            description: `Confiança: ${Math.round(result.confidence * 100)}% | Padrões: ${result.patterns.slice(0, 2).join(', ')}`,
+            duration: 8000,
           });
         }
       });
@@ -69,16 +84,16 @@ const AutoCaptureControls = () => {
         setIsActive(true);
         toast({
           variant: "default",
-          title: "✅ Captura Automática Iniciada",
-          description: `Analisando tela a cada ${config.intervalMs}ms`,
+          title: "🚀 Captura Automática Iniciada",
+          description: "Sistema em modo livre - Analisando continuamente",
         });
       }
     } catch (error) {
-      console.error('Erro ao iniciar captura:', error);
+      console.error('Erro ao iniciar:', error);
       toast({
         variant: "destructive",
-        title: "❌ Erro na Captura",
-        description: "Falha ao iniciar sistema de captura automática",
+        title: "❌ Erro na Inicialização",
+        description: "Permita o compartilhamento de tela para continuar",
       });
     }
   };
@@ -88,12 +103,12 @@ const AutoCaptureControls = () => {
     stopAutoCapture();
     setIsActive(false);
     setCurrentResult(null);
-    multiAnalyzer.clear();
+    realTimeMonitor.clear();
     
     toast({
       variant: "default",
-      title: "⏹️ Captura Parada",
-      description: "Sistema de captura automática foi interrompido",
+      title: "⏹️ Sistema Parado",
+      description: "Captura automática foi interrompida",
     });
   };
 
@@ -106,15 +121,15 @@ const AutoCaptureControls = () => {
 
   return (
     <div className="space-y-4">
-      {/* Controles Principais */}
-      <Card>
+      {/* Status Principal */}
+      <Card className="border-2 border-blue-200">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Captura Automática de Tela
+            <Brain className="h-5 w-5 text-blue-600" />
+            Sistema de Captura Inteligente
             {isActive && (
-              <Badge variant="default" className="ml-2 animate-pulse">
-                ATIVO
+              <Badge variant="default" className="ml-2 animate-pulse bg-green-600">
+                MODO LIVRE ATIVO
               </Badge>
             )}
           </CardTitle>
@@ -122,45 +137,84 @@ const AutoCaptureControls = () => {
         <CardContent>
           <div className="flex flex-wrap gap-2 mb-4">
             {!isActive ? (
-              <Button onClick={handleStart} className="gap-2">
+              <Button onClick={handleStart} className="gap-2 bg-green-600 hover:bg-green-700">
                 <Camera className="w-4 h-4" />
-                Iniciar Captura
+                Iniciar Modo Livre
               </Button>
             ) : (
               <Button onClick={handleStop} variant="destructive" className="gap-2">
                 <Activity className="w-4 h-4" />
-                Parar Captura
+                Parar Sistema
               </Button>
             )}
           </div>
 
-          {/* Configurações */}
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Intervalo de Captura: {config.intervalMs}ms
-              </label>
-              <Slider
-                value={[config.intervalMs]}
-                onValueChange={([value]) => updateConfig({ intervalMs: value })}
-                min={100}
-                max={2000}
-                step={100}
-                disabled={isActive}
-                className="w-full"
-              />
+          {/* Estatísticas em Tempo Real */}
+          {isActive && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="text-center">
+                <div className="text-green-600 font-bold">
+                  {stats.isAnalyzing ? '🔍' : '⏸️'}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {stats.isAnalyzing ? 'Analisando' : 'Aguardando'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold">{stats.queueSize}</div>
+                <div className="text-xs text-muted-foreground">Fila</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold">{Math.round(60000 / config.intervalMs)}/min</div>
+                <div className="text-xs text-muted-foreground">Capturas</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold">
+                  {stats.lastCapture ? new Date(stats.lastCapture).toLocaleTimeString().slice(-8) : '--:--:--'}
+                </div>
+                <div className="text-xs text-muted-foreground">Última</div>
+              </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">
-                Entradas Automáticas
-              </label>
-              <Switch
-                checked={config.enableAutoEntry}
-                onCheckedChange={(checked) => updateConfig({ enableAutoEntry: checked })}
-                disabled={isActive}
-              />
+      {/* Configurações Avançadas */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Timer className="h-4 w-4" />
+            Configurações de Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">
+              Velocidade de Captura: {Math.round(60000 / config.intervalMs)}/min
+            </label>
+            <Slider
+              value={[config.intervalMs]}
+              onValueChange={([value]) => updateConfig({ intervalMs: value })}
+              min={100}
+              max={1000}
+              step={50}
+              disabled={isActive}
+              className="w-full"
+            />
+            <div className="text-xs text-muted-foreground mt-1">
+              {config.intervalMs}ms entre capturas
             </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">
+              Análise em Segundo Plano
+            </label>
+            <Switch
+              checked={config.enableBackgroundAnalysis}
+              onCheckedChange={(checked) => updateConfig({ enableBackgroundAnalysis: checked })}
+              disabled={isActive}
+            />
           </div>
         </CardContent>
       </Card>
@@ -168,34 +222,45 @@ const AutoCaptureControls = () => {
       {/* Resultado Atual */}
       {currentResult && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
           key={currentResult.timestamp}
         >
-          <Card className="border-2 border-blue-200">
+          <Card className={`border-2 ${
+            currentResult.shouldEnter 
+              ? currentResult.signal === 'compra' ? 'border-green-400' : 'border-red-400'
+              : 'border-blue-200'
+          }`}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Target className="h-4 w-4" />
-                Último Resultado
+                Última Análise
+                {currentResult.shouldEnter && (
+                  <Badge variant="secondary" className="animate-pulse">
+                    ENTRADA RECOMENDADA
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Badge 
                     variant={currentResult.signal === 'compra' ? 'default' : 
                              currentResult.signal === 'venda' ? 'destructive' : 'outline'}
+                    className="text-sm"
                   >
                     {currentResult.signal.toUpperCase()}
                   </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {Math.round(currentResult.confidence * 100)}%
-                  </span>
-                  {currentResult.shouldEnter && (
-                    <Badge variant="secondary" className="animate-pulse">
-                      ENTRAR
-                    </Badge>
-                  )}
+                  <div className="text-sm">
+                    <Progress 
+                      value={currentResult.confidence * 100} 
+                      className="w-20 h-2"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round(currentResult.confidence * 100)}%
+                    </span>
+                  </div>
                 </div>
                 <span className="text-xs text-muted-foreground">
                   {new Date(currentResult.timestamp).toLocaleTimeString()}
@@ -203,14 +268,22 @@ const AutoCaptureControls = () => {
               </div>
 
               {currentResult.patterns.length > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Padrões: {currentResult.patterns.slice(0, 3).join(', ')}
+                <div className="text-xs text-muted-foreground mb-2">
+                  📊 Padrões: {currentResult.patterns.slice(0, 3).join(' • ')}
                 </div>
               )}
 
               {currentResult.reasoning.length > 0 && (
-                <div className="text-xs text-green-600 mt-1">
+                <div className="text-xs text-blue-600">
                   💡 {currentResult.reasoning[0]}
+                </div>
+              )}
+
+              {currentResult.priceData && (
+                <div className="text-xs text-muted-foreground mt-2 grid grid-cols-3 gap-2">
+                  <div>Atual: {currentResult.priceData.current.toFixed(5)}</div>
+                  <div>Suporte: {currentResult.priceData.support.toFixed(5)}</div>
+                  <div>Resistência: {currentResult.priceData.resistance.toFixed(5)}</div>
                 </div>
               )}
             </CardContent>
@@ -218,69 +291,51 @@ const AutoCaptureControls = () => {
         </motion.div>
       )}
 
-      {/* Consenso Multi-Captura */}
-      {consensusSignal.stability > 0 && (
+      {/* Análise de Tendência */}
+      {trendAnalysis.consistency > 0 && (
         <Card className="border-amber-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Consenso (Múltiplas Capturas)
+              <BarChart3 className="h-4 w-4" />
+              Tendência dos Últimos 5 Minutos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
               <Badge 
-                variant={consensusSignal.signal === 'compra' ? 'default' : 
-                         consensusSignal.signal === 'venda' ? 'destructive' : 'outline'}
+                variant={trendAnalysis.dominantSignal === 'compra' ? 'default' : 
+                         trendAnalysis.dominantSignal === 'venda' ? 'destructive' : 'outline'}
               >
-                {consensusSignal.signal.toUpperCase()}
+                {trendAnalysis.dominantSignal.toUpperCase()}
               </Badge>
               <div className="text-sm">
-                Confiança: {Math.round(consensusSignal.confidence * 100)}%
+                Consistência: {Math.round(trendAnalysis.consistency * 100)}%
               </div>
               <div className="text-sm">
-                Estabilidade: {Math.round(consensusSignal.stability * 100)}%
+                Confiança Média: {Math.round(trendAnalysis.avgConfidence * 100)}%
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Histórico Recente */}
-      {recentResults.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Histórico Recente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {recentResults.slice(0, 5).map((result) => (
-                <div
-                  key={result.timestamp}
-                  className="flex items-center justify-between p-2 border rounded text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={result.signal === 'compra' ? 'default' : 
-                               result.signal === 'venda' ? 'destructive' : 'outline'}
-                      className="text-xs"
-                    >
-                      {result.signal}
-                    </Badge>
-                    <span>{Math.round(result.confidence * 100)}%</span>
-                    {result.shouldEnter && <span className="text-green-600">✓</span>}
-                  </div>
-                  <span className="text-muted-foreground">
-                    {new Date(result.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-              ))}
+      {/* Informação do Sistema */}
+      <Card className="bg-blue-50">
+        <CardContent className="pt-4">
+          <div className="text-sm text-blue-800">
+            <div className="font-medium mb-1">💡 Sistema em Modo Livre</div>
+            <div className="text-xs">
+              • Captura automática contínua em segundo plano<br/>
+              • Análise independente sem interferir na navegação<br/>
+              • Detecção inteligente de padrões em tempo real<br/>
+              • Auto-limpeza de memória para performance otimizada
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
 export default AutoCaptureControls;
+
