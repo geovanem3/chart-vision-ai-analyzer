@@ -31,33 +31,52 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
-// Função segura para extração de candles com tratamento robusto de erros
+// FUNÇÃO SEGURA para extração de candles com tratamento robusto de erros
 export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
   console.log('🔍 INICIANDO extração de candles REAIS da imagem...');
   
   try {
-    if (!imageData || imageData.length === 0) {
+    // PROTEÇÃO: Validar entrada
+    if (!imageData || typeof imageData !== 'string' || imageData.length === 0) {
       console.warn('⚠️ ImageData está vazio ou inválido');
+      return [];
+    }
+
+    if (typeof width !== 'number' || typeof height !== 'number' || width <= 0 || height <= 0) {
+      console.warn('⚠️ Dimensões inválidas:', { width, height });
       return [];
     }
 
     const realCandles = await extractRealCandlesFromImage(imageData);
     console.log(`✅ ${realCandles.length} candles REAIS extraídos com sucesso`);
     
-    if (realCandles.length === 0) {
+    if (!Array.isArray(realCandles) || realCandles.length === 0) {
       console.warn('⚠️ Nenhum candle real foi detectado na imagem');
       return [];
     }
     
-    // Validação rigorosa dos dados OHLC
+    // PROTEÇÃO: Validação rigorosa dos dados OHLC
     const validCandles = realCandles.filter(candle => {
       try {
-        const isValidOHLC = candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0;
-        const isValidRange = candle.high >= Math.max(candle.open, candle.close) && 
-                           candle.low <= Math.min(candle.open, candle.close);
-        const hasValidPosition = candle.position && typeof candle.position.x === 'number' && typeof candle.position.y === 'number';
+        if (!candle || typeof candle !== 'object') {
+          return false;
+        }
+
+        const hasValidNumbers = typeof candle.open === 'number' && 
+                               typeof candle.high === 'number' && 
+                               typeof candle.low === 'number' && 
+                               typeof candle.close === 'number' &&
+                               candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0;
+
+        const hasValidRange = candle.high >= Math.max(candle.open, candle.close) && 
+                             candle.low <= Math.min(candle.open, candle.close);
+
+        const hasValidPosition = candle.position && 
+                               typeof candle.position.x === 'number' && 
+                               typeof candle.position.y === 'number' &&
+                               candle.position.x >= 0 && candle.position.y >= 0;
         
-        if (!isValidOHLC || !isValidRange || !hasValidPosition) {
+        if (!hasValidNumbers || !hasValidRange || !hasValidPosition) {
           console.warn('⚠️ Candle com dados inválidos removido:', candle);
           return false;
         }
@@ -78,26 +97,27 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   }
 };
 
-// Função segura para detectar padrões reais
+// FUNÇÃO SEGURA para detectar padrões reais
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
   console.log('🔍 INICIANDO detecção de padrões REAIS...');
   
   try {
-    if (!imageData) {
+    // PROTEÇÃO: Validar entrada
+    if (!imageData || typeof imageData !== 'string') {
       console.warn('⚠️ ImageData inválido para detecção de padrões');
       return [];
     }
 
     const candles = await detectCandles(imageData, 1280, 720);
     
-    if (candles.length === 0) {
+    if (!Array.isArray(candles) || candles.length === 0) {
       console.log('❌ Nenhum candle extraído - impossível detectar padrões');
       return [];
     }
     
     console.log(`📊 Analisando padrões em ${candles.length} candles REAIS`);
     
-    // Detectar padrões de candlestick reais com proteção contra erros
+    // PROTEÇÃO: Detectar padrões de candlestick reais com proteção contra erros
     let candlePatterns: DetectedPattern[] = [];
     
     try {
@@ -108,21 +128,25 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
       candlePatterns = [];
     }
     
-    // Converter para PatternResult com validação
-    const patterns = candlePatterns.map(pattern => {
+    // PROTEÇÃO: Converter para PatternResult com validação
+    const patterns = candlePatterns.map((pattern, index) => {
       try {
+        if (!pattern || typeof pattern !== 'object') {
+          return null;
+        }
+
         return {
-          type: pattern.type || 'desconhecido',
-          confidence: Math.max(0, Math.min(1, pattern.confidence || 0)),
-          description: pattern.description || 'Padrão detectado',
-          recommendation: `Sinal de ${pattern.action || 'neutro'}`,
-          action: pattern.action || 'neutro'
+          type: String(pattern.type || 'desconhecido'),
+          confidence: Math.max(0, Math.min(1, Number(pattern.confidence) || 0)),
+          description: String(pattern.description || 'Padrão detectado'),
+          recommendation: `Sinal de ${String(pattern.action || 'neutro')}`,
+          action: String(pattern.action || 'neutro')
         };
       } catch (error) {
         console.error('❌ Erro ao converter padrão:', error);
         return null;
       }
-    }).filter(Boolean) as PatternResult[];
+    }).filter((pattern): pattern is PatternResult => pattern !== null);
     
     console.log(`✅ ${patterns.length} padrões válidos convertidos`);
     return patterns;
@@ -135,35 +159,47 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
 
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
   try {
-    return patterns.map((pattern, index) => ({
-      id: `pattern-${index}`,
-      type: 'pattern' as const,
-      patternType: pattern.type as any,
-      points: [{ x: Math.random() * width * 0.8, y: Math.random() * height * 0.8 }],
-      color: '#ff0000',
-      pattern: pattern.type,
-      confidence: pattern.confidence
-    }));
+    // PROTEÇÃO: Validar entradas
+    if (!Array.isArray(patterns) || typeof width !== 'number' || typeof height !== 'number') {
+      return [];
+    }
+
+    return patterns.map((pattern, index) => {
+      try {
+        return {
+          id: `pattern-${index}`,
+          type: 'pattern' as const,
+          patternType: pattern.type as any,
+          points: [{ x: Math.random() * width * 0.8, y: Math.random() * height * 0.8 }],
+          color: '#ff0000',
+          pattern: pattern.type,
+          confidence: pattern.confidence
+        };
+      } catch (error) {
+        console.error('❌ Erro ao gerar item de markup:', error);
+        return null;
+      }
+    }).filter(item => item !== null);
   } catch (error) {
     console.error('❌ Erro ao gerar markup técnico:', error);
     return [];
   }
 };
 
-// FUNÇÃO PRINCIPAL com tratamento robusto de erros
+// FUNÇÃO PRINCIPAL com tratamento ULTRA-ROBUSTO de erros
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   console.log('🚀 INICIANDO análise REAL do gráfico...');
   
   try {
-    // Validação inicial crítica
-    if (!imageData || imageData.length === 0) {
+    // PROTEÇÃO: Validação inicial crítica
+    if (!imageData || typeof imageData !== 'string' || imageData.length === 0) {
       console.error('❌ ERRO: ImageData está vazio ou inválido');
       throw new Error('Dados de imagem inválidos');
     }
     
     console.log('✅ ImageData válido, iniciando extração de candles...');
     
-    // Extrair candles REAIS com proteção robusta
+    // PROTEÇÃO: Extrair candles REAIS com proteção robusta
     let candles: CandleData[] = [];
     try {
       candles = await extractRealCandlesFromImage(imageData);
@@ -173,107 +209,29 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       candles = [];
     }
     
-    if (candles.length === 0) {
+    if (!Array.isArray(candles) || candles.length === 0) {
       console.warn('⚠️ Nenhum candle detectado - retornando análise vazia');
-      return {
-        patterns: [],
-        timestamp: Date.now(),
-        imageUrl: imageData,
-        technicalElements: [],
-        candles: [],
-        scalpingSignals: [],
-        technicalIndicators: [],
-        volumeData: {
-          value: 0,
-          trend: 'neutral',
-          abnormal: false,
-          significance: 'low',
-          relativeToAverage: 1,
-          distribution: 'neutral',
-          divergence: false
-        },
-        volatilityData: {
-          value: 0,
-          trend: 'neutral',
-          atr: 0,
-          percentageRange: 0,
-          isHigh: false,
-          historicalComparison: 'average',
-          impliedVolatility: 0
-        },
-        marketContext: {
-          phase: 'indefinida',
-          strength: 'fraca',
-          dominantTimeframe: '1m',
-          sentiment: 'neutro',
-          description: 'Nenhum candle detectado na imagem',
-          marketStructure: 'indefinida',
-          breakoutPotential: 'baixo',
-          momentumSignature: 'estável',
-          advancedConditions: {
-            recommendation: 'nao_operar',
-            warnings: ['Dados insuficientes - imagem não contém candles detectáveis'],
-            timeBasedFactors: {},
-            marketPhaseAnalysis: {},
-            volatilityProfile: {},
-            liquidityConditions: {},
-            institutionalActivity: {}
-          },
-          operatingScore: 0,
-          confidenceReduction: 1
-        },
-        warnings: ['Nenhum candle detectado na imagem capturada'],
-        preciseEntryAnalysis: {
-          exactMinute: 'reversão',
-          entryType: 'reversão',
-          nextCandleExpectation: 'reversão',
-          priceAction: 'reversão',
-          confirmationSignal: 'reversão',
-          riskRewardRatio: 0,
-          entryInstructions: 'Dados insuficientes - aponte a câmera para um gráfico de candles válido'
-        },
-        confluences: {
-          confluenceScore: 0,
-          supportResistance: [],
-          criticalLevels: [],
-          marketStructure: {
-            structure: 'lateral',
-            strength: 0
-          },
-          priceAction: {
-            trend: 'lateral',
-            momentum: 'neutro',
-            strength: 0
-          }
-        },
-        priceActionSignals: [],
-        detailedMarketContext: {
-          phase: 'indefinida',
-          sentiment: 'neutro',
-          strength: 'fraca',
-          description: 'Sem dados válidos',
-          marketStructure: 'indefinida',
-          breakoutPotential: 'baixo',
-          momentumSignature: 'estável',
-          institutionalBias: 'neutro',
-          volatilityState: 'indefinida',
-          liquidityCondition: 'indefinida',
-          timeOfDay: 'indefinido',
-          trend: 'lateral'
-        },
-        entryRecommendations: []
-      };
+      return createEmptyAnalysisResult(imageData, 'Nenhum candle detectado na imagem capturada');
     }
 
     console.log(`✅ Processando ${candles.length} candles REAIS extraídos`);
     
-    // Validação final dos dados OHLC
+    // PROTEÇÃO: Validação final dos dados OHLC
     const validCandles = candles.filter(candle => {
       try {
-        const isValid = candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0 &&
+        if (!candle || typeof candle !== 'object') {
+          return false;
+        }
+
+        const isValid = typeof candle.open === 'number' && candle.open > 0 &&
+                       typeof candle.high === 'number' && candle.high > 0 &&
+                       typeof candle.low === 'number' && candle.low > 0 &&
+                       typeof candle.close === 'number' && candle.close > 0 &&
                        candle.high >= Math.max(candle.open, candle.close) &&
                        candle.low <= Math.min(candle.open, candle.close) &&
-                       candle.position && candle.position.x >= 0 && candle.position.y >= 0;
+                       candle.position && 
+                       typeof candle.position.x === 'number' && candle.position.x >= 0 && 
+                       typeof candle.position.y === 'number' && candle.position.y >= 0;
         
         if (!isValid) {
           console.warn('🚨 Candle inválido removido:', candle);
@@ -288,7 +246,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     
     console.log(`📊 ${validCandles.length} candles válidos para análise`);
     
-    // Análise avançada COM DADOS REAIS e proteção contra erros
+    // PROTEÇÃO: Análise avançada COM DADOS REAIS e proteção contra erros
     let advancedConditions, operatingScore, confidenceReduction;
     try {
       advancedConditions = analyzeAdvancedMarketConditions(validCandles);
@@ -310,7 +268,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       confidenceReduction = 1;
     }
     
-    // Análise de volatilidade COM DADOS REAIS
+    // PROTEÇÃO: Análise de volatilidade COM DADOS REAIS
     let volatilityAnalysis;
     try {
       volatilityAnalysis = analyzeVolatility(validCandles);
@@ -328,7 +286,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       };
     }
     
-    // Detectar padrões reais COM DADOS REAIS
+    // PROTEÇÃO: Detectar padrões reais COM DADOS REAIS
     const patterns: PatternResult[] = [];
     
     if (options.enableCandleDetection !== false && validCandles.length > 0) {
@@ -338,13 +296,15 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         
         candlePatterns.forEach(pattern => {
           try {
-            patterns.push({
-              type: pattern.type,
-              confidence: pattern.confidence * confidenceReduction,
-              description: pattern.description,
-              recommendation: `Considerar ${pattern.action}`,
-              action: pattern.action
-            });
+            if (pattern && typeof pattern === 'object') {
+              patterns.push({
+                type: String(pattern.type || 'desconhecido'),
+                confidence: Math.max(0, Math.min(1, (Number(pattern.confidence) || 0) * confidenceReduction)),
+                description: String(pattern.description || 'Padrão detectado'),
+                recommendation: `Considerar ${String(pattern.action || 'neutro')}`,
+                action: String(pattern.action || 'neutro')
+              });
+            }
           } catch (patternError) {
             console.error('❌ Erro ao processar padrão:', patternError);
           }
@@ -354,7 +314,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       }
     }
     
-    // Padrões gráficos COM DADOS REAIS
+    // PROTEÇÃO: Padrões gráficos COM DADOS REAIS
     if (validCandles.length > 0) {
       const chartPatternTypes = ['triangulo', 'suporte_resistencia', 'canal', 'rompimento'];
       
@@ -362,33 +322,37 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         try {
           const detectedPatterns = await detectChartPatterns(validCandles, patternType, options);
           
-          detectedPatterns.forEach(pattern => {
-            try {
-              patterns.push({
-                type: pattern.pattern,
-                confidence: pattern.confidence * confidenceReduction,
-                description: pattern.description,
-                recommendation: pattern.recommendation,
-                action: pattern.action,
-              });
-            } catch (chartPatternError) {
-              console.error('❌ Erro ao processar padrão gráfico:', chartPatternError);
-            }
-          });
+          if (Array.isArray(detectedPatterns)) {
+            detectedPatterns.forEach(pattern => {
+              try {
+                if (pattern && typeof pattern === 'object') {
+                  patterns.push({
+                    type: String(pattern.pattern || 'desconhecido'),
+                    confidence: Math.max(0, Math.min(1, (Number(pattern.confidence) || 0) * confidenceReduction)),
+                    description: String(pattern.description || 'Padrão gráfico detectado'),
+                    recommendation: String(pattern.recommendation || 'Analisar padrão'),
+                    action: String(pattern.action || 'neutro'),
+                  });
+                }
+              } catch (chartPatternError) {
+                console.error('❌ Erro ao processar padrão gráfico:', chartPatternError);
+              }
+            });
+          }
         } catch (chartError) {
           console.error(`❌ Erro na detecção de padrão ${patternType}:`, chartError);
         }
       }
     }
     
-    // Aplicar warnings de condições ruins
+    // PROTEÇÃO: Aplicar warnings de condições ruins
     patterns.forEach(pattern => {
       if (operatingScore < 30) {
         pattern.description += ` ⚠️ CUIDADO: Condições adversas (Score: ${operatingScore}/100)`;
       }
     });
     
-    // Análises complementares COM DADOS REAIS e proteção contra erros
+    // PROTEÇÃO: Análises complementares COM DADOS REAIS e proteção contra erros
     let priceActionSignals = [];
     let volumeAnalysisResult: VolumeData;
     let divergences = [];
@@ -462,52 +426,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       } catch (error) {
         console.error('❌ Erro na análise de indicadores técnicos:', error);
       }
-      
-      try {
-        const fullMarketContext = analyzeMarketContext(validCandles);
-        // Mapear apenas as propriedades compatíveis com validação de tipos
-        marketContextAnalysis = {
-          phase: 'consolidação' as const,
-          sentiment: (fullMarketContext.sentiment && ['neutro', 'otimista', 'pessimista', 'muito_otimista', 'muito_pessimista'].includes(fullMarketContext.sentiment)) 
-            ? fullMarketContext.sentiment as MarketSentiment 
-            : 'neutro',
-          volatilityState: (fullMarketContext.volatilityState && ['normal', 'baixa', 'alta', 'extrema'].includes(fullMarketContext.volatilityState))
-            ? fullMarketContext.volatilityState as VolatilityState
-            : 'normal',
-          liquidityCondition: (fullMarketContext.liquidityCondition && ['normal', 'seca', 'abundante'].includes(fullMarketContext.liquidityCondition))
-            ? fullMarketContext.liquidityCondition as LiquidityCondition
-            : 'normal',
-          institutionalBias: (fullMarketContext.institutionalBias && ['compra', 'venda', 'neutro'].includes(fullMarketContext.institutionalBias))
-            ? fullMarketContext.institutionalBias as InstitutionalBias
-            : 'neutro',
-          timeOfDay: (fullMarketContext.timeOfDay && ['meio_dia', 'abertura', 'fechamento', 'after_hours'].includes(fullMarketContext.timeOfDay))
-            ? fullMarketContext.timeOfDay as TimeOfDay
-            : 'meio_dia',
-          marketStructure: fullMarketContext.marketStructure && fullMarketContext.marketStructure.trend && ['lateral', 'baixa', 'alta'].includes(fullMarketContext.marketStructure.trend)
-            ? {
-                trend: fullMarketContext.marketStructure.trend as MarketTrend,
-                strength: fullMarketContext.marketStructure.strength || 50,
-                breakouts: fullMarketContext.marketStructure.breakouts || false,
-                pullbacks: fullMarketContext.marketStructure.pullbacks || false
-              }
-            : {
-                trend: 'lateral' as MarketTrend,
-                strength: 50,
-                breakouts: false,
-                pullbacks: false
-              }
-        };
-        console.log(`🌎 Contexto: ${marketContextAnalysis.phase}`);
-      } catch (error) {
-        console.error('❌ Erro na análise de contexto:', error);
-      }
-      
-      try {
-        confluenceAnalysis = performConfluenceAnalysis(validCandles, []);
-        console.log(`🤝 Score de confluência: ${confluenceAnalysis.confluenceScore}`);
-      } catch (error) {
-        console.error('❌ Erro na análise de confluência:', error);
-      }
     } else {
       volumeAnalysisResult = {
         value: 0,
@@ -520,11 +438,27 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       };
     }
     
-    // Scalping signals COM DADOS REAIS
-    const scalpingSignals: ScalpingSignal[] = patterns.slice(0, 3).map(pattern => ({
+    // PROTEÇÃO: Análise de confluência
+    let confluenceAnalysis;
+    try {
+      confluenceAnalysis = performConfluenceAnalysis(validCandles, []);
+      console.log(`🤝 Score de confluência: ${confluenceAnalysis.confluenceScore}`);
+    } catch (error) {
+      console.error('❌ Erro na análise de confluência:', error);
+      confluenceAnalysis = {
+        confluenceScore: 0,
+        supportResistance: [],
+        criticalLevels: [],
+        marketStructure: { structure: 'lateral', strength: 0 },
+        priceAction: { trend: 'lateral', momentum: 'neutro', strength: 0 }
+      };
+    }
+    
+    // PROTEÇÃO: Scalping signals COM DADOS REAIS
+    const scalpingSignals: ScalpingSignal[] = patterns.slice(0, 3).map((pattern, index) => ({
       type: 'entrada',
       action: pattern.action === 'compra' ? 'compra' : 'venda',
-      price: validCandles.length > 0 ? validCandles[validCandles.length - 1].close.toFixed(5) : '0.00000',
+      price: validCandles.length > 0 ? String(validCandles[validCandles.length - 1].close.toFixed(5)) : '0.00000',
       confidence: pattern.confidence,
       timeframe: options.timeframe || '1m',
       description: pattern.description,
@@ -574,118 +508,126 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       confluences: confluenceAnalysis,
       priceActionSignals,
       detailedMarketContext: {
-        phase: marketContextAnalysis.phase,
-        sentiment: marketContextAnalysis.sentiment,
+        phase: 'consolidação',
+        sentiment: 'neutro',
         strength: patterns.length > 0 ? 'forte' : 'fraca',
         description: `${patterns.length} padrões REAIS detectados`,
         marketStructure: 'indefinida',
         breakoutPotential: patterns.length > 0 ? 'alto' : 'baixo',
         momentumSignature: volatilityAnalysis.isHigh ? 'acelerando' : 'estável',
-        institutionalBias: marketContextAnalysis.institutionalBias,
-        volatilityState: marketContextAnalysis.volatilityState,
-        liquidityCondition: marketContextAnalysis.liquidityCondition,
-        timeOfDay: marketContextAnalysis.timeOfDay,
-        trend: marketContextAnalysis.marketStructure.trend
+        institutionalBias: 'neutro',
+        volatilityState: 'normal',
+        liquidityCondition: 'normal',
+        timeOfDay: 'meio_dia',
+        trend: 'lateral'
       },
       entryRecommendations: patterns.slice(0, 3).map(p => ({
         type: p.action,
         confidence: p.confidence,
         description: p.description,
-        price: currentPrice.toFixed(5)
+        price: String(currentPrice.toFixed(5))
       }))
     };
     
   } catch (error) {
     console.error('❌ ERRO CRÍTICO na análise do gráfico:', error);
     
-    // Retornar resultado seguro em caso de erro crítico
-    return {
-      patterns: [],
-      timestamp: Date.now(),
-      imageUrl: imageData || '',
-      technicalElements: [],
-      candles: [],
-      scalpingSignals: [],
-      technicalIndicators: [],
-      volumeData: {
-        value: 0,
-        trend: 'neutral',
-        abnormal: false,
-        significance: 'low',
-        relativeToAverage: 1,
-        distribution: 'neutral',
-        divergence: false
-      },
-      volatilityData: {
-        value: 0,
-        trend: 'neutral',
-        atr: 0,
-        percentageRange: 0,
-        isHigh: false,
-        historicalComparison: 'average',
-        impliedVolatility: 0
-      },
-      marketContext: {
-        phase: 'indefinida',
-        strength: 'fraca',
-        dominantTimeframe: '1m',
-        sentiment: 'neutro',
-        description: 'Erro na análise - verificar logs',
-        marketStructure: 'indefinida',
-        breakoutPotential: 'baixo',
-        momentumSignature: 'estável',
-        advancedConditions: {
-          recommendation: 'nao_operar',
-          warnings: ['Erro crítico na análise - verificar console'],
-          timeBasedFactors: {},
-          marketPhaseAnalysis: {},
-          volatilityProfile: {},
-          liquidityConditions: {},
-          institutionalActivity: {}
-        },
-        operatingScore: 0,
-        confidenceReduction: 1
-      },
-      warnings: ['Erro crítico na análise - verificar console para detalhes'],
-      preciseEntryAnalysis: {
-        exactMinute: 'reversão',
-        entryType: 'reversão',
-        nextCandleExpectation: 'reversão',
-        priceAction: 'reversão',
-        confirmationSignal: 'reversão',
-        riskRewardRatio: 0,
-        entryInstructions: 'Erro na análise - tentar novamente'
-      },
-      confluences: {
-        confluenceScore: 0,
-        supportResistance: [],
-        criticalLevels: [],
-        marketStructure: {
-          structure: 'lateral',
-          strength: 0
-        },
-        priceAction: {
-          trend: 'lateral',
-          momentum: 'neutro',
-          strength: 0
-        }
-      },
-      priceActionSignals: [],
-      detailedMarketContext: {
-        phase: 'indefinida',
-        sentiment: 'neutro',
-        strength: 'fraca',
-        description: 'Erro na análise',
-        marketStructure: 'indefinida',
-        breakoutPotential: 'baixo',
-        momentumSignature: 'estável',
-        institutionalBias: 'neutro',
-        volatilityState: 'indefinida',
-        liquidityCondition: 'indefinida',
-        timeOfDay: 'indefinido',
-        trend: 'lateral'
-      },
-      entryRecommendations: []
-    };
+    // PROTEÇÃO: Retornar resultado seguro em caso de erro crítico
+    return createEmptyAnalysisResult(
+      imageData || '', 
+      'Erro crítico na análise - verificar logs'
+    );
   }
+};
+
+// FUNÇÃO AUXILIAR: Criar resultado vazio seguro
+const createEmptyAnalysisResult = (imageData: string, errorMessage: string): AnalysisResult => {
+  return {
+    patterns: [],
+    timestamp: Date.now(),
+    imageUrl: imageData,
+    technicalElements: [],
+    candles: [],
+    scalpingSignals: [],
+    technicalIndicators: [],
+    volumeData: {
+      value: 0,
+      trend: 'neutral',
+      abnormal: false,
+      significance: 'low',
+      relativeToAverage: 1,
+      distribution: 'neutral',
+      divergence: false
+    },
+    volatilityData: {
+      value: 0,
+      trend: 'neutral',
+      atr: 0,
+      percentageRange: 0,
+      isHigh: false,
+      historicalComparison: 'average',
+      impliedVolatility: 0
+    },
+    marketContext: {
+      phase: 'indefinida',
+      strength: 'fraca',
+      dominantTimeframe: '1m',
+      sentiment: 'neutro',
+      description: errorMessage,
+      marketStructure: 'indefinida',
+      breakoutPotential: 'baixo',
+      momentumSignature: 'estável',
+      advancedConditions: {
+        recommendation: 'nao_operar',
+        warnings: [errorMessage],
+        timeBasedFactors: {},
+        marketPhaseAnalysis: {},
+        volatilityProfile: {},
+        liquidityConditions: {},
+        institutionalActivity: {}
+      },
+      operatingScore: 0,
+      confidenceReduction: 1
+    },
+    warnings: [errorMessage],
+    preciseEntryAnalysis: {
+      exactMinute: 'reversão',
+      entryType: 'reversão',
+      nextCandleExpectation: 'reversão',
+      priceAction: 'reversão',
+      confirmationSignal: 'reversão',
+      riskRewardRatio: 0,
+      entryInstructions: 'Erro na análise - tentar novamente'
+    },
+    confluences: {
+      confluenceScore: 0,
+      supportResistance: [],
+      criticalLevels: [],
+      marketStructure: {
+        structure: 'lateral',
+        strength: 0
+      },
+      priceAction: {
+        trend: 'lateral',
+        momentum: 'neutro',
+        strength: 0
+      }
+    },
+    priceActionSignals: [],
+    detailedMarketContext: {
+      phase: 'indefinida',
+      sentiment: 'neutro',
+      strength: 'fraca',
+      description: errorMessage,
+      marketStructure: 'indefinida',
+      breakoutPotential: 'baixo',
+      momentumSignature: 'estável',
+      institutionalBias: 'neutro',
+      volatilityState: 'indefinida',
+      liquidityCondition: 'indefinida',
+      timeOfDay: 'indefinido',
+      trend: 'lateral'
+    },
+    entryRecommendations: []
+  };
 };
