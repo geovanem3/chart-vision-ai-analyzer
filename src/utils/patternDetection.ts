@@ -1,4 +1,3 @@
-
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { mockCandles as generateMockCandles } from "./mockData";
 import { analyzeVolume } from "./volumeAnalysis";
@@ -189,6 +188,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const enhancedMarketContext: EnhancedMarketContext = {
     phase: marketContextAnalysis.phase,
     strength: 'moderada',
+    dominantTimeframe: options.timeframe || '1m',
     sentiment: marketContextAnalysis.sentiment,
     description: `Score: ${operatingScore}/100 | Padrões Reais: ${validPatterns.length}`,
     marketStructure: 'indefinida',
