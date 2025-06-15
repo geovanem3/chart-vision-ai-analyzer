@@ -75,7 +75,6 @@ const AnalysisResults = () => {
               <p className="text-sm">{analysisResults.masterAnalysis.masterRecommendation}</p>
             </CardContent>
           </Card>
-        </Card>
         )}
       </div>
     );

@@ -158,6 +158,25 @@ const GraphAnalyzer = () => {
               </h2>
             </div>
           </div>
+          
+          {capturedImage && (
+            <Card className="p-0 overflow-hidden bg-card/50 rounded-lg shadow-sm">
+              <CardContent className="p-2">
+                <div className="relative w-full overflow-hidden rounded-md">
+                  <img 
+                    src={capturedImage} 
+                    alt="Gráfico em análise" 
+                    className={`w-full object-contain ${isAnalyzing ? 'opacity-50' : ''}`}
+                  />
+                  {isAnalyzing && (
+                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <AnalysisResults />
         </div>
       );
