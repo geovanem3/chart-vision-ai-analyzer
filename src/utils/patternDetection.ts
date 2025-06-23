@@ -68,30 +68,124 @@ export const generateTechnicalMarkup = (patterns: PatternResult[], width: number
 };
 
 export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
-  // Generate mock candle data for the detected chart
-  const candles = await generateMockCandles(20, '1m');
+  const img = new Image();
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   
-  // Add position data based on chart dimensions
-  return candles.map((candle, index) => ({
-    ...candle,
-    position: {
-      x: (index / 20) * width,
-      y: Math.random() * height
-    },
-    width: width / 25,
-    height: Math.abs(candle.high - candle.low) * (height / 100)
-  }));
+  if (!ctx) {
+    throw new Error('Failed to get canvas context');
+  }
+  
+  return new Promise((resolve) => {
+    img.onload = () => {
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      
+      // Detectar candles através da análise de pixels
+      const candles: CandleData[] = [];
+      let currentX = 0;
+      const candleWidth = Math.floor(width / 50); // Estimativa inicial da largura do candle
+      
+      while (currentX < width - candleWidth) {
+        // Analisar coluna de pixels para encontrar high/low
+        let high = height;
+        let low = 0;
+        let open = 0;
+        let close = 0;
+        
+        for (let y = 0; y < height; y++) {
+          const idx = (y * width + currentX) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          
+          // Detectar pixels que formam o candle
+          if (Math.abs(r - g) > 30 || Math.abs(r - b) > 30) { // Detectar cores diferentes do fundo
+            if (y < high) high = y;
+            if (y > low) low = y;
+            
+            // Detectar corpo do candle (mais denso em pixels)
+            const density = countPixelDensity(data, currentX, y, candleWidth, width, height);
+            if (density > 0.7) { // Threshold para corpo do candle
+              if (open === 0) open = y;
+              close = y;
+            }
+          }
+        }
+        
+        if (high < low && open !== 0 && close !== 0) {
+          // Converter coordenadas de pixel para valores de preço
+          const priceRange = 100; // Ajustar baseado na escala do gráfico
+          const pixelToPrice = priceRange / height;
+          
+          candles.push({
+            open: (height - open) * pixelToPrice,
+            close: (height - close) * pixelToPrice,
+            high: (height - high) * pixelToPrice,
+            low: (height - low) * pixelToPrice,
+            position: {
+              x: currentX,
+              y: high
+            },
+            width: candleWidth,
+            height: low - high
+          });
+        }
+        
+        currentX += candleWidth + 1; // Avançar para o próximo candle
+      }
+      
+      resolve(candles);
+    };
+    
+    img.src = imageData;
+  });
+};
+
+// Função auxiliar para calcular a densidade de pixels em uma área
+const countPixelDensity = (data: Uint8ClampedArray, x: number, y: number, width: number, imageWidth: number, imageHeight: number): number => {
+  let count = 0;
+  const area = width * 3; // Altura da área de amostra
+  
+  for (let i = 0; i < width; i++) {
+    for (let j = -1; j <= 1; j++) {
+      const py = y + j;
+      const px = x + i;
+      
+      if (px >= 0 && px < imageWidth && py >= 0 && py < imageHeight) {
+        const idx = (py * imageWidth + px) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        
+        if (Math.abs(r - g) > 30 || Math.abs(r - b) > 30) {
+          count++;
+        }
+      }
+    }
+  }
+  
+  return count / area;
 };
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   console.log('🚀 Iniciando análise completa do gráfico...');
   
-  const numCandles = options.optimizeForScalping ? 60 : 120;
-  const timeframe = options.timeframe || '1m';
+  // Detectar dimensões da imagem
+  const img = new Image();
+  await new Promise((resolve) => {
+    img.onload = resolve;
+    img.src = imageData;
+  });
   
-  const candles = await generateMockCandles(numCandles, timeframe);
+  // Detectar candles da imagem
+  const candles = await detectCandles(imageData, img.width, img.height);
   
-  console.log(`📊 Gerados ${candles.length} candles para análise`);
+  console.log(`📊 Detectados ${candles.length} candles para análise`);
   
   // NOVO: Análise avançada de condições de mercado
   const advancedConditions = analyzeAdvancedMarketConditions(candles);
