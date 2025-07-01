@@ -16,7 +16,7 @@ export const analyzeVolume = (candles: CandleData[]): VolumeData => {
 
   // Calcular volume REAL baseado na altura e largura dos candles detectados
   let totalVolume = 0;
-  let volumeTrend = 'neutral';
+  let volumeTrend: 'neutral' | 'increasing' | 'decreasing' = 'neutral';
   let previousVolumes: number[] = [];
   
   candles.forEach(candle => {
@@ -57,13 +57,19 @@ export const analyzeVolume = (candles: CandleData[]): VolumeData => {
     Math.abs(lastVolume - previousVolumes[previousVolumes.length - 2]) / avgVolume : 0;
   const divergence = volumeVariation > 0.3;
   
+  // Determinar distribuição corrigida
+  let distribution: 'neutral' | 'accumulation' | 'distribution' = 'neutral';
+  if (isAbnormal) {
+    distribution = volumeTrend === 'increasing' ? 'accumulation' : 'distribution';
+  }
+  
   return {
     value: Math.round(lastVolume),
     trend: volumeTrend,
     abnormal: isAbnormal,
     significance,
     relativeToAverage: parseFloat(relativeToAverage.toFixed(2)),
-    distribution: isAbnormal ? 'concentrated' : 'neutral',
+    distribution,
     divergence
   };
 };

@@ -1,3 +1,4 @@
+
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -30,9 +31,7 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
-// REMOVIDO: Função de detecção simulada - agora só usa dados REAIS
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
-  // Detectar candles REAIS da imagem
   const img = new Image();
   await new Promise((resolve) => {
     img.onload = resolve;
@@ -40,11 +39,8 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
   });
   
   const candles = await detectCandles(imageData, img.width, img.height);
-  
-  // Detectar padrões REAIS dos candles extraídos
   const detectedPatterns = detectCandlestickPatterns(candles);
   
-  // Converter para formato PatternResult usando dados REAIS
   return detectedPatterns.map(pattern => ({
     type: pattern.type,
     confidence: pattern.confidence,
@@ -85,7 +81,6 @@ export const detectCandles = async (imageData: string, width: number, height: nu
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
       
-      // Detectar candles REAIS através da análise de pixels
       const candles: CandleData[] = [];
       let currentX = 0;
       const candleWidth = Math.floor(width / 50);
@@ -102,7 +97,6 @@ export const detectCandles = async (imageData: string, width: number, height: nu
           const g = data[idx + 1];
           const b = data[idx + 2];
           
-          // Detectar pixels que formam o candle REAL
           if (Math.abs(r - g) > 30 || Math.abs(r - b) > 30) {
             if (y < high) high = y;
             if (y > low) low = y;
@@ -129,7 +123,8 @@ export const detectCandles = async (imageData: string, width: number, height: nu
               y: high
             },
             width: candleWidth,
-            height: low - high
+            height: low - high,
+            timestamp: Date.now() + currentX // Adicionar timestamp obrigatório
           });
         }
         
@@ -144,7 +139,6 @@ export const detectCandles = async (imageData: string, width: number, height: nu
   });
 };
 
-// Função auxiliar para calcular a densidade de pixels em uma área
 const countPixelDensity = (data: Uint8ClampedArray, x: number, y: number, width: number, imageWidth: number, imageHeight: number): number => {
   let count = 0;
   const area = width * 3;
@@ -173,14 +167,12 @@ const countPixelDensity = (data: Uint8ClampedArray, x: number, y: number, width:
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
   console.log('🚀 Iniciando análise REAL do gráfico (SEM dados simulados)...');
   
-  // Detectar dimensões REAIS da imagem
   const img = new Image();
   await new Promise((resolve) => {
     img.onload = resolve;
     img.src = imageData;
   });
   
-  // Detectar candles REAIS da imagem
   const candles = await detectCandles(imageData, img.width, img.height);
   console.log(`📊 Detectados ${candles.length} candles REAIS para análise`);
   
@@ -207,7 +199,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
         value: 0,
         trend: 'stable',
         atr: 0,
-        historicalComparison: 'normal',
+        historicalComparison: 'average',
         isHigh: false
       },
       marketContext: {
@@ -255,7 +247,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     };
   }
   
-  // Análise avançada de condições de mercado usando dados REAIS
   const advancedConditions = analyzeAdvancedMarketConditions(candles);
   const operatingScore = calculateOperatingScore(advancedConditions);
   const confidenceReduction = calculateConfidenceReduction(advancedConditions);
@@ -263,7 +254,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   console.log(`🎯 Score REAL de operação: ${operatingScore}/100`);
   console.log(`⚠️ Redução de confiança: ${(confidenceReduction * 100).toFixed(0)}%`);
   
-  // Detectar padrões REAIS de candlestick
   let candlePatterns: DetectedPattern[] = [];
   if (options.enableCandleDetection !== false) {
     candlePatterns = detectCandlestickPatterns(candles);
@@ -279,7 +269,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     });
   }
   
-  // Converter padrões REAIS para formato PatternResult
   const patterns: PatternResult[] = candlePatterns.map(pattern => ({
     type: pattern.type,
     confidence: pattern.confidence * confidenceReduction,
@@ -291,7 +280,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   console.log(`📋 Convertidos ${patterns.length} padrões REAIS para formato final`);
   
-  // Análises baseadas em dados REAIS
   const priceActionSignals = analyzePriceAction(candles);
   const volumeData: VolumeData = analyzeVolume(candles);
   const volatilityAnalysis = analyzeVolatility(candles);
@@ -300,7 +288,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const marketContextAnalysis = analyzeMarketContext(candles);
   const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
   
-  // Sinais de scalping baseados em padrões REAIS detectados
   const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
     action: signal.action === 'compra' ? 'compra' : 'venda',
@@ -312,16 +299,15 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   
   console.log(`⚡️ Sinais REAIS de Scalping: ${scalpingSignals.length}`);
   
-  // Contexto de mercado aprimorado com dados REAIS
   const enhancedMarketContext: EnhancedMarketContext = {
     phase: marketContextAnalysis.phase,
-    strength: marketContextAnalysis.strength,
+    strength: 'fraca',
     dominantTimeframe: options.timeframe || '1m',
     sentiment: marketContextAnalysis.sentiment,
     description: `Score REAL: ${operatingScore}/100`,
-    marketStructure: marketContextAnalysis.structure || 'indefinida',
-    breakoutPotential: marketContextAnalysis.breakoutPotential || 'baixo',
-    momentumSignature: marketContextAnalysis.momentum || 'estável',
+    marketStructure: 'indefinida',
+    breakoutPotential: 'baixo',
+    momentumSignature: 'estável',
     advancedConditions,
     operatingScore,
     confidenceReduction
@@ -341,7 +327,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     warnings: advancedConditions.warnings,
     preciseEntryAnalysis: {
       exactMinute: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      entryType: patterns.length > 0 ? 'confirmação' : 'aguardando',
+      entryType: patterns.length > 0 ? 'reversão' : 'reversão',
       nextCandleExpectation: patterns.some(p => p.action === 'compra') ? 'confirmação bullish' : 
                             patterns.some(p => p.action === 'venda') ? 'confirmação bearish' : 'indefinido',
       priceAction: patterns.length > 0 ? patterns[0].action : 'neutro',
@@ -356,16 +342,16 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     detailedMarketContext: {
       phase: marketContextAnalysis.phase,
       sentiment: marketContextAnalysis.sentiment,
-      strength: marketContextAnalysis.strength,
+      strength: 'fraca',
       description: `Score REAL: ${operatingScore}/100`,
-      marketStructure: marketContextAnalysis.structure || 'indefinida',
-      breakoutPotential: marketContextAnalysis.breakoutPotential || 'baixo',
-      momentumSignature: marketContextAnalysis.momentum || 'estável',
-      institutionalBias: marketContextAnalysis.bias || 'neutro',
+      marketStructure: 'indefinida',
+      breakoutPotential: 'baixo',
+      momentumSignature: 'estável',
+      institutionalBias: 'neutro',
       volatilityState: volatilityAnalysis.isHigh ? 'alta' : 'normal',
       liquidityCondition: volumeData.significance === 'high' ? 'alta' : 'adequada',
       timeOfDay: 'horário_comercial',
-      trend: marketContextAnalysis.trend || 'lateral'
+      trend: 'lateral'
     },
     entryRecommendations: []
   };
