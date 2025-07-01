@@ -124,7 +124,7 @@ export const detectCandles = async (imageData: string, width: number, height: nu
             },
             width: candleWidth,
             height: low - high,
-            timestamp: Date.now() + currentX // Adicionar timestamp obrigatório
+            timestamp: Date.now() + currentX
           });
         }
         
@@ -197,7 +197,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       volatilityData: {
         value: 0,
-        trend: 'stable',
+        trend: 'neutral',
         atr: 0,
         historicalComparison: 'average',
         isHigh: false
@@ -300,10 +300,10 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   console.log(`⚡️ Sinais REAIS de Scalping: ${scalpingSignals.length}`);
   
   const enhancedMarketContext: EnhancedMarketContext = {
-    phase: marketContextAnalysis.phase,
+    phase: 'lateral',
     strength: 'fraca',
     dominantTimeframe: options.timeframe || '1m',
-    sentiment: marketContextAnalysis.sentiment,
+    sentiment: 'neutro',
     description: `Score REAL: ${operatingScore}/100`,
     marketStructure: 'indefinida',
     breakoutPotential: 'baixo',
@@ -340,8 +340,8 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     confluences: confluenceAnalysis,
     priceActionSignals: priceActionSignals,
     detailedMarketContext: {
-      phase: marketContextAnalysis.phase,
-      sentiment: marketContextAnalysis.sentiment,
+      phase: 'lateral',
+      sentiment: 'neutro',
       strength: 'fraca',
       description: `Score REAL: ${operatingScore}/100`,
       marketStructure: 'indefinida',
