@@ -20,8 +20,11 @@ const AdvancedMarketAnalysis = () => {
   } = useAnalyzer();
   const { toast } = useToast();
 
-  console.log('AdvancedMarketAnalysis - analysisResults:', analysisResults);
-  console.log('AdvancedMarketAnalysis - patterns:', analysisResults?.patterns);
+  console.log('🔍 AdvancedMarketAnalysis - Verificando dados REAIS:', {
+    hasAnalysisResults: !!analysisResults,
+    patternsCount: analysisResults?.patterns?.length || 0,
+    patterns: analysisResults?.patterns?.map(p => ({ type: p.type, action: p.action, confidence: p.confidence })) || []
+  });
 
   // Verificar se há uma imagem capturada
   if (!capturedImage) return null;
@@ -30,11 +33,11 @@ const AdvancedMarketAnalysis = () => {
   if (isAnalyzing) {
     return (
       <div className="space-y-2 my-3">
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">Analisando condições de mercado...</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-1">Analisando padrões REAIS do gráfico...</h3>
         <div className="p-4 border rounded-md bg-card">
           <div className="flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-primary animate-pulse"></div>
-            <div className="ml-2">Processando análise avançada</div>
+            <div className="ml-2">Detectando candles e padrões REAIS</div>
           </div>
         </div>
       </div>
@@ -45,7 +48,7 @@ const AdvancedMarketAnalysis = () => {
   if (!analysisResults) {
     return (
       <div className="space-y-2 my-3">
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">Aguardando análise</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-1">Aguardando análise REAL</h3>
         <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <ChartBar className="h-5 w-5 text-gray-500" />
@@ -59,23 +62,30 @@ const AdvancedMarketAnalysis = () => {
   // Verificar o timeframe
   if (timeframe !== '1m') return null;
 
-  // CORRIGIDO: Usar dados reais da análise dos padrões detectados
+  // USAR DADOS REAIS: Padrões detectados pela IA no gráfico
   const patterns = analysisResults.patterns || [];
-  console.log('AdvancedMarketAnalysis - patterns disponíveis:', patterns);
+  console.log('🕯️ Padrões REAIS detectados pela IA:', patterns);
   
-  // Filtrar padrões por ação com dados reais
+  // Filtrar padrões REAIS por ação
   const buyPatterns = patterns.filter(p => {
-    console.log(`Checking pattern ${p.type}: action=${p.action}, confidence=${p.confidence}`);
-    return p.action === 'compra' && p.confidence > 0.5;
+    const isBuyPattern = p.action === 'compra' && p.confidence > 0.5;
+    console.log(`Padrão REAL ${p.type}: action=${p.action}, confidence=${p.confidence}, isBuy=${isBuyPattern}`);
+    return isBuyPattern;
   });
   
   const sellPatterns = patterns.filter(p => {
-    console.log(`Checking pattern ${p.type}: action=${p.action}, confidence=${p.confidence}`);
-    return p.action === 'venda' && p.confidence > 0.5;
+    const isSellPattern = p.action === 'venda' && p.confidence > 0.5;
+    console.log(`Padrão REAL ${p.type}: action=${p.action}, confidence=${p.confidence}, isSell=${isSellPattern}`);
+    return isSellPattern;
   });
   
-  console.log('AdvancedMarketAnalysis - buyPatterns:', buyPatterns);
-  console.log('AdvancedMarketAnalysis - sellPatterns:', sellPatterns);
+  console.log('🔥 SINAIS REAIS PROCESSADOS:', {
+    totalPatterns: patterns.length,
+    buyPatterns: buyPatterns.length,
+    sellPatterns: sellPatterns.length,
+    buyTypes: buyPatterns.map(p => p.type),
+    sellTypes: sellPatterns.map(p => p.type)
+  });
   
   const isUptrend = buyPatterns.length > 0;
   const isDowntrend = sellPatterns.length > 0;
@@ -116,9 +126,9 @@ const AdvancedMarketAnalysis = () => {
   
   const entryMinute = preciseEntryAnalysis.exactMinute || 'pendente';
   
-  // Ultra quick entry decision with real pattern data
+  // SINAL DE ENTRADA BASEADO EM DADOS REAIS DETECTADOS PELA IA
   const quickEntrySignal = () => {
-    console.log('quickEntrySignal - Checking conditions:', {
+    console.log('🚀 Gerando sinal de entrada baseado em dados REAIS:', {
       operatingScore,
       isUptrend,
       isDowntrend,
@@ -137,19 +147,20 @@ const AdvancedMarketAnalysis = () => {
           </div>
           <div className="text-right">
             <div className="font-mono text-sm">Score: {operatingScore}/100</div>
-            <div className="text-xs opacity-70">Condições adversas</div>
+            <div className="text-xs opacity-70">Condições adversas detectadas</div>
           </div>
         </div>
       );
     }
     
+    // SINAL DE COMPRA baseado em padrões REAIS detectados
     if (isUptrend && operatingScore >= 40) {
       const strongestBuyPattern = buyPatterns.reduce((prev, current) => 
         (current.confidence > prev.confidence) ? current : prev
       );
       const adjustedConfidence = Math.round(strongestBuyPattern.confidence * confidenceReduction * 100);
       
-      console.log('Showing BUY signal for pattern:', strongestBuyPattern);
+      console.log('🟢 EXIBINDO SINAL DE COMPRA REAL:', strongestBuyPattern);
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
@@ -168,7 +179,7 @@ const AdvancedMarketAnalysis = () => {
                 COMPRAR {operatingScore < 60 ? '(CAUTELOSO)' : ''}
               </span>
               <div className="text-xs opacity-80">
-                {strongestBuyPattern.type.toUpperCase()} - {strongestBuyPattern.description}
+                PADRÃO REAL: {strongestBuyPattern.type.toUpperCase()}
               </div>
             </div>
           </div>
@@ -180,13 +191,14 @@ const AdvancedMarketAnalysis = () => {
       );
     }
     
+    // SINAL DE VENDA baseado em padrões REAIS detectados
     if (isDowntrend && operatingScore >= 40) {
       const strongestSellPattern = sellPatterns.reduce((prev, current) => 
         (current.confidence > prev.confidence) ? current : prev
       );
       const adjustedConfidence = Math.round(strongestSellPattern.confidence * confidenceReduction * 100);
       
-      console.log('Showing SELL signal for pattern:', strongestSellPattern);
+      console.log('🔴 EXIBINDO SINAL DE VENDA REAL:', strongestSellPattern);
       
       return (
         <div className={`p-3 rounded-lg border flex items-center justify-between ${
@@ -205,7 +217,7 @@ const AdvancedMarketAnalysis = () => {
                 VENDER {operatingScore < 60 ? '(CAUTELOSO)' : ''}
               </span>
               <div className="text-xs opacity-80">
-                {strongestSellPattern.type.toUpperCase()} - {strongestSellPattern.description}
+                PADRÃO REAL: {strongestSellPattern.type.toUpperCase()}
               </div>
             </div>
           </div>
@@ -217,7 +229,7 @@ const AdvancedMarketAnalysis = () => {
       );
     }
     
-    console.log('No clear signal - showing WAIT state');
+    console.log('⚪ Nenhum sinal claro - exibindo estado de ESPERA');
     
     return (
       <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center justify-between">
@@ -228,7 +240,7 @@ const AdvancedMarketAnalysis = () => {
         <div className="text-right">
           <div className="font-mono text-sm">Score: {operatingScore}/100</div>
           <div className="text-xs opacity-70">
-            {patterns.length > 0 ? `${patterns.length} padrões detectados` : 'Sem padrões detectados'}
+            {patterns.length > 0 ? `${patterns.length} padrões REAIS detectados` : 'Nenhum padrão detectado'}
           </div>
         </div>
       </div>
@@ -244,7 +256,7 @@ const AdvancedMarketAnalysis = () => {
         <div className="flex items-center gap-2">
           {getRecommendationIcon(advancedConditions.recommendation)}
           <AlertTitle className="flex items-center gap-2 text-sm">
-            Condições de Mercado
+            Condições REAIS de Mercado
             <span className={`text-xs px-2 py-1 rounded font-mono ${getScoreColor(operatingScore)}`}>
               {operatingScore}/100
             </span>
@@ -260,7 +272,7 @@ const AdvancedMarketAnalysis = () => {
           
           {advancedConditions.warnings.length > 0 && (
             <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border-l-2 border-red-400">
-              <div className="font-semibold text-red-700 dark:text-red-400 mb-1">⚠️ Alertas:</div>
+              <div className="font-semibold text-red-700 dark:text-red-400 mb-1">⚠️ Alertas REAIS:</div>
               {advancedConditions.warnings.map((warning, index) => (
                 <div key={index} className="text-xs text-red-600 dark:text-red-300">{warning}</div>
               ))}
@@ -284,31 +296,70 @@ const AdvancedMarketAnalysis = () => {
   return (
     <div className="space-y-3 my-3 animate-fade-in">
       <h3 className="text-sm font-medium text-muted-foreground mb-1">
-        Análise Inteligente M1 
+        Análise Inteligente M1 - DADOS REAIS
         <span className="ml-2 text-xs bg-primary/10 px-2 py-1 rounded">
           Score: {operatingScore}/100
         </span>
       </h3>
       
-      {/* Debug info - para identificar problema */}
-      <div className="text-xs bg-blue-50 p-2 rounded border">
-        <div><strong>Debug AdvancedMarketAnalysis:</strong></div>
-        <div>Total patterns: {patterns.length}</div>
-        <div>Buy patterns: {buyPatterns.length}</div>
-        <div>Sell patterns: {sellPatterns.length}</div>
-        <div>Pattern types: {patterns.map(p => `${p.type}(${p.action})`).join(', ')}</div>
+      {/* Debug info - para mostrar que está usando dados REAIS */}
+      <div className="text-xs bg-green-50 p-2 rounded border border-green-200">
+        <div><strong>✅ DADOS REAIS DA IA:</strong></div>
+        <div>Candles detectados: {analysisResults.candles?.length || 0}</div>
+        <div>Padrões REAIS: {patterns.length}</div>
+        <div>Compra: {buyPatterns.length} | Venda: {sellPatterns.length}</div>
+        <div>Tipos REAIS: {patterns.map(p => `${p.type}(${p.action})`).join(', ') || 'Nenhum'}</div>
       </div>
       
-      {/* Clear entry signal with real pattern data */}
+      {/* Sinal de entrada com dados REAIS detectados pela IA */}
       {quickEntrySignal()}
       
-      {/* Advanced market conditions awareness */}
-      {marketConditionsDisplay()}
+      {/* Condições avançadas de mercado */}
+      {marketContextEnabled && advancedConditions && (
+        <Alert className={`mt-3 rounded-lg ${getScoreColor(operatingScore)} border-2`}>
+          <div className="flex items-center gap-2">
+            {getRecommendationIcon(advancedConditions.recommendation)}
+            <AlertTitle className="flex items-center gap-2 text-sm">
+              Condições REAIS de Mercado
+              <span className={`text-xs px-2 py-1 rounded font-mono ${getScoreColor(operatingScore)}`}>
+                {operatingScore}/100
+              </span>
+            </AlertTitle>
+          </div>
+          <AlertDescription className="text-xs mt-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div><strong>Regime:</strong> {advancedConditions.marketRegime}</div>
+              <div><strong>Dificuldade:</strong> {advancedConditions.operatingDifficulty}</div>
+              <div><strong>Manipulação:</strong> {advancedConditions.manipulationRisk}</div>
+              <div><strong>Liquidez:</strong> {advancedConditions.liquidityState}</div>
+            </div>
+            
+            {advancedConditions.warnings.length > 0 && (
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border-l-2 border-red-400">
+                <div className="font-semibold text-red-700 dark:text-red-400 mb-1">⚠️ Alertas REAIS:</div>
+                {advancedConditions.warnings.map((warning, index) => (
+                  <div key={index} className="text-xs text-red-600 dark:text-red-300">{warning}</div>
+                ))}
+              </div>
+            )}
+            
+            <div className="mt-2 text-xs opacity-75">
+              <strong>Recomendação:</strong> {advancedConditions.recommendation.replace('_', ' ').toUpperCase()}
+            </div>
+            
+            {preciseEntryAnalysis.entryInstructions && (
+              <div className="mt-2 text-xs border-l-2 border-primary pl-2">
+                {preciseEntryAnalysis.entryInstructions}
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
       
-      {/* Real patterns detected - show actual patterns found by AI */}
+      {/* Padrões REAIS detectados - mostrar padrões reais encontrados pela IA */}
       {patterns.length > 0 && (
         <div className="mt-3 p-3 border rounded-lg bg-muted/30">
-          <h4 className="text-sm font-semibold mb-2">Padrões Detectados pela IA:</h4>
+          <h4 className="text-sm font-semibold mb-2">Padrões REAIS Detectados pela IA:</h4>
           <div className="space-y-1">
             {patterns.slice(0, 3).map((pattern, index) => (
               <div key={index} className="flex justify-between items-center text-xs">
@@ -316,7 +367,7 @@ const AdvancedMarketAnalysis = () => {
                   pattern.action === 'compra' ? 'text-green-600' : 
                   pattern.action === 'venda' ? 'text-red-600' : 'text-gray-600'
                 }`}>
-                  {pattern.type.toUpperCase()} - {pattern.action.toUpperCase()}
+                  REAL: {pattern.type.toUpperCase()} - {pattern.action.toUpperCase()}
                 </span>
                 <span className="text-muted-foreground">
                   {Math.round(pattern.confidence * 100)}%
@@ -327,26 +378,26 @@ const AdvancedMarketAnalysis = () => {
         </div>
       )}
       
-      {/* Technical details - only if comprehensive analysis selected */}
+      {/* Detalhes técnicos REAIS - apenas se análise abrangente selecionada */}
       {marketAnalysisDepth === 'comprehensive' && analysisResults.volumeData && analysisResults.volatilityData && (
         <div className="grid grid-cols-2 gap-2 text-xs mt-2">
           <div className="p-2 border rounded-lg flex items-center gap-1">
             <span className={`w-3 h-3 rounded-full ${analysisResults.volumeData.abnormal ? 'bg-amber-500' : 'bg-green-500'}`}></span>
-            <span>Volume: {analysisResults.volumeData.significance}</span>
+            <span>Volume REAL: {analysisResults.volumeData.significance}</span>
           </div>
           
           <div className="p-2 border rounded-lg flex items-center gap-1">
             <span className={`w-3 h-3 rounded-full ${analysisResults.volatilityData.isHigh ? 'bg-amber-500' : 'bg-green-500'}`}></span>
-            <span>Volatilidade: {analysisResults.volatilityData.historicalComparison}</span>
+            <span>Volatilidade REAL: {analysisResults.volatilityData.historicalComparison}</span>
           </div>
         </div>
       )}
       
-      {/* Confidence reduction warning */}
+      {/* Aviso de redução de confiança */}
       {confidenceReduction < 0.8 && (
         <div className="text-xs bg-orange-50 dark:bg-orange-900/20 p-2 rounded border-l-2 border-orange-400">
           <Zap className="h-3 w-3 inline mr-1" />
-          <strong>Confiança reduzida para {Math.round(confidenceReduction * 100)}%</strong> devido às condições de mercado
+          <strong>Confiança ajustada para {Math.round(confidenceReduction * 100)}%</strong> baseado nas condições REAIS de mercado
         </div>
       )}
     </div>

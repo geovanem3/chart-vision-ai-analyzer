@@ -1,6 +1,4 @@
-
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
-import { mockCandles as generateMockCandles } from "./mockData";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
 import { analyzePriceAction, analyzeMarketContext } from "./priceActionAnalysis";
@@ -32,27 +30,29 @@ interface AnalysisOptions {
   enableMarketContext?: boolean;
 }
 
-// Export missing functions that ControlPanel.tsx expects
+// REMOVIDO: Função de detecção simulada - agora só usa dados REAIS
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
-  // Simple pattern detection simulation
-  const patterns: PatternResult[] = [
-    {
-      type: 'Martelo',
-      confidence: Math.random() * 0.4 + 0.6,
-      description: 'Padrão de reversão bullish detectado',
-      recommendation: 'Considerar compra',
-      action: 'compra'
-    },
-    {
-      type: 'Doji',
-      confidence: Math.random() * 0.4 + 0.5,
-      description: 'Indecisão do mercado',
-      recommendation: 'Aguardar confirmação',
-      action: 'neutro'
-    }
-  ];
+  // Detectar candles REAIS da imagem
+  const img = new Image();
+  await new Promise((resolve) => {
+    img.onload = resolve;
+    img.src = imageData;
+  });
   
-  return patterns;
+  const candles = await detectCandles(imageData, img.width, img.height);
+  
+  // Detectar padrões REAIS dos candles extraídos
+  const detectedPatterns = detectCandlestickPatterns(candles);
+  
+  // Converter para formato PatternResult usando dados REAIS
+  return detectedPatterns.map(pattern => ({
+    type: pattern.type,
+    confidence: pattern.confidence,
+    description: pattern.description,
+    recommendation: pattern.action === 'compra' ? 'Considerar compra' : 
+                   pattern.action === 'venda' ? 'Considerar venda' : 'Aguardar confirmação',
+    action: pattern.action
+  }));
 };
 
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
@@ -85,13 +85,12 @@ export const detectCandles = async (imageData: string, width: number, height: nu
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
       
-      // Detectar candles através da análise de pixels
+      // Detectar candles REAIS através da análise de pixels
       const candles: CandleData[] = [];
       let currentX = 0;
-      const candleWidth = Math.floor(width / 50); // Estimativa inicial da largura do candle
+      const candleWidth = Math.floor(width / 50);
       
       while (currentX < width - candleWidth) {
-        // Analisar coluna de pixels para encontrar high/low
         let high = height;
         let low = 0;
         let open = 0;
@@ -103,14 +102,13 @@ export const detectCandles = async (imageData: string, width: number, height: nu
           const g = data[idx + 1];
           const b = data[idx + 2];
           
-          // Detectar pixels que formam o candle
-          if (Math.abs(r - g) > 30 || Math.abs(r - b) > 30) { // Detectar cores diferentes do fundo
+          // Detectar pixels que formam o candle REAL
+          if (Math.abs(r - g) > 30 || Math.abs(r - b) > 30) {
             if (y < high) high = y;
             if (y > low) low = y;
             
-            // Detectar corpo do candle (mais denso em pixels)
             const density = countPixelDensity(data, currentX, y, candleWidth, width, height);
-            if (density > 0.7) { // Threshold para corpo do candle
+            if (density > 0.7) {
               if (open === 0) open = y;
               close = y;
             }
@@ -118,8 +116,7 @@ export const detectCandles = async (imageData: string, width: number, height: nu
         }
         
         if (high < low && open !== 0 && close !== 0) {
-          // Converter coordenadas de pixel para valores de preço
-          const priceRange = 100; // Ajustar baseado na escala do gráfico
+          const priceRange = 100;
           const pixelToPrice = priceRange / height;
           
           candles.push({
@@ -136,9 +133,10 @@ export const detectCandles = async (imageData: string, width: number, height: nu
           });
         }
         
-        currentX += candleWidth + 1; // Avançar para o próximo candle
+        currentX += candleWidth + 1;
       }
       
+      console.log(`🕯️ DETECTADOS ${candles.length} candles REAIS da imagem`);
       resolve(candles);
     };
     
@@ -149,7 +147,7 @@ export const detectCandles = async (imageData: string, width: number, height: nu
 // Função auxiliar para calcular a densidade de pixels em uma área
 const countPixelDensity = (data: Uint8ClampedArray, x: number, y: number, width: number, imageWidth: number, imageHeight: number): number => {
   let count = 0;
-  const area = width * 3; // Altura da área de amostra
+  const area = width * 3;
   
   for (let i = 0; i < width; i++) {
     for (let j = -1; j <= 1; j++) {
@@ -173,46 +171,106 @@ const countPixelDensity = (data: Uint8ClampedArray, x: number, y: number, width:
 };
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
-  console.log('🚀 Iniciando análise completa do gráfico...');
+  console.log('🚀 Iniciando análise REAL do gráfico (SEM dados simulados)...');
   
-  // Detectar dimensões da imagem
+  // Detectar dimensões REAIS da imagem
   const img = new Image();
   await new Promise((resolve) => {
     img.onload = resolve;
     img.src = imageData;
   });
   
-  // Detectar candles da imagem
+  // Detectar candles REAIS da imagem
   const candles = await detectCandles(imageData, img.width, img.height);
+  console.log(`📊 Detectados ${candles.length} candles REAIS para análise`);
   
-  console.log(`📊 Detectados ${candles.length} candles para análise`);
+  if (candles.length === 0) {
+    console.log('⚠️ NENHUM candle detectado - retornando análise vazia');
+    return {
+      patterns: [],
+      timestamp: Date.now(),
+      imageUrl: imageData,
+      technicalElements: [],
+      candles: [],
+      scalpingSignals: [],
+      technicalIndicators: [],
+      volumeData: {
+        value: 0,
+        trend: 'neutral',
+        abnormal: false,
+        significance: 'low',
+        relativeToAverage: 1.0,
+        distribution: 'neutral',
+        divergence: false
+      },
+      volatilityData: {
+        value: 0,
+        trend: 'stable',
+        atr: 0,
+        historicalComparison: 'normal',
+        isHigh: false
+      },
+      marketContext: {
+        phase: 'lateral',
+        strength: 'fraca',
+        dominantTimeframe: options.timeframe || '1m',
+        sentiment: 'neutro',
+        description: 'Sem dados suficientes',
+        marketStructure: 'indefinida',
+        breakoutPotential: 'baixo',
+        momentumSignature: 'estável'
+      },
+      warnings: ['Nenhum candle detectado na imagem'],
+      preciseEntryAnalysis: {
+        exactMinute: 'pendente',
+        entryType: 'reversão',
+        nextCandleExpectation: 'aguardando análise',
+        priceAction: '',
+        confirmationSignal: '',
+        riskRewardRatio: 0,
+        entryInstructions: 'Sem dados para análise'
+      },
+      confluences: {
+        confluenceScore: 0,
+        supportResistance: [],
+        marketStructure: { structure: 'neutral' },
+        priceAction: { trend: 'lateral', momentum: 'fraco', strength: 0 }
+      },
+      priceActionSignals: [],
+      detailedMarketContext: {
+        phase: 'lateral',
+        sentiment: 'neutro',
+        strength: 'fraca',
+        description: 'Sem dados suficientes',
+        marketStructure: 'indefinida',
+        breakoutPotential: 'baixo',
+        momentumSignature: 'estável',
+        institutionalBias: 'neutro',
+        volatilityState: 'normal',
+        liquidityCondition: 'inadequada',
+        timeOfDay: 'fora_horario',
+        trend: 'lateral'
+      },
+      entryRecommendations: []
+    };
+  }
   
-  // NOVO: Análise avançada de condições de mercado
+  // Análise avançada de condições de mercado usando dados REAIS
   const advancedConditions = analyzeAdvancedMarketConditions(candles);
   const operatingScore = calculateOperatingScore(advancedConditions);
   const confidenceReduction = calculateConfidenceReduction(advancedConditions);
   
-  console.log(`🎯 Score de operação: ${operatingScore}/100`);
+  console.log(`🎯 Score REAL de operação: ${operatingScore}/100`);
   console.log(`⚠️ Redução de confiança: ${(confidenceReduction * 100).toFixed(0)}%`);
-  console.log(`📋 Recomendação: ${advancedConditions.recommendation}`);
   
-  if (advancedConditions.warnings.length > 0) {
-    console.log('🚨 Warnings:', advancedConditions.warnings);
-  }
-  
-  // Analyze volatility
-  const volatilityAnalysis = analyzeVolatility(candles);
-  console.log(`📈 Volatilidade: ${volatilityAnalysis.value.toFixed(2)}% (trend: ${volatilityAnalysis.trend})`);
-  
-  // CORRIGIDO: Detectar padrões reais de candlestick em vez de simulados
+  // Detectar padrões REAIS de candlestick
   let candlePatterns: DetectedPattern[] = [];
   if (options.enableCandleDetection !== false) {
     candlePatterns = detectCandlestickPatterns(candles);
-    console.log(`🕯️ Padrões de candlestick detectados: ${candlePatterns.length}`);
+    console.log(`🕯️ Padrões REAIS detectados: ${candlePatterns.length}`);
     
-    // Log detalhado dos padrões para debug
     candlePatterns.forEach((pattern, index) => {
-      console.log(`Pattern ${index}:`, {
+      console.log(`Pattern REAL ${index + 1}:`, {
         type: pattern.type,
         action: pattern.action,
         confidence: pattern.confidence,
@@ -221,7 +279,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     });
   }
   
-  // CORRIGIDO: Converter padrões de candlestick detectados para formato PatternResult
+  // Converter padrões REAIS para formato PatternResult
   const patterns: PatternResult[] = candlePatterns.map(pattern => ({
     type: pattern.type,
     confidence: pattern.confidence * confidenceReduction,
@@ -231,60 +289,39 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     action: pattern.action
   }));
   
-  console.log(`📋 Convertidos ${patterns.length} padrões para formato final`);
+  console.log(`📋 Convertidos ${patterns.length} padrões REAIS para formato final`);
   
-  // Adicionar warnings específicos se as condições são ruins
-  patterns.forEach(pattern => {
-    if (operatingScore < 30) {
-      pattern.description += ` ⚠️ CUIDADO: Condições adversas de mercado (Score: ${operatingScore}/100)`;
-    }
-  });
-  
-  // Price action analysis
+  // Análises baseadas em dados REAIS
   const priceActionSignals = analyzePriceAction(candles);
-  console.log(`⚡️ Price Action Signals: ${priceActionSignals.length} signals detected`);
-  
-  // Volume analysis
   const volumeData: VolumeData = analyzeVolume(candles);
-  console.log(`📊 Volume Analysis: Trend - ${volumeData.trend}, Significance - ${volumeData.significance}`);
-  
-  // Divergence analysis
+  const volatilityAnalysis = analyzeVolatility(candles);
   const divergences = detectDivergences(candles);
-  console.log(`🔍 Divergências encontradas: ${divergences.length}`);
-  
-  // Technical indicators
   const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
-  console.log(`⚙️ Indicadores técnicos detectados: ${technicalIndicators.length}`);
+  const marketContextAnalysis = analyzeMarketContext(candles);
+  const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
   
-  // Scalping signals - usar padrões reais detectados
+  // Sinais de scalping baseados em padrões REAIS detectados
   const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
     action: signal.action === 'compra' ? 'compra' : 'venda',
     price: '...',
-    confidence: signal.confidence,
+    confidence: signal.confidence * confidenceReduction,
     timeframe: options.timeframe || '1m',
     description: signal.description,
   }));
-  console.log(`⚡️ Scalping Signals: ${scalpingSignals.length} signals detected`);
   
-  // Market context
-  const marketContextAnalysis = analyzeMarketContext(candles);
-  console.log(`🌎 Market Context: Phase - ${marketContextAnalysis.phase}, Sentiment - ${marketContextAnalysis.sentiment}`);
+  console.log(`⚡️ Sinais REAIS de Scalping: ${scalpingSignals.length}`);
   
-  // Confluence analysis
-  const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
-  console.log(`🤝 Confluence Score: ${confluenceAnalysis.confluenceScore}`);
-  
-  // NOVO: Criar contexto de mercado aprimorado
+  // Contexto de mercado aprimorado com dados REAIS
   const enhancedMarketContext: EnhancedMarketContext = {
-    phase: 'lateral',
-    strength: 'moderada',
+    phase: marketContextAnalysis.phase,
+    strength: marketContextAnalysis.strength,
     dominantTimeframe: options.timeframe || '1m',
-    sentiment: 'neutro',
-    description: `Score: ${operatingScore}/100`,
-    marketStructure: 'indefinida',
-    breakoutPotential: 'baixo',
-    momentumSignature: 'estável',
+    sentiment: marketContextAnalysis.sentiment,
+    description: `Score REAL: ${operatingScore}/100`,
+    marketStructure: marketContextAnalysis.structure || 'indefinida',
+    breakoutPotential: marketContextAnalysis.breakoutPotential || 'baixo',
+    momentumSignature: marketContextAnalysis.momentum || 'estável',
     advancedConditions,
     operatingScore,
     confidenceReduction
@@ -303,37 +340,41 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     marketContext: enhancedMarketContext,
     warnings: advancedConditions.warnings,
     preciseEntryAnalysis: {
-      exactMinute: 'agora',
-      entryType: 'reversão',
-      nextCandleExpectation: 'confirmação',
-      priceAction: 'bullish',
-      confirmationSignal: 'aguardando',
-      riskRewardRatio: 2.5,
-      entryInstructions: 'Aguardar confirmação no próximo candle'
+      exactMinute: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      entryType: patterns.length > 0 ? 'confirmação' : 'aguardando',
+      nextCandleExpectation: patterns.some(p => p.action === 'compra') ? 'confirmação bullish' : 
+                            patterns.some(p => p.action === 'venda') ? 'confirmação bearish' : 'indefinido',
+      priceAction: patterns.length > 0 ? patterns[0].action : 'neutro',
+      confirmationSignal: patterns.length > 0 ? 'detectado' : 'aguardando',
+      riskRewardRatio: patterns.length > 0 ? 2.5 : 0,
+      entryInstructions: patterns.length > 0 ? 
+        `Padrão ${patterns[0].type} detectado - ${patterns[0].recommendation}` : 
+        'Aguardando formação de padrão'
     },
     confluences: confluenceAnalysis,
     priceActionSignals: priceActionSignals,
     detailedMarketContext: {
-      phase: 'lateral',
-      sentiment: 'neutro',
-      strength: 'moderada',
-      description: `Score: ${operatingScore}/100`,
-      marketStructure: 'indefinida',
-      breakoutPotential: 'baixo',
-      momentumSignature: 'estável',
-      institutionalBias: 'neutro',
-      volatilityState: 'normal',
-      liquidityCondition: 'adequada',
+      phase: marketContextAnalysis.phase,
+      sentiment: marketContextAnalysis.sentiment,
+      strength: marketContextAnalysis.strength,
+      description: `Score REAL: ${operatingScore}/100`,
+      marketStructure: marketContextAnalysis.structure || 'indefinida',
+      breakoutPotential: marketContextAnalysis.breakoutPotential || 'baixo',
+      momentumSignature: marketContextAnalysis.momentum || 'estável',
+      institutionalBias: marketContextAnalysis.bias || 'neutro',
+      volatilityState: volatilityAnalysis.isHigh ? 'alta' : 'normal',
+      liquidityCondition: volumeData.significance === 'high' ? 'alta' : 'adequada',
       timeOfDay: 'horário_comercial',
-      trend: 'lateral'
+      trend: marketContextAnalysis.trend || 'lateral'
     },
     entryRecommendations: []
   };
   
-  console.log('📋 Resultado final da análise:', {
+  console.log('📋 Resultado FINAL da análise REAL:', {
     patternsCount: result.patterns.length,
     patternTypes: result.patterns.map(p => p.type),
-    operatingScore: operatingScore
+    operatingScore: operatingScore,
+    candlesDetected: candles.length
   });
   
   return result;
