@@ -1,10 +1,10 @@
+
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
 import { analyzePriceAction, analyzeMarketContext } from "./priceActionAnalysis";
 import { performConfluenceAnalysis } from "./confluenceAnalysis";
 import { detectDivergences } from "./divergenceAnalysis";
-import { detectChartPatterns } from "./chartPatternDetection";
 import { detectCandlestickPatterns } from "./candlestickPatternDetection";
 import { detectTechnicalIndicators } from "./technicalIndicatorAnalysis";
 import { DetectedPattern } from "./types";
@@ -29,6 +29,41 @@ interface AnalysisOptions {
   enablePriceAction?: boolean;
   enableMarketContext?: boolean;
 }
+
+// Criar interface para padrões de gráfico simples
+interface ChartPattern {
+  pattern: string;
+  confidence: number;
+  description: string;
+  recommendation: string;
+  action: 'compra' | 'venda' | 'neutro';
+}
+
+// Função simplificada para detectar padrões gráficos
+const detectChartPatterns = (candles: CandleData[]): ChartPattern[] => {
+  if (candles.length < 5) return [];
+  
+  const patterns: ChartPattern[] = [];
+  const recent = candles.slice(-10);
+  
+  // Detectar triângulo simples
+  const highs = recent.map(c => c.high);
+  const lows = recent.map(c => c.low);
+  const avgHigh = highs.reduce((a, b) => a + b, 0) / highs.length;
+  const avgLow = lows.reduce((a, b) => a + b, 0) / lows.length;
+  
+  if (Math.abs(avgHigh - avgLow) < (avgHigh * 0.02)) {
+    patterns.push({
+      pattern: 'triangulo',
+      confidence: 0.7,
+      description: 'Padrão triangular detectado',
+      recommendation: 'Aguardar breakout',
+      action: 'neutro'
+    });
+  }
+  
+  return patterns;
+};
 
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
   const img = new Image();
@@ -187,7 +222,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       technicalIndicators: [],
       volumeData: {
         value: 0,
-        trend: 'neutral',
+        trend: 'neutro',
         abnormal: false,
         significance: 'low',
         relativeToAverage: 1.0,
@@ -196,7 +231,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       volatilityData: {
         value: 0,
-        trend: 'neutral',
+        trend: 'neutro',
         atr: 0,
         historicalComparison: 'average',
         isHigh: false
@@ -493,21 +528,19 @@ const determineMarketType = (candles: CandleData[], confluences: any, priceActio
   const trendPercent = ((lastClose - firstClose) / firstClose) * 100;
   
   let marketType = 'CONSOLIDADO';
-  let phase: 'lateral' | 'alta' | 'baixa' | 'consolidacao' = 'lateral';
-  let trend: 'alta' | 'baixa' | 'lateral' = 'lateral';
+  let phase: 'lateral' | 'tendência_alta' | 'tendência_baixa' | 'acumulação' = 'lateral';
+  let trend: 'lateral' = 'lateral';
   
   if (Math.abs(trendPercent) > 0.3 && rangePercent > 0.4) {
     marketType = 'TENDENCIA';
     if (trendPercent > 0.3) {
-      phase = 'alta';
-      trend = 'alta';
+      phase = 'tendência_alta';
     } else {
-      phase = 'baixa';
-      trend = 'baixa';
+      phase = 'tendência_baixa';
     }
   } else if (rangePercent < 0.2) {
     marketType = 'CONSOLIDADO';
-    phase = 'consolidacao';
+    phase = 'acumulação';
   } else {
     marketType = 'LATERAL';
     phase = 'lateral';
@@ -519,9 +552,9 @@ const determineMarketType = (candles: CandleData[], confluences: any, priceActio
   else if (confluences.confluenceScore > 50) strength = 'moderada';
   
   // Determinar sentimento
-  let sentiment: 'bullish' | 'bearish' | 'neutro' = 'neutro';
-  if (trendPercent > 0.2) sentiment = 'bullish';
-  else if (trendPercent < -0.2) sentiment = 'bearish';
+  let sentiment: 'otimista' | 'pessimista' | 'neutro' = 'neutro';
+  if (trendPercent > 0.2) sentiment = 'otimista';
+  else if (trendPercent < -0.2) sentiment = 'pessimista';
   
   return {
     type: marketType,
@@ -531,7 +564,7 @@ const determineMarketType = (candles: CandleData[], confluences: any, priceActio
     sentiment,
     structure: confluences.marketStructure?.structure || 'indefinida',
     breakoutPotential: confluences.priceAction?.breakoutPotential || 'baixo',
-    momentum: priceActionSignals.length > 2 ? 'forte' : 'estável',
+    momentum: priceActionSignals.length > 2 ? 'acelerando' : 'estável',
     institutionalBias: sentiment
   };
 };
@@ -588,7 +621,7 @@ const generatePreciseEntryAnalysis = (
   
   return {
     exactMinute: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    entryType: marketType.type === 'TENDENCIA' ? 'continuação' : 'reversão',
+    entryType: marketType.type === 'TENDENCIA' ? 'breakout' : 'reversão',
     nextCandleExpectation: bestPattern ? 
       `Confirmação ${bestPattern.action} - ${bestPattern.type}` : 
       'Aguardando formação',
