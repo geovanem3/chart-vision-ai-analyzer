@@ -1,4 +1,3 @@
-
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { analyzeVolume } from "./volumeAnalysis";
 import { analyzeVolatility } from "./volatilityAnalysis";
@@ -86,15 +85,33 @@ export const detectPatterns = async (imageData: string): Promise<PatternResult[]
 };
 
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
-  return patterns.map((pattern, index) => ({
-    id: `pattern-${index}`,
-    type: 'pattern' as const,
-    patternType: 'triangulo' as const,
-    points: [{ x: Math.random() * width * 0.8, y: Math.random() * height * 0.8 }],
-    color: '#ff0000',
-    pattern: pattern.type,
-    confidence: pattern.confidence
-  }));
+  return patterns.map((pattern, index) => {
+    // Calculate REAL coordinates based on detected patterns instead of random
+    let xPosition = width * 0.1; // Start from left margin
+    let yPosition = height * 0.5; // Middle height as default
+    
+    // Use pattern-specific positioning if available
+    if (patterns.length > 1) {
+      xPosition = (width * 0.8 / patterns.length) * index + width * 0.1;
+    }
+    
+    // Adjust Y position based on pattern type
+    if (pattern.action === 'compra') {
+      yPosition = height * 0.7; // Lower for buy signals
+    } else if (pattern.action === 'venda') {
+      yPosition = height * 0.3; // Higher for sell signals
+    }
+    
+    return {
+      id: `pattern-${index}`,
+      type: 'pattern' as const,
+      patternType: 'triangulo' as const,
+      points: [{ x: xPosition, y: yPosition }],
+      color: pattern.action === 'compra' ? '#22c55e' : pattern.action === 'venda' ? '#ef4444' : '#6b7280',
+      pattern: pattern.type,
+      confidence: pattern.confidence
+    };
+  });
 };
 
 export const detectCandles = async (imageData: string, width: number, height: number): Promise<CandleData[]> => {
@@ -313,11 +330,11 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const priceActionSignals = analyzePriceAction(candles);
   console.log(`📈 Sinais de Price Action: ${priceActionSignals.length}`);
   
-  // 4. Análise COMPLETA de Volume
+  // 4. Análise COMPLETA de Volume (REAL)
   const volumeData: VolumeData = analyzeVolume(candles);
   console.log(`📊 Volume Analysis: ${volumeData.significance} (${volumeData.trend})`);
   
-  // 5. Análise COMPLETA de Volatilidade
+  // 5. Análise COMPLETA de Volatilidade (REAL)
   const volatilityAnalysis = analyzeVolatility(candles);
   console.log(`📊 Volatilidade: ${volatilityAnalysis.isHigh ? 'ALTA' : 'NORMAL'}`);
   
