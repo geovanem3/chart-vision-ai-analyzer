@@ -437,7 +437,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
     description: `ANÁLISE COMPLETA - Score: ${operatingScore}/100 - Tipo: ${marketType.type}`,
     marketStructure: marketType.structure,
     breakoutPotential: marketType.breakoutPotential,
-    momentumSignature: marketType.momentum,
+    momentumSignature: marketType.momentum as 'estável' | 'acelerando' | 'desacelerando' | 'divergente',
     advancedConditions,
     operatingScore,
     confidenceReduction: confidenceReduction * finalConfidenceMultiplier
@@ -486,7 +486,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       description: `ANÁLISE COMPLETA - Score: ${operatingScore}/100`,
       marketStructure: marketType.structure,
       breakoutPotential: marketType.breakoutPotential,
-      momentumSignature: marketType.momentum,
+      momentumSignature: marketType.momentum as 'estável' | 'acelerando' | 'desacelerando' | 'divergente',
       institutionalBias: marketType.institutionalBias,
       volatilityState: volatilityAnalysis.isHigh ? 'alta' : 'normal',
       liquidityCondition: volumeData.significance === 'high' ? 'alta' : 'adequada',
@@ -619,9 +619,20 @@ const generatePreciseEntryAnalysis = (
   const bestPattern = patterns.length > 0 ? patterns[0] : null;
   const bestPA = priceActionSignals.length > 0 ? priceActionSignals[0] : null;
   
+  // Determinar o tipo de entrada baseado no tipo de mercado e padrões
+  let entryType: 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência' = 'reversão';
+  
+  if (marketType.type === 'TENDENCIA') {
+    entryType = 'breakout';
+  } else if (marketType.type === 'LATERAL') {
+    entryType = bestPattern?.action === 'compra' ? 'teste_suporte' : 'teste_resistência';
+  } else {
+    entryType = 'reversão';
+  }
+  
   return {
     exactMinute: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    entryType: marketType.type === 'TENDENCIA' ? 'breakout' : 'reversão',
+    entryType: entryType,
     nextCandleExpectation: bestPattern ? 
       `Confirmação ${bestPattern.action} - ${bestPattern.type}` : 
       'Aguardando formação',
