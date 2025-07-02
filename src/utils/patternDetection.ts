@@ -222,7 +222,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       technicalIndicators: [],
       volumeData: {
         value: 0,
-        trend: 'neutro',
+        trend: 'neutral',
         abnormal: false,
         significance: 'low',
         relativeToAverage: 1.0,
@@ -231,7 +231,7 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       },
       volatilityData: {
         value: 0,
-        trend: 'neutro',
+        trend: 'neutral',
         atr: 0,
         historicalComparison: 'average',
         isHigh: false
