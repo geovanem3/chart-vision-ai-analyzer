@@ -65,23 +65,35 @@ const detectChartPatterns = (candles: CandleData[]): ChartPattern[] => {
 };
 
 export const detectPatterns = async (imageData: string): Promise<PatternResult[]> => {
-  const img = new Image();
-  await new Promise((resolve) => {
-    img.onload = resolve;
-    img.src = imageData;
-  });
-  
-  const candles = await detectCandles(imageData, img.width, img.height);
-  const detectedPatterns = detectCandlestickPatterns(candles);
-  
-  return detectedPatterns.map(pattern => ({
-    type: pattern.type,
-    confidence: pattern.confidence,
-    description: pattern.description,
-    recommendation: pattern.action === 'compra' ? 'Considerar compra' : 
-                   pattern.action === 'venda' ? 'Considerar venda' : 'Aguardar confirmação',
-    action: pattern.action
-  }));
+  // Try enhanced AI analysis first
+  try {
+    const { analyzeChartWithAI } = await import('./enhancedPatternDetection');
+    const enhancedResult = await analyzeChartWithAI(imageData);
+    
+    console.log('🤖 IA ESPECIALIZADA ativada com sucesso');
+    return enhancedResult.patterns;
+  } catch (error) {
+    console.log('🔄 Fallback para análise tradicional:', error);
+    
+    // Fallback to traditional analysis
+    const img = new Image();
+    await new Promise((resolve) => {
+      img.onload = resolve;
+      img.src = imageData;
+    });
+    
+    const candles = await detectCandles(imageData, img.width, img.height);
+    const detectedPatterns = detectCandlestickPatterns(candles);
+    
+    return detectedPatterns.map(pattern => ({
+      type: pattern.type,
+      confidence: pattern.confidence,
+      description: pattern.description,
+      recommendation: pattern.action === 'compra' ? 'Considerar compra' : 
+                     pattern.action === 'venda' ? 'Considerar venda' : 'Aguardar confirmação',
+      action: pattern.action
+    }));
+  }
 };
 
 export const generateTechnicalMarkup = (patterns: PatternResult[], width: number, height: number) => {
@@ -216,315 +228,331 @@ const countPixelDensity = (data: Uint8ClampedArray, x: number, y: number, width:
 };
 
 export const analyzeChart = async (imageData: string, options: AnalysisOptions = {}): Promise<AnalysisResult> => {
-  console.log('🚀 Iniciando ANÁLISE COMPLETA com TODO o poder de análise...');
-  
-  const img = new Image();
-  await new Promise((resolve) => {
-    img.onload = resolve;
-    img.src = imageData;
-  });
-  
-  const candles = await detectCandles(imageData, img.width, img.height);
-  console.log(`📊 Detectados ${candles.length} candles REAIS para análise COMPLETA`);
-  
-  if (candles.length === 0) {
-    console.log('⚠️ NENHUM candle detectado - retornando análise vazia');
-    return {
-      patterns: [],
-      timestamp: Date.now(),
-      imageUrl: imageData,
-      technicalElements: [],
-      candles: [],
-      scalpingSignals: [],
-      technicalIndicators: [],
-      volumeData: {
-        value: 0,
-        trend: 'neutral',
-        abnormal: false,
-        significance: 'low',
-        relativeToAverage: 1.0,
-        distribution: 'neutral',
-        divergence: false
-      },
-      volatilityData: {
-        value: 0,
-        trend: 'neutral',
-        atr: 0,
-        historicalComparison: 'average',
-        isHigh: false
-      },
-      marketContext: {
-        phase: 'lateral',
-        strength: 'fraca',
-        dominantTimeframe: options.timeframe || '1m',
-        sentiment: 'neutro',
-        description: 'Sem dados suficientes',
-        marketStructure: 'indefinida',
-        breakoutPotential: 'baixo',
-        momentumSignature: 'estável'
-      },
-      warnings: ['Nenhum candle detectado na imagem'],
-      preciseEntryAnalysis: {
-        exactMinute: 'pendente',
-        entryType: 'reversão',
-        nextCandleExpectation: 'aguardando análise',
-        priceAction: '',
-        confirmationSignal: '',
-        riskRewardRatio: 0,
-        entryInstructions: 'Sem dados para análise'
-      },
-      confluences: {
-        confluenceScore: 0,
-        supportResistance: [],
-        marketStructure: { structure: 'neutral' },
-        priceAction: { trend: 'lateral', momentum: 'fraco', strength: 0 }
-      },
-      priceActionSignals: [],
-      detailedMarketContext: {
-        phase: 'lateral',
-        sentiment: 'neutro',
-        strength: 'fraca',
-        description: 'Sem dados suficientes',
-        marketStructure: 'indefinida',
-        breakoutPotential: 'baixo',
-        momentumSignature: 'estável',
-        institutionalBias: 'neutro',
-        volatilityState: 'normal',
-        liquidityCondition: 'inadequada',
-        timeOfDay: 'fora_horario',
-        trend: 'lateral'
-      },
-      entryRecommendations: []
-    };
-  }
-  
-  console.log('🔥 ATIVANDO ANÁLISE COMPLETA - USANDO 100% DO PODER DO CÓDIGO');
-  
-  // === ANÁLISE COMPLETA MULTI-CAMADAS ===
-  
-  // 1. Análise Avançada de Condições de Mercado
-  const advancedConditions = analyzeAdvancedMarketConditions(candles);
-  const operatingScore = calculateOperatingScore(advancedConditions);
-  const confidenceReduction = calculateConfidenceReduction(advancedConditions);
-  
-  console.log(`🎯 Score COMPLETO de operação: ${operatingScore}/100`);
-  console.log(`⚠️ Redução de confiança: ${(confidenceReduction * 100).toFixed(0)}%`);
-  
-  // 2. Detecção COMPLETA de Padrões de Candlesticks
-  let candlePatterns: DetectedPattern[] = [];
-  if (options.enableCandleDetection !== false) {
-    candlePatterns = detectCandlestickPatterns(candles);
-    console.log(`🕯️ Padrões COMPLETOS detectados: ${candlePatterns.length}`);
+  // Try enhanced AI analysis first
+  try {
+    const { analyzeChartWithAI } = await import('./enhancedPatternDetection');
+    const enhancedResult = await analyzeChartWithAI(imageData, options);
     
-    candlePatterns.forEach((pattern, index) => {
-      console.log(`Pattern COMPLETO ${index + 1}:`, {
-        type: pattern.type,
-        action: pattern.action,
-        confidence: pattern.confidence,
-        description: pattern.description
-      });
+    console.log('🚀 ANÁLISE COMPLETA COM IA ESPECIALIZADA executada com sucesso');
+    console.log(`📊 Plataforma: ${enhancedResult.financialChartAnalysis.platform}`);
+    console.log(`⏰ Timeframe: ${enhancedResult.financialChartAnalysis.timeframe}`);
+    console.log(`🎯 Confiança da IA: ${Math.round(enhancedResult.aiConfidence.overall * 100)}%`);
+    console.log(`💼 Oportunidade: ${enhancedResult.professionalInsights.tradingOpportunity}`);
+    
+    return enhancedResult;
+  } catch (error) {
+    console.log('🔄 Executando análise tradicional como fallback:', error);
+    
+    console.log('🚀 Iniciando ANÁLISE COMPLETA com TODO o poder de análise...');
+    
+    const img = new Image();
+    await new Promise((resolve) => {
+      img.onload = resolve;
+      img.src = imageData;
     });
-  }
-  
-  // 3. Análise COMPLETA de Price Action
-  const priceActionSignals = analyzePriceAction(candles);
-  console.log(`📈 Sinais de Price Action: ${priceActionSignals.length}`);
-  
-  // 4. Análise COMPLETA de Volume (REAL)
-  const volumeData: VolumeData = analyzeVolume(candles);
-  console.log(`📊 Volume Analysis: ${volumeData.significance} (${volumeData.trend})`);
-  
-  // 5. Análise COMPLETA de Volatilidade (REAL)
-  const volatilityAnalysis = analyzeVolatility(candles);
-  console.log(`📊 Volatilidade: ${volatilityAnalysis.isHigh ? 'ALTA' : 'NORMAL'}`);
-  
-  // 6. Análise COMPLETA de Divergências
-  const divergences = detectDivergences(candles);
-  console.log(`🔄 Divergências detectadas: ${divergences.length}`);
-  
-  // 7. Análise COMPLETA de Indicadores Técnicos
-  const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
-  console.log(`📊 Indicadores Técnicos: ${technicalIndicators.length}`);
-  
-  // 8. Análise COMPLETA de Contexto de Mercado
-  const marketContextAnalysis = analyzeMarketContext(candles);
-  console.log(`🏛️ Contexto de Mercado: ${marketContextAnalysis.phase} - ${marketContextAnalysis.sentiment}`);
-  
-  // 9. Análise COMPLETA de Confluências
-  const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
-  console.log(`🎯 Score de Confluência: ${confluenceAnalysis.confluenceScore}%`);
-  
-  // 10. Análise COMPLETA de Padrões Gráficos
-  const chartPatterns = detectChartPatterns(candles);
-  console.log(`📊 Padrões Gráficos: ${chartPatterns.length}`);
-  
-  // === DETERMINAÇÃO INTELIGENTE DO TIPO DE MERCADO ===
-  
-  const marketType = determineMarketType(candles, confluenceAnalysis, priceActionSignals);
-  console.log(`🏛️ TIPO DE MERCADO IDENTIFICADO: ${marketType.type}`);
-  
-  // === APLICAÇÃO DE ESTRATÉGIAS ESPECÍFICAS POR TIPO DE MERCADO ===
-  
-  let finalPatterns: PatternResult[] = [];
-  let finalSignals: ScalpingSignal[] = [];
-  let finalConfidenceMultiplier = 1.0;
-  
-  if (marketType.type === 'TENDENCIA') {
-    console.log('📈 APLICANDO ESTRATÉGIAS PARA MERCADO DE TENDÊNCIA');
     
-    // Em tendência: priorizar padrões de continuação e breakouts
-    finalPatterns = candlePatterns
-      .filter(p => 
-        p.type.includes('three_white_soldiers') ||
-        p.type.includes('three_black_crows') ||
-        p.type.includes('marubozu') ||
-        p.type.includes('engolfo') ||
-        p.action !== 'neutro'
-      )
-      .map(pattern => ({
-        type: pattern.type,
-        confidence: pattern.confidence * confidenceReduction * 1.2, // Bonus para tendência
-        description: pattern.description + ' (Mercado em Tendência)',
-        recommendation: pattern.action === 'compra' ? 'COMPRA FORTE - Tendência' : 
-                       pattern.action === 'venda' ? 'VENDA FORTE - Tendência' : 'Aguardar',
-        action: pattern.action
-      }));
+    const candles = await detectCandles(imageData, img.width, img.height);
+    console.log(`📊 Detectados ${candles.length} candles REAIS para análise COMPLETA`);
     
-    finalConfidenceMultiplier = 1.2;
+    if (candles.length === 0) {
+      console.log('⚠️ NENHUM candle detectado - retornando análise vazia');
+      return {
+        patterns: [],
+        timestamp: Date.now(),
+        imageUrl: imageData,
+        technicalElements: [],
+        candles: [],
+        scalpingSignals: [],
+        technicalIndicators: [],
+        volumeData: {
+          value: 0,
+          trend: 'neutral',
+          abnormal: false,
+          significance: 'low',
+          relativeToAverage: 1.0,
+          distribution: 'neutral',
+          divergence: false
+        },
+        volatilityData: {
+          value: 0,
+          trend: 'neutral',
+          atr: 0,
+          historicalComparison: 'average',
+          isHigh: false
+        },
+        marketContext: {
+          phase: 'lateral',
+          strength: 'fraca',
+          dominantTimeframe: options.timeframe || '1m',
+          sentiment: 'neutro',
+          description: 'Sem dados suficientes',
+          marketStructure: 'indefinida',
+          breakoutPotential: 'baixo',
+          momentumSignature: 'estável'
+        },
+        warnings: ['Nenhum candle detectado na imagem'],
+        preciseEntryAnalysis: {
+          exactMinute: 'pendente',
+          entryType: 'reversão',
+          nextCandleExpectation: 'aguardando análise',
+          priceAction: '',
+          confirmationSignal: '',
+          riskRewardRatio: 0,
+          entryInstructions: 'Sem dados para análise'
+        },
+        confluences: {
+          confluenceScore: 0,
+          supportResistance: [],
+          marketStructure: { structure: 'neutral' },
+          priceAction: { trend: 'lateral', momentum: 'fraco', strength: 0 }
+        },
+        priceActionSignals: [],
+        detailedMarketContext: {
+          phase: 'lateral',
+          sentiment: 'neutro',
+          strength: 'fraca',
+          description: 'Sem dados suficientes',
+          marketStructure: 'indefinida',
+          breakoutPotential: 'baixo',
+          momentumSignature: 'estável',
+          institutionalBias: 'neutro',
+          volatilityState: 'normal',
+          liquidityCondition: 'inadequada',
+          timeOfDay: 'fora_horario',
+          trend: 'lateral'
+        },
+        entryRecommendations: []
+      };
+    }
     
-  } else if (marketType.type === 'LATERAL') {
-    console.log('↔️ APLICANDO ESTRATÉGIAS PARA MERCADO LATERAL');
+    console.log('🔥 ATIVANDO ANÁLISE COMPLETA - USANDO 100% DO PODER DO CÓDIGO');
     
-    // Em lateral: priorizar padrões de reversão em S/R
-    finalPatterns = candlePatterns
-      .filter(p => 
-        p.type.includes('doji') ||
-        p.type.includes('hammer') ||
-        p.type.includes('pin_bar') ||
-        p.type.includes('tweezer') ||
-        p.type.includes('harami')
-      )
-      .map(pattern => ({
-        type: pattern.type,
-        confidence: pattern.confidence * confidenceReduction * 1.1, // Bonus para lateral
-        description: pattern.description + ' (Mercado Lateral - S/R)',
-        recommendation: pattern.action === 'compra' ? 'COMPRA em Suporte' : 
-                       pattern.action === 'venda' ? 'VENDA em Resistência' : 'Aguardar',
-        action: pattern.action
-      }));
+    // === ANÁLISE COMPLETA MULTI-CAMADAS ===
     
-    finalConfidenceMultiplier = 1.1;
+    // 1. Análise Avançada de Condições de Mercado
+    const advancedConditions = analyzeAdvancedMarketConditions(candles);
+    const operatingScore = calculateOperatingScore(advancedConditions);
+    const confidenceReduction = calculateConfidenceReduction(advancedConditions);
     
-  } else {
-    console.log('🔄 APLICANDO ESTRATÉGIAS PARA MERCADO CONSOLIDADO');
+    console.log(`🎯 Score COMPLETO de operação: ${operatingScore}/100`);
+    console.log(`⚠️ Redução de confiança: ${(confidenceReduction * 100).toFixed(0)}%`);
     
-    // Mercado consolidado: aguardar breakout
-    finalPatterns = candlePatterns
-      .filter(p => p.confidence > 0.7)
-      .map(pattern => ({
-        type: pattern.type,
-        confidence: pattern.confidence * confidenceReduction * 0.8, // Redução para consolidação
-        description: pattern.description + ' (Mercado Consolidado)',
-        recommendation: 'AGUARDAR BREAKOUT',
-        action: 'neutro'
-      }));
+    // 2. Detecção COMPLETA de Padrões de Candlesticks
+    let candlePatterns: DetectedPattern[] = [];
+    if (options.enableCandleDetection !== false) {
+      candlePatterns = detectCandlestickPatterns(candles);
+      console.log(`🕯️ Padrões COMPLETOS detectados: ${candlePatterns.length}`);
+      
+      candlePatterns.forEach((pattern, index) => {
+        console.log(`Pattern COMPLETO ${index + 1}:`, {
+          type: pattern.type,
+          action: pattern.action,
+          confidence: pattern.confidence,
+          description: pattern.description
+        });
+      });
+    }
     
-    finalConfidenceMultiplier = 0.8;
-  }
-  
-  // === GERAÇÃO DE SINAIS DE SCALPING INTELIGENTES ===
-  
-  finalSignals = generateIntelligentScalpingSignals(
-    finalPatterns,
-    priceActionSignals,
-    confluenceAnalysis,
-    marketType,
-    options
-  );
-  
-  console.log(`⚡️ Sinais INTELIGENTES de Scalping: ${finalSignals.length}`);
-  
-  // === CONTEXTO DE MERCADO APRIMORADO ===
-  
-  const enhancedMarketContext: EnhancedMarketContext = {
-    phase: marketType.phase,
-    strength: marketType.strength,
-    dominantTimeframe: options.timeframe || '1m',
-    sentiment: marketType.sentiment,
-    description: `ANÁLISE COMPLETA - Score: ${operatingScore}/100 - Tipo: ${marketType.type}`,
-    marketStructure: marketType.structure,
-    breakoutPotential: marketType.breakoutPotential,
-    momentumSignature: marketType.momentum as 'estável' | 'acelerando' | 'desacelerando' | 'divergente',
-    advancedConditions,
-    operatingScore,
-    confidenceReduction: confidenceReduction * finalConfidenceMultiplier
-  };
-  
-  // === ANÁLISE PRECISA DE ENTRADA ===
-  
-  const preciseEntryAnalysis = generatePreciseEntryAnalysis(
-    finalPatterns,
-    priceActionSignals,
-    confluenceAnalysis,
-    marketType
-  );
-  
-  // === RECOMENDAÇÕES DE ENTRADA AVANÇADAS ===
-  
-  const entryRecommendations = generateAdvancedEntryRecommendations(
-    finalPatterns,
-    priceActionSignals,
-    confluenceAnalysis,
-    marketType,
-    candles
-  );
-  
-  console.log(`🎯 Recomendações de Entrada: ${entryRecommendations.length}`);
-  
-  const result: AnalysisResult = {
-    patterns: finalPatterns,
-    timestamp: Date.now(),
-    imageUrl: imageData,
-    technicalElements: [],
-    candles: candles,
-    scalpingSignals: finalSignals,
-    technicalIndicators: technicalIndicators,
-    volumeData: volumeData,
-    volatilityData: volatilityAnalysis,
-    marketContext: enhancedMarketContext,
-    warnings: advancedConditions.warnings,
-    preciseEntryAnalysis: preciseEntryAnalysis,
-    confluences: confluenceAnalysis,
-    priceActionSignals: priceActionSignals,
-    detailedMarketContext: {
+    // 3. Análise COMPLETA de Price Action
+    const priceActionSignals = analyzePriceAction(candles);
+    console.log(`📈 Sinais de Price Action: ${priceActionSignals.length}`);
+    
+    // 4. Análise COMPLETA de Volume (REAL)
+    const volumeData: VolumeData = analyzeVolume(candles);
+    console.log(`📊 Volume Analysis: ${volumeData.significance} (${volumeData.trend})`);
+    
+    // 5. Análise COMPLETA de Volatilidade (REAL)
+    const volatilityAnalysis = analyzeVolatility(candles);
+    console.log(`📊 Volatilidade: ${volatilityAnalysis.isHigh ? 'ALTA' : 'NORMAL'}`);
+    
+    // 6. Análise COMPLETA de Divergências
+    const divergences = detectDivergences(candles);
+    console.log(`🔄 Divergências detectadas: ${divergences.length}`);
+    
+    // 7. Análise COMPLETA de Indicadores Técnicos
+    const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
+    console.log(`📊 Indicadores Técnicos: ${technicalIndicators.length}`);
+    
+    // 8. Análise COMPLETA de Contexto de Mercado
+    const marketContextAnalysis = analyzeMarketContext(candles);
+    console.log(`🏛️ Contexto de Mercado: ${marketContextAnalysis.phase} - ${marketContextAnalysis.sentiment}`);
+    
+    // 9. Análise COMPLETA de Confluências
+    const confluenceAnalysis = performConfluenceAnalysis(candles, candlePatterns);
+    console.log(`🎯 Score de Confluência: ${confluenceAnalysis.confluenceScore}%`);
+    
+    // 10. Análise COMPLETA de Padrões Gráficos
+    const chartPatterns = detectChartPatterns(candles);
+    console.log(`📊 Padrões Gráficos: ${chartPatterns.length}`);
+    
+    // === DETERMINAÇÃO INTELIGENTE DO TIPO DE MERCADO ===
+    
+    const marketType = determineMarketType(candles, confluenceAnalysis, priceActionSignals);
+    console.log(`🏛️ TIPO DE MERCADO IDENTIFICADO: ${marketType.type}`);
+    
+    // === APLICAÇÃO DE ESTRATÉGIAS ESPECÍFICAS POR TIPO DE MERCADO ===
+    
+    let finalPatterns: PatternResult[] = [];
+    let finalSignals: ScalpingSignal[] = [];
+    let finalConfidenceMultiplier = 1.0;
+    
+    if (marketType.type === 'TENDENCIA') {
+      console.log('📈 APLICANDO ESTRATÉGIAS PARA MERCADO DE TENDÊNCIA');
+      
+      // Em tendência: priorizar padrões de continuação e breakouts
+      finalPatterns = candlePatterns
+        .filter(p => 
+          p.type.includes('three_white_soldiers') ||
+          p.type.includes('three_black_crows') ||
+          p.type.includes('marubozu') ||
+          p.type.includes('engolfo') ||
+          p.action !== 'neutro'
+        )
+        .map(pattern => ({
+          type: pattern.type,
+          confidence: pattern.confidence * confidenceReduction * 1.2, // Bonus para tendência
+          description: pattern.description + ' (Mercado em Tendência)',
+          recommendation: pattern.action === 'compra' ? 'COMPRA FORTE - Tendência' : 
+                         pattern.action === 'venda' ? 'VENDA FORTE - Tendência' : 'Aguardar',
+          action: pattern.action
+        }));
+      
+      finalConfidenceMultiplier = 1.2;
+      
+    } else if (marketType.type === 'LATERAL') {
+      console.log('↔️ APLICANDO ESTRATÉGIAS PARA MERCADO LATERAL');
+      
+      // Em lateral: priorizar padrões de reversão em S/R
+      finalPatterns = candlePatterns
+        .filter(p => 
+          p.type.includes('doji') ||
+          p.type.includes('hammer') ||
+          p.type.includes('pin_bar') ||
+          p.type.includes('tweezer') ||
+          p.type.includes('harami')
+        )
+        .map(pattern => ({
+          type: pattern.type,
+          confidence: pattern.confidence * confidenceReduction * 1.1, // Bonus para lateral
+          description: pattern.description + ' (Mercado Lateral - S/R)',
+          recommendation: pattern.action === 'compra' ? 'COMPRA em Suporte' : 
+                         pattern.action === 'venda' ? 'VENDA em Resistência' : 'Aguardar',
+          action: pattern.action
+        }));
+      
+      finalConfidenceMultiplier = 1.1;
+      
+    } else {
+      console.log('🔄 APLICANDO ESTRATÉGIAS PARA MERCADO CONSOLIDADO');
+      
+      // Mercado consolidado: aguardar breakout
+      finalPatterns = candlePatterns
+        .filter(p => p.confidence > 0.7)
+        .map(pattern => ({
+          type: pattern.type,
+          confidence: pattern.confidence * confidenceReduction * 0.8, // Redução para consolidação
+          description: pattern.description + ' (Mercado Consolidado)',
+          recommendation: 'AGUARDAR BREAKOUT',
+          action: 'neutro'
+        }));
+      
+      finalConfidenceMultiplier = 0.8;
+    }
+    
+    // === GERAÇÃO DE SINAIS DE SCALPING INTELIGENTES ===
+    
+    finalSignals = generateIntelligentScalpingSignals(
+      finalPatterns,
+      priceActionSignals,
+      confluenceAnalysis,
+      marketType,
+      options
+    );
+    
+    console.log(`⚡️ Sinais INTELIGENTES de Scalping: ${finalSignals.length}`);
+    
+    // === CONTEXTO DE MERCADO APRIMORADO ===
+    
+    const enhancedMarketContext: EnhancedMarketContext = {
       phase: marketType.phase,
-      sentiment: marketType.sentiment,
       strength: marketType.strength,
-      description: `ANÁLISE COMPLETA - Score: ${operatingScore}/100`,
+      dominantTimeframe: options.timeframe || '1m',
+      sentiment: marketType.sentiment,
+      description: `ANÁLISE COMPLETA - Score: ${operatingScore}/100 - Tipo: ${marketType.type}`,
       marketStructure: marketType.structure,
       breakoutPotential: marketType.breakoutPotential,
       momentumSignature: marketType.momentum as 'estável' | 'acelerando' | 'desacelerando' | 'divergente',
-      institutionalBias: marketType.institutionalBias,
-      volatilityState: volatilityAnalysis.isHigh ? 'alta' : 'normal',
-      liquidityCondition: volumeData.significance === 'high' ? 'alta' : 'adequada',
-      timeOfDay: 'horário_comercial',
-      trend: marketType.trend
-    },
-    entryRecommendations: entryRecommendations
-  };
-  
-  console.log('📋 RESULTADO FINAL DA ANÁLISE COMPLETA:', {
-    patternsCount: result.patterns.length,
-    patternTypes: result.patterns.map(p => p.type),
-    operatingScore: operatingScore,
-    marketType: marketType.type,
-    candlesDetected: candles.length,
-    confluenceScore: confluenceAnalysis.confluenceScore,
-    priceActionSignals: priceActionSignals.length,
-    entryRecommendations: entryRecommendations.length
-  });
-  
-  return result;
+      advancedConditions,
+      operatingScore,
+      confidenceReduction: confidenceReduction * finalConfidenceMultiplier
+    };
+    
+    // === ANÁLISE PRECISA DE ENTRADA ===
+    
+    const preciseEntryAnalysis = generatePreciseEntryAnalysis(
+      finalPatterns,
+      priceActionSignals,
+      confluenceAnalysis,
+      marketType
+    );
+    
+    // === RECOMENDAÇÕES DE ENTRADA AVANÇADAS ===
+    
+    const entryRecommendations = generateAdvancedEntryRecommendations(
+      finalPatterns,
+      priceActionSignals,
+      confluenceAnalysis,
+      marketType,
+      candles
+    );
+    
+    console.log(`🎯 Recomendações de Entrada: ${entryRecommendations.length}`);
+    
+    const result: AnalysisResult = {
+      patterns: finalPatterns,
+      timestamp: Date.now(),
+      imageUrl: imageData,
+      technicalElements: [],
+      candles: candles,
+      scalpingSignals: finalSignals,
+      technicalIndicators: technicalIndicators,
+      volumeData: volumeData,
+      volatilityData: volatilityAnalysis,
+      marketContext: enhancedMarketContext,
+      warnings: advancedConditions.warnings,
+      preciseEntryAnalysis: preciseEntryAnalysis,
+      confluences: confluenceAnalysis,
+      priceActionSignals: priceActionSignals,
+      detailedMarketContext: {
+        phase: marketType.phase,
+        sentiment: marketType.sentiment,
+        strength: marketType.strength,
+        description: `ANÁLISE COMPLETA - Score: ${operatingScore}/100`,
+        marketStructure: marketType.structure,
+        breakoutPotential: marketType.breakoutPotential,
+        momentumSignature: marketType.momentum as 'estável' | 'acelerando' | 'desacelerando' | 'divergente',
+        institutionalBias: marketType.institutionalBias,
+        volatilityState: volatilityAnalysis.isHigh ? 'alta' : 'normal',
+        liquidityCondition: volumeData.significance === 'high' ? 'alta' : 'adequada',
+        timeOfDay: 'horário_comercial',
+        trend: marketType.trend
+      },
+      entryRecommendations: entryRecommendations
+    };
+    
+    console.log('📋 RESULTADO FINAL DA ANÁLISE COMPLETA:', {
+      patternsCount: result.patterns.length,
+      patternTypes: result.patterns.map(p => p.type),
+      operatingScore: operatingScore,
+      marketType: marketType.type,
+      candlesDetected: candles.length,
+      confluenceScore: confluenceAnalysis.confluenceScore,
+      priceActionSignals: priceActionSignals.length,
+      entryRecommendations: entryRecommendations.length
+    });
+    
+    return result;
+  }
 };
 
 // === FUNÇÕES AUXILIARES PARA ANÁLISE COMPLETA ===

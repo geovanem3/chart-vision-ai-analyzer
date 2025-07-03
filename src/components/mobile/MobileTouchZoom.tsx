@@ -25,7 +25,7 @@ const MobileTouchZoom = ({
   const lastTouchCenter = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Calculate distance between two touch points
-  const getTouchDistance = (touches: TouchList) => {
+  const getTouchDistance = (touches: React.TouchList) => {
     if (touches.length < 2) return 0;
     const touch1 = touches[0];
     const touch2 = touches[1];
@@ -36,7 +36,7 @@ const MobileTouchZoom = ({
   };
 
   // Calculate center point between touches
-  const getTouchCenter = (touches: TouchList) => {
+  const getTouchCenter = (touches: React.TouchList) => {
     if (touches.length === 1) {
       return { x: touches[0].clientX, y: touches[0].clientY };
     }
