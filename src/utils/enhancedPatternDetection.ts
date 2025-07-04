@@ -1,4 +1,3 @@
-
 /**
  * Enhanced Pattern Detection with Financial Chart AI
  */
@@ -153,7 +152,7 @@ export const analyzeChartWithAI = async (
         tradingOpportunity: 'Aguardar melhor imagem',
         riskAssessment: 'Alto risco - baixa qualidade de dados',
         confidenceLevel: 'Baixa',
-        recommendedTimeframe: 'N/A'
+        recommendedTimeframe: '15m'
       }
     } as EnhancedAnalysisResult;
   }
@@ -250,10 +249,15 @@ const generateProfessionalInsights = (
   if (aiConfidence.overall > 0.75) confidenceLevel = 'Alta';
   else if (aiConfidence.overall > 0.5) confidenceLevel = 'Média';
   
-  // Recommended timeframe
+  // Recommended timeframe - fix to use single valid values
   let recommendedTimeframe = chartAnalysis.timeframe;
   if (chartAnalysis.timeframe === 'Unknown') {
-    recommendedTimeframe = traditionalAnalysis.scalpingSignals.length > 0 ? '1m-5m' : '15m-1h';
+    // Use single valid timeframe values based on analysis
+    if (traditionalAnalysis.scalpingSignals.length > 0) {
+      recommendedTimeframe = '5m'; // For scalping prefer 5m
+    } else {
+      recommendedTimeframe = '15m'; // For swing trading prefer 15m
+    }
   }
   
   return {
