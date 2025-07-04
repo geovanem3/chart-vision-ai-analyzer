@@ -47,7 +47,7 @@ const AROverlay: React.FC<AROverlayProps> = ({
 
   // Renderizar partículas animadas para alta volatilidade
   const renderVolatilityParticles = () => {
-    if (!analysisResults?.volatility?.isHigh) return null;
+    if (!analysisResults?.volatilityData?.isHigh) return null;
 
     return Array.from({ length: 12 }, (_, i) => (
       <motion.div
@@ -105,7 +105,7 @@ const AROverlay: React.FC<AROverlayProps> = ({
     const indicators = [];
 
     // Indicador de volume anormal
-    if (analysisResults.volume?.abnormal) {
+    if (analysisResults.volumeData?.abnormal) {
       indicators.push({
         id: 'volume',
         x: imageWidth * 0.85,
@@ -131,7 +131,7 @@ const AROverlay: React.FC<AROverlayProps> = ({
     }
 
     // Indicador de volatilidade alta
-    if (analysisResults.volatility?.isHigh) {
+    if (analysisResults.volatilityData?.isHigh) {
       indicators.push({
         id: 'volatility',
         x: imageWidth * 0.85,

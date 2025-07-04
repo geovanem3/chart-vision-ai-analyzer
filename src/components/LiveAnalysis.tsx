@@ -48,6 +48,11 @@ interface LiveAnalysisResult {
   };
   platformDetected?: string;
   timeframeDetected?: string;
+  changes?: Array<{
+    type: string;
+    importance: 'high' | 'medium' | 'low';
+    description: string;
+  }>;
 }
 
 const LiveAnalysis = () => {
@@ -88,7 +93,8 @@ const LiveAnalysis = () => {
     considerVolume,
     considerVolatility,
     marketContextEnabled,
-    marketAnalysisDepth 
+    marketAnalysisDepth,
+    setLiveAnalysis
   } = useAnalyzer();
 
   // Função inteligente para detectar mudanças significativas
@@ -291,6 +297,7 @@ const LiveAnalysis = () => {
       if (!hasChart) {
         console.log('📊 Nenhum gráfico detectado na tela');
         setCurrentAnalysis(null);
+        setLiveAnalysis(null);
         return;
       }
       
@@ -422,11 +429,21 @@ const LiveAnalysis = () => {
         riskReward,
         aiConfidence: (analysisResult as any).aiConfidence,
         platformDetected: (analysisResult as any).financialChartAnalysis?.platform || 'Unknown',
-        timeframeDetected: (analysisResult as any).financialChartAnalysis?.timeframe || 'Unknown'
+        timeframeDetected: (analysisResult as any).financialChartAnalysis?.timeframe || 'Unknown',
+        changes: []
       };
 
       // Detectar mudanças significativas
       liveResult.changeDetection = detectSignificantChanges(liveResult, previousAnalysisRef.current);
+
+      // Add change information based on detection
+      if (liveResult.changeDetection?.significantChange) {
+        liveResult.changes = [{
+          type: liveResult.changeDetection.changeType,
+          importance: liveResult.changeDetection.changeStrength > 0.7 ? 'high' : 'medium',
+          description: `${liveResult.changeDetection.changeType} detectado com força ${Math.round(liveResult.changeDetection.changeStrength * 100)}%`
+        }];
+      }
 
       setCurrentAnalysis(liveResult);
       setLiveResults(prev => [liveResult, ...prev.slice(0, 19)]);
@@ -475,7 +492,7 @@ const LiveAnalysis = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast, useAIAnalysis]);
+  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast, useAIAnalysis, setLiveAnalysis]);
 
   // Iniciar análise em tempo real
   const startLiveAnalysis = async () => {
@@ -504,6 +521,7 @@ const LiveAnalysis = () => {
     stopCamera();
     setCurrentAnalysis(null);
     setIsChartVisible(false);
+    setLiveAnalysis(null);
     previousAnalysisRef.current = null;
 
     toast({

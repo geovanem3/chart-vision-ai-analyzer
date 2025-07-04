@@ -89,6 +89,50 @@ export interface EnhancedMarketContext extends MarketContext {
   confidenceReduction?: number;
 }
 
+// New type for LiveAnalysis results
+export type LiveAnalysisResult = {
+  timestamp: number;
+  confidence: number;
+  signal: 'compra' | 'venda' | 'neutro';
+  patterns: string[];
+  trend: 'alta' | 'baixa' | 'lateral';
+  signalQuality?: string;
+  confluenceScore?: number;
+  supportResistance?: any[];
+  criticalLevels?: any[];
+  priceActionSignals?: any[];
+  marketPhase?: string;
+  institutionalBias?: string;
+  entryRecommendations?: any[];
+  riskReward?: number;
+  warnings?: string[];
+  analysisHealth?: {
+    consistency: number;
+    reliability: number;
+    marketAlignment: boolean;
+  };
+  aiConfidence?: {
+    overall: number;
+    chartDetection: number;
+    patternRecognition: number;
+    imageQuality: number;
+    tradingPlatform: number;
+  };
+  changeDetection?: {
+    significantChange: boolean;
+    changeType: 'breakout' | 'reversal' | 'continuation' | 'consolidation';
+    changeStrength: number;
+    previousSignal?: string;
+  };
+  platformDetected?: string;
+  timeframeDetected?: string;
+  changes?: Array<{
+    type: string;
+    importance: 'high' | 'medium' | 'low';
+    description: string;
+  }>;
+};
+
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
@@ -130,7 +174,6 @@ export type AnalysisResult = {
   entryRecommendations?: any[];
 };
 
-// New type for technical indicators for enhanced M1 strategy
 export type TechnicalIndicator = {
   name: string;
   value: string;
@@ -244,6 +287,9 @@ type AnalyzerContextType = {
   setMarketAnalysisDepth: (depth: MarketAnalysisDepth) => void;
   enableCandleDetection: boolean; // Nova propriedade para detecção de candles
   setEnableCandleDetection: (enabled: boolean) => void; // Novo setter
+  // NEW: LiveAnalysis integration
+  liveAnalysis: LiveAnalysisResult | null;
+  setLiveAnalysis: (analysis: LiveAnalysisResult | null) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -268,12 +314,14 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [marketContextEnabled, setMarketContextEnabled] = useState(true); // New state for market context
   const [marketAnalysisDepth, setMarketAnalysisDepth] = useState<MarketAnalysisDepth>('comprehensive'); // New state for market analysis depth
   const [enableCandleDetection, setEnableCandleDetection] = useState(true); // Novo estado para detecção de candles
+  const [liveAnalysis, setLiveAnalysis] = useState<LiveAnalysisResult | null>(null); // NEW: LiveAnalysis state
 
   const resetAnalysis = () => {
     setCapturedImage(null);
     setIsAnalyzing(false);
     setAnalysisResults(null);
     setSelectedRegion(null);
+    setLiveAnalysis(null); // Reset live analysis too
   };
 
   const addManualMarkup = (markup: TechnicalElement) => {
@@ -332,6 +380,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarketAnalysisDepth,
         enableCandleDetection,
         setEnableCandleDetection,
+        liveAnalysis,
+        setLiveAnalysis,
       }}
     >
       {children}
