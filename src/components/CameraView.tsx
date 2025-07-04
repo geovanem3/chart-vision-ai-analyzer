@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +17,7 @@ import MobileLayout from './mobile/MobileLayout';
 import MobileCameraControls from './mobile/MobileCameraControls';
 import MobileGestureHandler from './mobile/MobileGestureHandler';
 import MobileTouchZoom from './mobile/MobileTouchZoom';
+import MobilePremiumControls from './mobile/MobilePremiumControls';
 
 const CameraView = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -27,6 +29,9 @@ const CameraView = () => {
   const [cameraAccessAttempted, setCameraAccessAttempted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('photo');
+  const [arEnabled, setArEnabled] = useState(true);
+  const [premiumMode, setPremiumMode] = useState(true);
+  const [effectIntensity, setEffectIntensity] = useState(0.5);
   const isMobile = useIsMobile();
 
   const { setCapturedImage } = useAnalyzer();
@@ -311,6 +316,31 @@ const CameraView = () => {
     }
   };
 
+  // Premium control handlers
+  const handleARToggle = (enabled: boolean) => {
+    setArEnabled(enabled);
+    toast({ 
+      title: enabled ? "AR Ativado" : "AR Desativado", 
+      description: enabled ? "Sobreposição AR habilitada" : "Modo tradicional ativado" 
+    });
+  };
+
+  const handlePremiumModeToggle = (enabled: boolean) => {
+    setPremiumMode(enabled);
+    toast({ 
+      title: enabled ? "Modo Premium" : "Modo Básico", 
+      description: enabled ? "Recursos avançados ativados" : "Interface simplificada" 
+    });
+  };
+
+  const handleIntensityChange = (intensity: number) => {
+    setEffectIntensity(intensity);
+    toast({ 
+      title: "Intensidade Ajustada", 
+      description: `Efeitos visuais: ${Math.round(intensity * 100)}%` 
+    });
+  };
+
   // Start camera when facing mode changes
   useEffect(() => {
     if (!isCameraActive && cameraAccessAttempted && activeTab === 'photo') {
@@ -481,6 +511,18 @@ const CameraView = () => {
           </MobileGestureHandler>
         </TabsContent>
       </Tabs>
+
+      {/* Controles Premium para Mobile */}
+      {isMobile && (
+        <MobilePremiumControls
+          onARToggle={handleARToggle}
+          onPremiumMode={handlePremiumModeToggle}
+          onIntensityChange={handleIntensityChange}
+          arEnabled={arEnabled}
+          premiumEnabled={premiumMode}
+          intensity={effectIntensity}
+        />
+      )}
     </motion.div>
   );
 
