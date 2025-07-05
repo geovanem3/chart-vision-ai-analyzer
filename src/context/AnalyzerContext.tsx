@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { ensureRealAnalysis } from '@/utils/realDataValidator';
 
 export type PatternResult = {
   type: string;
@@ -336,6 +337,38 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     setManualMarkups(prev => prev.slice(0, -1));
   };
 
+  // Sobrescrever setAnalysisResults para validar dados reais
+  const setValidatedAnalysisResults = (results: AnalysisResult | null) => {
+    if (results) {
+      const validatedResults = ensureRealAnalysis(results);
+      if (validatedResults) {
+        console.log('✅ Setting VALIDATED real analysis results');
+        setAnalysisResults(validatedResults);
+      } else {
+        console.log('❌ Rejected non-real analysis results');
+        setAnalysisResults(null);
+      }
+    } else {
+      setAnalysisResults(null);
+    }
+  };
+
+  // Sobrescrever setLiveAnalysis para validar dados reais
+  const setValidatedLiveAnalysis = (analysis: LiveAnalysisResult | null) => {
+    if (analysis) {
+      const validatedAnalysis = ensureRealAnalysis(analysis);
+      if (validatedAnalysis) {
+        console.log('✅ Setting VALIDATED real live analysis');
+        setLiveAnalysis(validatedAnalysis);
+      } else {
+        console.log('❌ Rejected non-real live analysis');
+        setLiveAnalysis(null);
+      }
+    } else {
+      setLiveAnalysis(null);
+    }
+  };
+
   return (
     <AnalyzerContext.Provider
       value={{
@@ -344,7 +377,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         isAnalyzing,
         setIsAnalyzing,
         analysisResults,
-        setAnalysisResults,
+        setAnalysisResults: setValidatedAnalysisResults,
         selectedRegion,
         setSelectedRegion,
         resetAnalysis,
@@ -381,7 +414,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         enableCandleDetection,
         setEnableCandleDetection,
         liveAnalysis,
-        setLiveAnalysis,
+        setLiveAnalysis: setValidatedLiveAnalysis,
       }}
     >
       {children}

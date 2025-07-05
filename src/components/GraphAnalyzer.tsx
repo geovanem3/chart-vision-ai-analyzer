@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { getMasterAnalysis } from '@/utils/masterTechniques';
+import RealTimeAnalysisIndicator from './RealTimeAnalysisIndicator';
 
 const GraphAnalyzer = () => {
   const { 
@@ -367,9 +368,11 @@ const GraphAnalyzer = () => {
   };
 
   return (
-    <div className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto overflow-hidden`}>
+    <div className="space-y-4">
       {renderMainContent()}
       <MobileBottomBar />
+      {/* Indicador de análise em tempo real */}
+      <RealTimeAnalysisIndicator />
     </div>
   );
 };
