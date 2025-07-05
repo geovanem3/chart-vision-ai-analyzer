@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { 
@@ -57,7 +58,6 @@ const ControlPanel = () => {
   const [currentDecision, setCurrentDecision] = useState<TradingDecision | null>(null);
   const [decisionHistory, setDecisionHistory] = useState<TradingDecision[]>([]);
 
-  // Verificar qualidade da imagem
   const checkQuality = async () => {
     if (!capturedImage) return;
     
@@ -86,7 +86,6 @@ const ControlPanel = () => {
     }
   };
   
-  // Verificar qualidade automaticamente quando a imagem é capturada
   React.useEffect(() => {
     if (capturedImage && !imageQualityInfo.checked) {
       checkQuality();
@@ -106,18 +105,15 @@ const ControlPanel = () => {
     try {
       setIsAnalyzing(true);
       
-      // Verificar qualidade, se ainda não foi verificada
       if (!imageQualityInfo.checked) {
         await checkQuality();
       }
       
-      // Processo de análise aprimorado
       toast({
         title: "Processando",
         description: `Recortando região ${selectedRegion.type === 'circle' ? 'circular' : 'retangular'} selecionada...`
       });
       
-      // Recortar a região selecionada
       const croppedResult = await cropToRegion(capturedImage, selectedRegion);
       
       if (!croppedResult.success) {
@@ -135,7 +131,6 @@ const ControlPanel = () => {
         description: "Melhorando qualidade da imagem..."
       });
       
-      // Processar a imagem para melhorar detecção
       const processedResult = await processImage(croppedResult.data);
       
       if (!processedResult.success) {
@@ -154,7 +149,6 @@ const ControlPanel = () => {
         description: "Executando análise COMPLETA com dados reais..."
       });
       
-      // USAR ANÁLISE REAL COMPLETA - SEM DADOS SIMULADOS
       const analysisResult = await analyzeChart(processedImage, {
         timeframe: timeframe,
         optimizeForScalping: timeframe === '1m',
@@ -168,7 +162,6 @@ const ControlPanel = () => {
         enableMarketContext: true
       });
       
-      // Usar TODOS os dados reais da análise completa
       const finalResults = {
         patterns: analysisResult.patterns,
         timestamp: analysisResult.timestamp,
@@ -191,15 +184,13 @@ const ControlPanel = () => {
 
       setAnalysisResults(finalResults);
 
-      // NOVA FUNCIONALIDADE: Tomar decisão baseada na análise
       console.log('🤖 Iniciando motor de decisão da IA...');
       
       const decisionEngine = createDecisionEngine(timeframe);
       const tradingDecision = decisionEngine.makeDecision(finalResults);
       
-      // Armazenar decisão
       setCurrentDecision(tradingDecision);
-      setDecisionHistory(prev => [tradingDecision, ...prev.slice(0, 9)]); // Manter últimas 10 decisões
+      setDecisionHistory(prev => [tradingDecision, ...prev.slice(0, 9)]);
       
       console.log('🎯 Decisão da IA:', {
         action: tradingDecision.action,
@@ -208,7 +199,6 @@ const ControlPanel = () => {
         reasoning: tradingDecision.reasoning.length
       });
 
-      // CONECTAR COM LIVE ANALYSIS - Inicializar análise em tempo real
       if (analysisResult.patterns && analysisResult.patterns.length > 0) {
         const initialLiveAnalysis = {
           timestamp: Date.now(),
@@ -240,7 +230,6 @@ const ControlPanel = () => {
       const hasPatterns = patternCount > 0;
       const hasDecision = tradingDecision.action !== 'WAIT';
       
-      // Mensagem aprimorada incluindo decisão da IA
       let toastMessage = hasPatterns ? 
         `${patternCount} padrões REAIS detectados. Análise em tempo real ativada.` :
         "Análise executada com dados reais. Use ferramentas manuais se necessário.";
@@ -273,22 +262,18 @@ const ControlPanel = () => {
     }
   };
 
-  // Função para executar decisão de trading
   const handleExecuteDecision = async (decision: TradingDecision) => {
     console.log('🚀 Executando decisão de trading:', decision);
     
-    // Simular execução (aqui você integraria com sua corretora/API)
     toast({
       title: `${decision.action} Executado!`,
       description: `Ordem ${decision.action} executada com confiança ${Math.round(decision.confidence * 100)}%`,
       variant: decision.action === 'BUY' ? "default" : "destructive",
     });
     
-    // Remover decisão atual após execução
     setCurrentDecision(null);
   };
 
-  // Função para dispensar decisão
   const handleDismissDecision = () => {
     setCurrentDecision(null);
     toast({
@@ -311,7 +296,6 @@ const ControlPanel = () => {
           </Button>
         </div>
         
-        {/* Advanced Market Analysis Options - Added for 1m timeframe */}
         {timeframe === '1m' && (
           <div className="mb-4 p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-800">
             <div className="flex items-center gap-2 mb-2">
@@ -336,7 +320,6 @@ const ControlPanel = () => {
           </div>
         )}
         
-        {/* Image Quality Info - Keep existing code */}
         {imageQualityInfo.checked && (
           <Alert
             className={`mb-4 ${imageQualityInfo.isGood ? 'border-green-500/50 bg-green-500/10' : ''}`}
@@ -468,7 +451,6 @@ const ControlPanel = () => {
         </div>
       </Card>
 
-      {/* Painel de Decisão da IA */}
       {currentDecision && (
         <div className="my-4 w-full max-w-3xl">
           <TradingDecisionPanel
@@ -479,7 +461,6 @@ const ControlPanel = () => {
         </div>
       )}
 
-      {/* Histórico de Decisões */}
       {decisionHistory.length > 0 && (
         <Card className="p-4 my-4 w-full max-w-3xl">
           <CardHeader className="pb-3">

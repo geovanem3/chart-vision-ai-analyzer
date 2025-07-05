@@ -1,5 +1,5 @@
 
-import { DetectedPattern, CandleData, AnalysisResult } from '@/context/AnalyzerContext';
+import { AnalysisResult } from '@/context/AnalyzerContext';
 
 export interface TradingDecision {
   action: 'BUY' | 'SELL' | 'HOLD' | 'WAIT';
@@ -81,7 +81,7 @@ export class TradingDecisionEngine {
     );
   }
 
-  private evaluateSignalStrength(patterns: DetectedPattern[], priceActionSignals: any[]): number {
+  private evaluateSignalStrength(patterns: any[], priceActionSignals: any[]): number {
     if (patterns.length === 0 && priceActionSignals.length === 0) return 0;
     
     // Avaliar força dos padrões
@@ -115,7 +115,7 @@ export class TradingDecisionEngine {
     return (patternStrength * 0.6) + (priceActionStrength * 0.4);
   }
 
-  private determinePredominantDirection(patterns: DetectedPattern[], priceActionSignals: any[]): 'BUY' | 'SELL' | 'NEUTRAL' {
+  private determinePredominantDirection(patterns: any[], priceActionSignals: any[]): 'BUY' | 'SELL' | 'NEUTRAL' {
     let buyScore = 0;
     let sellScore = 0;
     
@@ -149,7 +149,7 @@ export class TradingDecisionEngine {
   private calculateTotalConfidence(
     signalStrength: number,
     confluenceScore: number,
-    patterns: DetectedPattern[],
+    patterns: any[],
     priceActionSignals: any[]
   ): number {
     // Base: força do sinal (40%)
@@ -169,7 +169,7 @@ export class TradingDecisionEngine {
     return Math.min(1, Math.max(0, confidence));
   }
 
-  private calculateSignalConsistency(patterns: DetectedPattern[], priceActionSignals: any[]): number {
+  private calculateSignalConsistency(patterns: any[], priceActionSignals: any[]): number {
     const actions = patterns.map(p => p.action).filter(a => a !== 'neutro');
     const directions = priceActionSignals.map(s => s.direction).filter(d => d && d !== 'lateral');
     
@@ -186,7 +186,7 @@ export class TradingDecisionEngine {
     return (actionConsistency + directionConsistency) / 2;
   }
 
-  private assessDataQuality(patterns: DetectedPattern[], priceActionSignals: any[]): number {
+  private assessDataQuality(patterns: any[], priceActionSignals: any[]): number {
     let quality = 0.5; // Base quality
     
     // Qualidade baseada na quantidade de dados
@@ -204,7 +204,7 @@ export class TradingDecisionEngine {
     direction: 'BUY' | 'SELL' | 'NEUTRAL',
     confidence: number,
     hasRequiredConfluences: boolean,
-    patterns: DetectedPattern[],
+    patterns: any[],
     confluences: any,
     priceActionSignals: any[],
     entryRecommendations: any[]
