@@ -59,10 +59,10 @@ export const useRealTimeAnalysis = () => {
         analyzeVolatility(realCandles) : null;
 
       // Detectar mudanças significativas REAIS
-      const significantChanges = [];
+      const changes = [];
       
       if (volumeAnalysis?.abnormal) {
-        significantChanges.push({
+        changes.push({
           type: 'volume_spike',
           importance: 'high' as const,
           description: `Volume anormal detectado: ${volumeAnalysis.significance}`
@@ -70,7 +70,7 @@ export const useRealTimeAnalysis = () => {
       }
 
       if (volatilityAnalysis?.isHigh) {
-        significantChanges.push({
+        changes.push({
           type: 'volatility_spike', 
           importance: 'high' as const,
           description: `Alta volatilidade: ${volatilityAnalysis.value}%`
@@ -92,14 +92,22 @@ export const useRealTimeAnalysis = () => {
         confidence = Math.max(...sellPatterns.map(p => p.confidence));
       }
 
+      // Determinar trend correto baseado no signal
+      let trend: 'alta' | 'baixa' | 'lateral' = 'lateral';
+      if (signal === 'compra') {
+        trend = 'alta';
+      } else if (signal === 'venda') {
+        trend = 'baixa';
+      }
+
       // Criar resultado de análise ao vivo REAL
       const liveResult = {
         timestamp: Date.now(),
         confidence: Math.round(confidence * 100) / 100,
         signal,
         patterns: realPatterns.map(p => p.type),
-        trend: signal === 'compra' ? 'alta' : signal === 'venda' ? 'baixa' : 'lateral',
-        changes: significantChanges,
+        trend, // Agora usando o tipo correto
+        changes,
         analysisHealth: {
           consistency: realPatterns.length > 0 ? 0.8 : 0.4,
           reliability: confidence,
@@ -118,7 +126,7 @@ export const useRealTimeAnalysis = () => {
         signal: liveResult.signal,
         confidence: liveResult.confidence,
         patterns: liveResult.patterns.length,
-        changes: significantChanges.length
+        changes: changes.length
       });
 
       // Atualizar contexto com dados REAIS

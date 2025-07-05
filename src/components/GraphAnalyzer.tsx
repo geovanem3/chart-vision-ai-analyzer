@@ -371,7 +371,7 @@ const GraphAnalyzer = () => {
     <div className="space-y-4">
       {renderMainContent()}
       <MobileBottomBar />
-      {/* Indicador de análise em tempo real */}
+      {/* Indicador de análise em tempo real - SEMPRE VISÍVEL quando há imagem */}
       <RealTimeAnalysisIndicator />
     </div>
   );
