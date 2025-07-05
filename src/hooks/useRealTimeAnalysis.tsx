@@ -1,9 +1,9 @@
-
 import { useEffect, useRef, useCallback } from 'react';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { analyzeVolume } from '@/utils/volumeAnalysis';
 import { analyzeVolatility } from '@/utils/volatilityAnalysis';
 import { detectTechnicalIndicators } from '@/utils/technicalIndicatorAnalysis';
+import { createDecisionEngine, TradingDecision } from '@/utils/decisionEngine';
 
 export const useRealTimeAnalysis = () => {
   const { 
@@ -15,6 +15,7 @@ export const useRealTimeAnalysis = () => {
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnalysisRef = useRef<string>('');
+  const decisionEngineRef = useRef(createDecisionEngine(timeframe));
 
   const performRealTimeAnalysis = useCallback(async () => {
     if (!capturedImage || !analysisResults) {
@@ -22,7 +23,7 @@ export const useRealTimeAnalysis = () => {
       return;
     }
 
-    console.log('🔄 Performing REAL-TIME analysis...');
+    console.log('🔄 Performing REAL-TIME analysis with AI Decision Engine...');
 
     try {
       // Verificar se há mudanças reais nos dados
@@ -77,19 +78,39 @@ export const useRealTimeAnalysis = () => {
         });
       }
 
-      // Sinais REAIS baseados em padrões detectados
-      const buyPatterns = realPatterns.filter(p => p.action === 'compra' && p.confidence > 0.6);
-      const sellPatterns = realPatterns.filter(p => p.action === 'venda' && p.confidence > 0.6);
+      // NOVA FUNCIONALIDADE: Tomar decisão com motor de IA
+      console.log('🤖 Executando motor de decisão da IA em tempo real...');
+      
+      const decision = decisionEngineRef.current.makeDecision(analysisResults);
+      
+      console.log('🎯 Decisão da IA em tempo real:', {
+        action: decision.action,
+        confidence: Math.round(decision.confidence * 100),
+        urgency: decision.urgency
+      });
 
+      // Sinais REAIS baseados na decisão da IA
       let signal: 'compra' | 'venda' | 'neutro' = 'neutro';
       let confidence = 0;
 
-      if (buyPatterns.length > sellPatterns.length) {
+      if (decision.action === 'BUY') {
         signal = 'compra';
-        confidence = Math.max(...buyPatterns.map(p => p.confidence));
-      } else if (sellPatterns.length > buyPatterns.length) {
-        signal = 'venda'; 
-        confidence = Math.max(...sellPatterns.map(p => p.confidence));
+        confidence = decision.confidence;
+      } else if (decision.action === 'SELL') {
+        signal = 'venda';
+        confidence = decision.confidence;
+      } else {
+        // Para HOLD e WAIT, usar análise de padrões como fallback
+        const buyPatterns = realPatterns.filter(p => p.action === 'compra' && p.confidence > 0.6);
+        const sellPatterns = realPatterns.filter(p => p.action === 'venda' && p.confidence > 0.6);
+
+        if (buyPatterns.length > sellPatterns.length) {
+          signal = 'compra';
+          confidence = Math.max(...buyPatterns.map(p => p.confidence));
+        } else if (sellPatterns.length > buyPatterns.length) {
+          signal = 'venda'; 
+          confidence = Math.max(...sellPatterns.map(p => p.confidence));
+        }
       }
 
       // Determinar trend correto baseado no signal
@@ -100,13 +121,13 @@ export const useRealTimeAnalysis = () => {
         trend = 'baixa';
       }
 
-      // Criar resultado de análise ao vivo REAL
+      // Criar resultado de análise ao vivo REAL com decisão da IA
       const liveResult = {
         timestamp: Date.now(),
         confidence: Math.round(confidence * 100) / 100,
         signal,
         patterns: realPatterns.map(p => p.type),
-        trend, // Agora usando o tipo correto
+        trend,
         changes,
         analysisHealth: {
           consistency: realPatterns.length > 0 ? 0.8 : 0.4,
@@ -119,24 +140,33 @@ export const useRealTimeAnalysis = () => {
           patternRecognition: realPatterns.length > 0 ? 90 : 30,
           imageQuality: 75,
           tradingPlatform: 80
+        },
+        // Adicionar informações da decisão da IA
+        aiDecision: {
+          action: decision.action,
+          urgency: decision.urgency,
+          reasoning: decision.reasoning.slice(0, 2), // Primeiros 2 motivos
+          riskReward: decision.riskReward,
+          validUntil: decision.validUntil
         }
       };
 
-      console.log('✅ REAL-TIME ANALYSIS COMPLETED:', {
+      console.log('✅ REAL-TIME ANALYSIS WITH AI DECISION COMPLETED:', {
         signal: liveResult.signal,
         confidence: liveResult.confidence,
+        aiAction: decision.action,
         patterns: liveResult.patterns.length,
         changes: changes.length
       });
 
-      // Atualizar contexto com dados REAIS
+      // Atualizar contexto com dados REAIS + decisão da IA
       setLiveAnalysis(liveResult);
 
     } catch (error) {
-      console.error('❌ Real-time analysis error:', error);
+      console.error('❌ Real-time analysis with AI decision error:', error);
       setLiveAnalysis(null);
     }
-  }, [capturedImage, analysisResults, setLiveAnalysis]);
+  }, [capturedImage, analysisResults, setLiveAnalysis, timeframe]);
 
   // Iniciar análise em tempo real quando há dados
   useEffect(() => {
