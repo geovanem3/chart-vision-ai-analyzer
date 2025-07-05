@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { ensureRealAnalysis } from '@/utils/realDataValidator';
 
 export type PatternResult = {
   type: string;
@@ -90,50 +89,6 @@ export interface EnhancedMarketContext extends MarketContext {
   confidenceReduction?: number;
 }
 
-// New type for LiveAnalysis results
-export type LiveAnalysisResult = {
-  timestamp: number;
-  confidence: number;
-  signal: 'compra' | 'venda' | 'neutro';
-  patterns: string[];
-  trend: 'alta' | 'baixa' | 'lateral';
-  signalQuality?: string;
-  confluenceScore?: number;
-  supportResistance?: any[];
-  criticalLevels?: any[];
-  priceActionSignals?: any[];
-  marketPhase?: string;
-  institutionalBias?: string;
-  entryRecommendations?: any[];
-  riskReward?: number;
-  warnings?: string[];
-  analysisHealth?: {
-    consistency: number;
-    reliability: number;
-    marketAlignment: boolean;
-  };
-  aiConfidence?: {
-    overall: number;
-    chartDetection: number;
-    patternRecognition: number;
-    imageQuality: number;
-    tradingPlatform: number;
-  };
-  changeDetection?: {
-    significantChange: boolean;
-    changeType: 'breakout' | 'reversal' | 'continuation' | 'consolidation';
-    changeStrength: number;
-    previousSignal?: string;
-  };
-  platformDetected?: string;
-  timeframeDetected?: string;
-  changes?: Array<{
-    type: string;
-    importance: 'high' | 'medium' | 'low';
-    description: string;
-  }>;
-};
-
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
@@ -175,6 +130,7 @@ export type AnalysisResult = {
   entryRecommendations?: any[];
 };
 
+// New type for technical indicators for enhanced M1 strategy
 export type TechnicalIndicator = {
   name: string;
   value: string;
@@ -288,9 +244,6 @@ type AnalyzerContextType = {
   setMarketAnalysisDepth: (depth: MarketAnalysisDepth) => void;
   enableCandleDetection: boolean; // Nova propriedade para detecção de candles
   setEnableCandleDetection: (enabled: boolean) => void; // Novo setter
-  // NEW: LiveAnalysis integration
-  liveAnalysis: LiveAnalysisResult | null;
-  setLiveAnalysis: (analysis: LiveAnalysisResult | null) => void;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -315,14 +268,12 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [marketContextEnabled, setMarketContextEnabled] = useState(true); // New state for market context
   const [marketAnalysisDepth, setMarketAnalysisDepth] = useState<MarketAnalysisDepth>('comprehensive'); // New state for market analysis depth
   const [enableCandleDetection, setEnableCandleDetection] = useState(true); // Novo estado para detecção de candles
-  const [liveAnalysis, setLiveAnalysis] = useState<LiveAnalysisResult | null>(null); // NEW: LiveAnalysis state
 
   const resetAnalysis = () => {
     setCapturedImage(null);
     setIsAnalyzing(false);
     setAnalysisResults(null);
     setSelectedRegion(null);
-    setLiveAnalysis(null); // Reset live analysis too
   };
 
   const addManualMarkup = (markup: TechnicalElement) => {
@@ -337,38 +288,6 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     setManualMarkups(prev => prev.slice(0, -1));
   };
 
-  // Sobrescrever setAnalysisResults para validar dados reais
-  const setValidatedAnalysisResults = (results: AnalysisResult | null) => {
-    if (results) {
-      const validatedResults = ensureRealAnalysis(results);
-      if (validatedResults) {
-        console.log('✅ Setting VALIDATED real analysis results');
-        setAnalysisResults(validatedResults);
-      } else {
-        console.log('❌ Rejected non-real analysis results');
-        setAnalysisResults(null);
-      }
-    } else {
-      setAnalysisResults(null);
-    }
-  };
-
-  // Sobrescrever setLiveAnalysis para validar dados reais
-  const setValidatedLiveAnalysis = (analysis: LiveAnalysisResult | null) => {
-    if (analysis) {
-      const validatedAnalysis = ensureRealAnalysis(analysis);
-      if (validatedAnalysis) {
-        console.log('✅ Setting VALIDATED real live analysis');
-        setLiveAnalysis(validatedAnalysis);
-      } else {
-        console.log('❌ Rejected non-real live analysis');
-        setLiveAnalysis(null);
-      }
-    } else {
-      setLiveAnalysis(null);
-    }
-  };
-
   return (
     <AnalyzerContext.Provider
       value={{
@@ -377,7 +296,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         isAnalyzing,
         setIsAnalyzing,
         analysisResults,
-        setAnalysisResults: setValidatedAnalysisResults,
+        setAnalysisResults,
         selectedRegion,
         setSelectedRegion,
         resetAnalysis,
@@ -413,8 +332,6 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarketAnalysisDepth,
         enableCandleDetection,
         setEnableCandleDetection,
-        liveAnalysis,
-        setLiveAnalysis: setValidatedLiveAnalysis,
       }}
     >
       {children}

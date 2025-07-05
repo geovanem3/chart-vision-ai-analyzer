@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { 
@@ -23,8 +22,6 @@ import {
   TrendingUp 
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { createDecisionEngine, TradingDecision } from '@/utils/decisionEngine';
-import TradingDecisionPanel from './TradingDecisionPanel';
 
 const ControlPanel = () => {
   const { 
@@ -33,7 +30,6 @@ const ControlPanel = () => {
     setIsAnalyzing, 
     isAnalyzing, 
     setAnalysisResults,
-    setLiveAnalysis,
     resetAnalysis,
     regionType,
     setMarkupMode,
@@ -42,7 +38,6 @@ const ControlPanel = () => {
     setMarketAnalysisDepth
   } = useAnalyzer();
   const { toast } = useToast();
-  
   const [imageQualityInfo, setImageQualityInfo] = useState<{
     checked: boolean;
     isGood: boolean;
@@ -53,11 +48,8 @@ const ControlPanel = () => {
     isGood: false,
     message: ''
   });
-
-  // Novo estado para decisões de trading
-  const [currentDecision, setCurrentDecision] = useState<TradingDecision | null>(null);
-  const [decisionHistory, setDecisionHistory] = useState<TradingDecision[]>([]);
-
+  
+  // Verificar qualidade da imagem
   const checkQuality = async () => {
     if (!capturedImage) return;
     
@@ -86,6 +78,7 @@ const ControlPanel = () => {
     }
   };
   
+  // Verificar qualidade automaticamente quando a imagem é capturada
   React.useEffect(() => {
     if (capturedImage && !imageQualityInfo.checked) {
       checkQuality();
@@ -105,15 +98,18 @@ const ControlPanel = () => {
     try {
       setIsAnalyzing(true);
       
+      // Verificar qualidade, se ainda não foi verificada
       if (!imageQualityInfo.checked) {
         await checkQuality();
       }
       
+      // Processo de análise aprimorado
       toast({
         title: "Processando",
         description: `Recortando região ${selectedRegion.type === 'circle' ? 'circular' : 'retangular'} selecionada...`
       });
       
+      // Recortar a região selecionada
       const croppedResult = await cropToRegion(capturedImage, selectedRegion);
       
       if (!croppedResult.success) {
@@ -131,6 +127,7 @@ const ControlPanel = () => {
         description: "Melhorando qualidade da imagem..."
       });
       
+      // Processar a imagem para melhorar detecção
       const processedResult = await processImage(croppedResult.data);
       
       if (!processedResult.success) {
@@ -149,6 +146,7 @@ const ControlPanel = () => {
         description: "Executando análise COMPLETA com dados reais..."
       });
       
+      // USAR ANÁLISE REAL COMPLETA - SEM DADOS SIMULADOS
       const analysisResult = await analyzeChart(processedImage, {
         timeframe: timeframe,
         optimizeForScalping: timeframe === '1m',
@@ -162,7 +160,8 @@ const ControlPanel = () => {
         enableMarketContext: true
       });
       
-      const finalResults = {
+      // Usar TODOS os dados reais da análise completa
+      setAnalysisResults({
         patterns: analysisResult.patterns,
         timestamp: analysisResult.timestamp,
         imageUrl: analysisResult.imageUrl,
@@ -180,67 +179,16 @@ const ControlPanel = () => {
         detailedMarketContext: analysisResult.detailedMarketContext,
         entryRecommendations: analysisResult.entryRecommendations,
         manualRegion: true
-      };
-
-      setAnalysisResults(finalResults);
-
-      console.log('🤖 Iniciando motor de decisão da IA...');
-      
-      const decisionEngine = createDecisionEngine(timeframe);
-      const tradingDecision = decisionEngine.makeDecision(finalResults);
-      
-      setCurrentDecision(tradingDecision);
-      setDecisionHistory(prev => [tradingDecision, ...prev.slice(0, 9)]);
-      
-      console.log('🎯 Decisão da IA:', {
-        action: tradingDecision.action,
-        confidence: Math.round(tradingDecision.confidence * 100),
-        urgency: tradingDecision.urgency,
-        reasoning: tradingDecision.reasoning.length
       });
-
-      if (analysisResult.patterns && analysisResult.patterns.length > 0) {
-        const initialLiveAnalysis = {
-          timestamp: Date.now(),
-          confidence: Math.max(...analysisResult.patterns.map(p => p.confidence)),
-          signal: analysisResult.patterns[0].action || 'neutro' as 'compra' | 'venda' | 'neutro',
-          patterns: analysisResult.patterns.map(p => p.type),
-          trend: analysisResult.patterns[0].action === 'compra' ? 'alta' : 
-                 analysisResult.patterns[0].action === 'venda' ? 'baixa' : 'lateral' as 'alta' | 'baixa' | 'lateral',
-          changes: [],
-          analysisHealth: {
-            consistency: 0.85,
-            reliability: Math.max(...analysisResult.patterns.map(p => p.confidence)),
-            marketAlignment: true
-          },
-          aiConfidence: {
-            overall: 90,
-            chartDetection: 85,
-            patternRecognition: 95,
-            imageQuality: 80,
-            tradingPlatform: 85
-          }
-        };
-        
-        setLiveAnalysis(initialLiveAnalysis);
-        console.log('🔄 Live analysis initialized with real data');
-      }
       
       const patternCount = analysisResult.patterns.length;
       const hasPatterns = patternCount > 0;
-      const hasDecision = tradingDecision.action !== 'WAIT';
-      
-      let toastMessage = hasPatterns ? 
-        `${patternCount} padrões REAIS detectados. Análise em tempo real ativada.` :
-        "Análise executada com dados reais. Use ferramentas manuais se necessário.";
-      
-      if (hasDecision) {
-        toastMessage += ` IA decidiu: ${tradingDecision.action} (${Math.round(tradingDecision.confidence * 100)}%)`;
-      }
       
       toast({
         title: hasPatterns ? "Análise REAL completa!" : "Análise executada",
-        description: toastMessage,
+        description: hasPatterns ? 
+          `${patternCount} padrões REAIS detectados com dados extraídos da imagem.` :
+          "Análise executada com dados reais. Use ferramentas manuais se necessário.",
         variant: hasPatterns ? "default" : "default",
         className: hasPatterns ? "" : "bg-amber-50 border-amber-200 text-amber-800"
       });
@@ -262,233 +210,162 @@ const ControlPanel = () => {
     }
   };
 
-  const handleExecuteDecision = async (decision: TradingDecision) => {
-    console.log('🚀 Executando decisão de trading:', decision);
-    
-    toast({
-      title: `${decision.action} Executado!`,
-      description: `Ordem ${decision.action} executada com confiança ${Math.round(decision.confidence * 100)}%`,
-      variant: decision.action === 'BUY' ? "default" : "destructive",
-    });
-    
-    setCurrentDecision(null);
-  };
-
-  const handleDismissDecision = () => {
-    setCurrentDecision(null);
-    toast({
-      title: "Decisão dispensada",
-      description: "A decisão da IA foi dispensada",
-      variant: "default",
-    });
-  };
-
   if (!capturedImage) return null;
 
   return (
-    <>
-      <Card className="p-4 my-4 w-full max-w-3xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium">Controles de Análise do Gráfico</h3>
-          <Button variant="ghost" size="sm" onClick={resetAnalysis}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Nova Análise
-          </Button>
-        </div>
-        
-        {timeframe === '1m' && (
-          <div className="mb-4 p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-800">
-            <div className="flex items-center gap-2 mb-2">
-              <ChartCandlestick className="h-4 w-4 text-amber-500" />
-              <h4 className="text-sm font-medium text-amber-700 dark:text-amber-400">Análise REAL Ultra Avançada M1</h4>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-green-500" />
-                <span>Dados REAIS extraídos da imagem</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Check className="h-3 w-3 text-green-500" />
-                <span>100% sem simulações</span>
-              </div>
-            </div>
-            
-            <div className="text-xs text-amber-700 dark:text-amber-400">
-              Sistema completamente baseado em análise real dos candles detectados.
-            </div>
-          </div>
-        )}
-        
-        {imageQualityInfo.checked && (
-          <Alert
-            className={`mb-4 ${imageQualityInfo.isGood ? 'border-green-500/50 bg-green-500/10' : ''}`}
-            variant={imageQualityInfo.isGood ? "default" : "warning"}
-          >
-            {imageQualityInfo.isGood ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <AlertTriangle className="h-4 w-4" />
-            )}
-            <AlertTitle>Qualidade da Imagem</AlertTitle>
-            <AlertDescription>
-              {imageQualityInfo.message}
-              
-              {imageQualityInfo.details && (
-                <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-                  <div className="flex items-center gap-1">
-                    <span className={`w-2 h-2 rounded-full ${imageQualityInfo.details.resolution === 'Boa' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                    <span>Resolução: {imageQualityInfo.details.resolution}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className={`w-2 h-2 rounded-full ${imageQualityInfo.details.contrast === 'Adequado' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                    <span>Contraste: {imageQualityInfo.details.contrast}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className={`w-2 h-2 rounded-full ${imageQualityInfo.details.noise === 'Baixo' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                    <span>Ruído: {imageQualityInfo.details.noise}</span>
-                  </div>
-                </div>
-              )}
-              
-              {!imageQualityInfo.isGood && (
-                <p className="mt-2 text-xs font-semibold">
-                  É recomendável utilizar as ferramentas de marcação manual para melhorar a precisão da análise.
-                </p>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <h4 className="text-sm text-muted-foreground">Análise com Dados REAIS + IA Decisiva</h4>
-            <ul className="text-sm space-y-1">
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-chart-up mr-2"></span>
-                <span>Volume Real dos Candles</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-chart-down mr-2"></span>
-                <span>Volatilidade Real Calculada</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-chart-neutral mr-2"></span>
-                <span>Padrões Reais Detectados</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-chart-line mr-2"></span>
-                <span>Coordenadas Reais dos Padrões</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-primary mr-2"></span>
-                <span>Confidence Real Calculado</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-secondary mr-2"></span>
-                <span>Actions Baseadas em Contexto</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
-                <span>Motor de Decisão IA</span>
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-orange-500 mr-2"></span>
-                <span>Execução de Ordens Automática</span>
-              </li>
-              {timeframe === '1m' && (
-                <>
-                  <li className="flex items-center">
-                    <span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span>
-                    <span>Análise Real Completa M1</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
-                    <span>Zero Dados Simulados</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
-                    <span>Decisões Inteligentes M1</span>
-                  </li>
-                </>
-              )}
-            </ul>
+    <Card className="p-4 my-4 w-full max-w-3xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-medium">Controles de Análise do Gráfico</h3>
+        <Button variant="ghost" size="sm" onClick={resetAnalysis}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Nova Análise
+        </Button>
+      </div>
+      
+      {/* Advanced Market Analysis Options - Added for 1m timeframe */}
+      {timeframe === '1m' && (
+        <div className="mb-4 p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center gap-2 mb-2">
+            <ChartCandlestick className="h-4 w-4 text-amber-500" />
+            <h4 className="text-sm font-medium text-amber-700 dark:text-amber-400">Análise REAL Ultra Avançada M1</h4>
           </div>
           
-          <div className="flex flex-col justify-end space-y-4">
-            <p className="text-sm text-muted-foreground">
-              O analisador usa dados 100% REAIS extraídos da região {selectedRegion?.type === 'circle' ? 'circular' : 'retangular'} selecionada.
-              {!imageQualityInfo.isGood && imageQualityInfo.checked && (
-                <span className="block mt-1 text-amber-500 font-semibold">
-                  Atenção: Problemas de qualidade podem afetar a precisão da análise automática.
-                </span>
-              )}
-              {timeframe === '1m' && (
-                <span className="block mt-1 text-green-500 font-semibold">
-                  Modo REAL: Análise baseada 100% em dados extraídos da imagem.
-                </span>
-              )}
-            </p>
-            
-            <Button 
-              className="w-full" 
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || !selectedRegion}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analisando com IA Decisiva...
-                </>
-              ) : (
-                <>
-                  <BarChart2 className="w-4 h-4 mr-2" />
-                  {timeframe === '1m' ? 'Análise REAL + IA Decisiva M1' : 'Análise REAL + IA Decisiva'}
-                </>
-              )}
-            </Button>
+          <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-green-500" />
+              <span>Dados REAIS extraídos da imagem</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Check className="h-3 w-3 text-green-500" />
+              <span>100% sem simulações</span>
+            </div>
+          </div>
+          
+          <div className="text-xs text-amber-700 dark:text-amber-400">
+            Sistema completamente baseado em análise real dos candles detectados.
           </div>
         </div>
-      </Card>
-
-      {currentDecision && (
-        <div className="my-4 w-full max-w-3xl">
-          <TradingDecisionPanel
-            decision={currentDecision}
-            onExecuteDecision={handleExecuteDecision}
-            onDismissDecision={handleDismissDecision}
-          />
-        </div>
       )}
-
-      {decisionHistory.length > 0 && (
-        <Card className="p-4 my-4 w-full max-w-3xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Histórico de Decisões da IA</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {decisionHistory.map((decision, index) => (
-                <div key={decision.validUntil} className="flex items-center justify-between p-2 border rounded text-sm">
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={decision.action === 'BUY' ? 'default' : 
-                               decision.action === 'SELL' ? 'destructive' : 'secondary'}
-                    >
-                      {decision.action}
-                    </Badge>
-                    <span>{Math.round(decision.confidence * 100)}%</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(decision.validUntil - 5 * 60 * 1000).toLocaleTimeString()}
-                  </div>
+      
+      {/* Image Quality Info - Keep existing code */}
+      {imageQualityInfo.checked && (
+        <Alert
+          className={`mb-4 ${imageQualityInfo.isGood ? 'border-green-500/50 bg-green-500/10' : ''}`}
+          variant={imageQualityInfo.isGood ? "default" : "warning"}
+        >
+          {imageQualityInfo.isGood ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <AlertTriangle className="h-4 w-4" />
+          )}
+          <AlertTitle>Qualidade da Imagem</AlertTitle>
+          <AlertDescription>
+            {imageQualityInfo.message}
+            
+            {imageQualityInfo.details && (
+              <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${imageQualityInfo.details.resolution === 'Boa' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                  <span>Resolução: {imageQualityInfo.details.resolution}</span>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${imageQualityInfo.details.contrast === 'Adequado' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                  <span>Contraste: {imageQualityInfo.details.contrast}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${imageQualityInfo.details.noise === 'Baixo' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                  <span>Ruído: {imageQualityInfo.details.noise}</span>
+                </div>
+              </div>
+            )}
+            
+            {!imageQualityInfo.isGood && (
+              <p className="mt-2 text-xs font-semibold">
+                É recomendável utilizar as ferramentas de marcação manual para melhorar a precisão da análise.
+              </p>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
-    </>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <h4 className="text-sm text-muted-foreground">Análise com Dados REAIS</h4>
+          <ul className="text-sm space-y-1">
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-chart-up mr-2"></span>
+              <span>Volume Real dos Candles</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-chart-down mr-2"></span>
+              <span>Volatilidade Real Calculada</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-chart-neutral mr-2"></span>
+              <span>Padrões Reais Detectados</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-chart-line mr-2"></span>
+              <span>Coordenadas Reais dos Padrões</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-primary mr-2"></span>
+              <span>Confidence Real Calculado</span>
+            </li>
+            <li className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-secondary mr-2"></span>
+              <span>Actions Baseadas em Contexto</span>
+            </li>
+            {timeframe === '1m' && (
+              <>
+                <li className="flex items-center">
+                  <span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span>
+                  <span>Análise Real Completa M1</span>
+                </li>
+                <li className="flex items-center">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+                  <span>Zero Dados Simulados</span>
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
+        
+        <div className="flex flex-col justify-end space-y-4">
+          <p className="text-sm text-muted-foreground">
+            O analisador usa dados 100% REAIS extraídos da região {selectedRegion?.type === 'circle' ? 'circular' : 'retangular'} selecionada.
+            {!imageQualityInfo.isGood && imageQualityInfo.checked && (
+              <span className="block mt-1 text-amber-500 font-semibold">
+                Atenção: Problemas de qualidade podem afetar a precisão da análise automática.
+              </span>
+            )}
+            {timeframe === '1m' && (
+              <span className="block mt-1 text-green-500 font-semibold">
+                Modo REAL: Análise baseada 100% em dados extraídos da imagem.
+              </span>
+            )}
+          </p>
+          
+          <Button 
+            className="w-full" 
+            onClick={handleAnalyze}
+            disabled={isAnalyzing || !selectedRegion}
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analisando com Dados Reais...
+              </>
+            ) : (
+              <>
+                <BarChart2 className="w-4 h-4 mr-2" />
+                {timeframe === '1m' ? 'Análise REAL Ultra Precisa M1' : 'Análise com Dados Reais'}
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 };
 

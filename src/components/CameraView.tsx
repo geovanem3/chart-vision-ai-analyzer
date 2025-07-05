@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,13 +11,6 @@ import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LiveAnalysis from './LiveAnalysis';
 
-// Mobile Components
-import MobileLayout from './mobile/MobileLayout';
-import MobileCameraControls from './mobile/MobileCameraControls';
-import MobileGestureHandler from './mobile/MobileGestureHandler';
-import MobileTouchZoom from './mobile/MobileTouchZoom';
-import MobilePremiumControls from './mobile/MobilePremiumControls';
-
 const CameraView = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -29,9 +21,6 @@ const CameraView = () => {
   const [cameraAccessAttempted, setCameraAccessAttempted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('photo');
-  const [arEnabled, setArEnabled] = useState(true);
-  const [premiumMode, setPremiumMode] = useState(true);
-  const [effectIntensity, setEffectIntensity] = useState(0.5);
   const isMobile = useIsMobile();
 
   const { setCapturedImage } = useAnalyzer();
@@ -50,8 +39,8 @@ const CameraView = () => {
       const constraints = {
         video: { 
           facingMode,
-          width: { ideal: isMobile ? 1920 : 1280 },
-          height: { ideal: isMobile ? 1080 : 720 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       };
       
@@ -288,59 +277,6 @@ const CameraView = () => {
     }
   };
 
-  // Mobile gesture handlers
-  const handleSwipeLeft = () => {
-    if (activeTab === 'photo') {
-      setActiveTab('live');
-      toast({ title: "Análise Live", description: "Modo live ativado" });
-    }
-  };
-
-  const handleSwipeRight = () => {
-    if (activeTab === 'live') {
-      setActiveTab('photo');
-      toast({ title: "Captura", description: "Modo foto ativado" });
-    }
-  };
-
-  const handleDoubleTap = () => {
-    if (isCameraActive) {
-      captureImage();
-    }
-  };
-
-  const handleLongPress = () => {
-    if (isCameraActive) {
-      toggleCameraFacing();
-      toast({ title: "Câmera", description: "Câmera alternada" });
-    }
-  };
-
-  // Premium control handlers
-  const handleARToggle = (enabled: boolean) => {
-    setArEnabled(enabled);
-    toast({ 
-      title: enabled ? "AR Ativado" : "AR Desativado", 
-      description: enabled ? "Sobreposição AR habilitada" : "Modo tradicional ativado" 
-    });
-  };
-
-  const handlePremiumModeToggle = (enabled: boolean) => {
-    setPremiumMode(enabled);
-    toast({ 
-      title: enabled ? "Modo Premium" : "Modo Básico", 
-      description: enabled ? "Recursos avançados ativados" : "Interface simplificada" 
-    });
-  };
-
-  const handleIntensityChange = (intensity: number) => {
-    setEffectIntensity(intensity);
-    toast({ 
-      title: "Intensidade Ajustada", 
-      description: `Efeitos visuais: ${Math.round(intensity * 100)}%` 
-    });
-  };
-
   // Start camera when facing mode changes
   useEffect(() => {
     if (!isCameraActive && cameraAccessAttempted && activeTab === 'photo') {
@@ -353,7 +289,7 @@ const CameraView = () => {
     };
   }, [facingMode, cameraAccessAttempted, activeTab]);
 
-  const content = (
+  return (
     <motion.div 
       className="w-full flex flex-col items-center"
       initial={{ opacity: 0 }}
@@ -361,112 +297,137 @@ const CameraView = () => {
       transition={{ duration: 0.3 }}
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full grid-cols-2 mb-4 ${isMobile ? 'h-12 text-base' : ''}`}>
+        <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="photo" className="gap-2">
-            <Camera className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+            <Camera className="w-4 h-4" />
             Capturar Foto
           </TabsTrigger>
           <TabsTrigger value="live" className="gap-2">
-            <Activity className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+            <Activity className="w-4 h-4" />
             Análise Live
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="photo" className="w-full">
-          <MobileGestureHandler
-            onSwipeLeft={handleSwipeLeft}
-            onSwipeRight={handleSwipeRight}
-            onDoubleTap={handleDoubleTap}
-            onLongPress={handleLongPress}
-            className="w-full"
-          >
-            <MobileTouchZoom className="relative w-full overflow-hidden rounded-xl aspect-video bg-black">
-              {cameraError && (
-                <motion.div 
-                  className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-4"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <div className="text-center max-w-md">
-                    <Alert variant="destructive" className="mb-4 rounded-lg">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle className="text-sm">Problema com a câmera</AlertTitle>
-                      <AlertDescription className="text-xs">{cameraError}</AlertDescription>
-                    </Alert>
-                    <div className="flex gap-2 justify-center">
-                      <Button onClick={startCamera} size="sm">Tentar Novamente</Button>
-                      <Button variant="outline" onClick={triggerFileUpload} size="sm" className="gap-1">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Carregar</span>
-                      </Button>
-                    </div>
+          <div className="relative w-full overflow-hidden rounded-xl aspect-video bg-black">
+            {cameraError && (
+              <motion.div 
+                className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <div className="text-center max-w-md">
+                  <Alert variant="destructive" className="mb-4 rounded-lg">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-sm">Problema com a câmera</AlertTitle>
+                    <AlertDescription className="text-xs">{cameraError}</AlertDescription>
+                  </Alert>
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={startCamera} size="sm">Tentar Novamente</Button>
+                    <Button variant="outline" onClick={triggerFileUpload} size="sm" className="gap-1">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Carregar</span>
+                    </Button>
                   </div>
-                </motion.div>
-              )}
-              
-              {isProcessing && (
-                <motion.div 
-                  className="absolute inset-0 flex items-center justify-center bg-black/60 z-10"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <div className="text-center">
-                    <div className="flex flex-col items-center">
-                      <ScanSearch className="animate-pulse h-10 w-10 text-primary mb-3" />
-                      <h3 className="text-white text-base font-bold">Processando Imagem</h3>
-                      <p className="text-white/70 text-xs mt-1">Otimizando para melhor análise...</p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-              
-              <div className={`absolute top-4 left-4 z-10 ${isCameraActive ? 'flex' : 'hidden'}`}>
-                <div className="bg-black/70 text-white px-3 py-2 rounded-full text-sm">
-                  <ScanFace className="inline h-4 w-4 mr-2" /> 
-                  Posicione o gráfico
                 </div>
+              </motion.div>
+            )}
+            
+            {isProcessing && (
+              <motion.div 
+                className="absolute inset-0 flex items-center justify-center bg-black/60 z-10"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <div className="text-center">
+                  <div className="flex flex-col items-center">
+                    <ScanSearch className="animate-pulse h-10 w-10 text-primary mb-3" />
+                    <h3 className="text-white text-base font-bold">Processando Imagem</h3>
+                    <p className="text-white/70 text-xs mt-1">Otimizando para melhor análise...</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            <div className={`absolute top-4 left-4 z-10 ${isCameraActive ? 'flex' : 'hidden'}`}>
+              <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs">
+                <ScanFace className="inline h-3 w-3 mr-1" /> 
+                Posicione o gráfico
               </div>
-              
-              <video 
-                ref={videoRef}
-                autoPlay 
-                playsInline
-                muted 
-                className={`w-full h-full object-cover ${isCameraActive ? 'block' : 'hidden'}`}
-              />
-              
-              <canvas 
-                ref={canvasRef} 
-                className="hidden" 
-              />
-            </MobileTouchZoom>
-          </MobileGestureHandler>
-          
-          {/* Mobile optimized controls */}
-          <div className="mt-4">
-            <MobileCameraControls
-              isCameraActive={isCameraActive}
-              isProcessing={isProcessing}
-              onStartCamera={startCamera}
-              onStopCamera={stopCamera}
-              onCaptureImage={captureImage}
-              onToggleFacing={toggleCameraFacing}
-              onFileUpload={triggerFileUpload}
+            </div>
+            
+            <video 
+              ref={videoRef}
+              autoPlay 
+              playsInline
+              muted 
+              className={`w-full h-full object-cover ${isCameraActive ? 'block' : 'hidden'}`}
+            />
+            
+            <canvas 
+              ref={canvasRef} 
+              className="hidden" 
             />
           </div>
+          
+          <div className="flex items-center gap-3 mt-3">
+            {isCameraActive ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={toggleCameraFacing}
+                  className="rounded-full h-10 w-10"
+                  disabled={isProcessing}
+                >
+                  <FlipHorizontal className="w-4 h-4" />
+                </Button>
+                
+                <Button
+                  onClick={captureImage}
+                  className="rounded-full w-14 h-14 p-0"
+                  disabled={isProcessing}
+                >
+                  <div className="w-10 h-10 rounded-full border-2 border-white" />
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={stopCamera}
+                  className="rounded-full h-10 w-10"
+                  disabled={isProcessing}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <div className="flex gap-3 justify-center w-full">
+                <Button onClick={startCamera} className="gap-1 flex-1" disabled={isProcessing}>
+                  <Camera className="w-4 h-4" />
+                  <span>Câmera</span>
+                </Button>
+                
+                <Button variant="outline" onClick={triggerFileUpload} className="gap-1 flex-1" disabled={isProcessing}>
+                  <Image className="w-4 h-4" />
+                  <span>Galeria</span>
+                </Button>
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  accept="image/*" 
+                  className="hidden"
+                />
+              </div>
+            )}
+          </div>
 
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-            accept="image/*" 
-            className="hidden"
-          />
-
-          {/* Sample charts - mobile optimized */}
+          {/* Sample chart examples - more compact for mobile */}
           {!isCameraActive && (
             <motion.div 
-              className={`grid grid-cols-2 gap-3 w-full mt-6 ${isMobile ? 'px-2' : ''}`}
+              className="grid grid-cols-2 gap-2 w-full mt-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -474,13 +435,13 @@ const CameraView = () => {
               <Button 
                 variant="outline" 
                 onClick={() => setCapturedImage('/chart-example-1.jpg')} 
-                className={`h-auto p-4 rounded-xl ${isMobile ? 'text-base' : ''}`}
+                className="h-auto p-2 rounded-lg" 
                 disabled={isProcessing}
               >
                 <div className="flex flex-col items-center w-full">
-                  <span className={`${isMobile ? 'text-sm' : 'text-xs'} mb-2 font-medium`}>Exemplo 1</span>
-                  <div className={`w-full ${isMobile ? 'h-20' : 'h-16'} bg-muted rounded flex items-center justify-center`}>
-                    <CandlestickChart className={`${isMobile ? 'h-8 w-8' : 'h-6 w-6'} text-muted-foreground`} />
+                  <span className="text-xs mb-1">Exemplo 1</span>
+                  <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
+                    <CandlestickChart className="h-6 w-6 text-muted-foreground" />
                   </div>
                 </div>
               </Button>
@@ -488,13 +449,13 @@ const CameraView = () => {
               <Button 
                 variant="outline" 
                 onClick={() => setCapturedImage('/chart-example-2.jpg')} 
-                className={`h-auto p-4 rounded-xl ${isMobile ? 'text-base' : ''}`}
+                className="h-auto p-2 rounded-lg" 
                 disabled={isProcessing}
               >
                 <div className="flex flex-col items-center w-full">
-                  <span className={`${isMobile ? 'text-sm' : 'text-xs'} mb-2 font-medium`}>Exemplo 2</span>
-                  <div className={`w-full ${isMobile ? 'h-20' : 'h-16'} bg-muted rounded flex items-center justify-center`}>
-                    <BarChart2 className={`${isMobile ? 'h-8 w-8' : 'h-6 w-6'} text-muted-foreground`} />
+                  <span className="text-xs mb-1">Exemplo 2</span>
+                  <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
+                    <BarChart2 className="h-6 w-6 text-muted-foreground" />
                   </div>
                 </div>
               </Button>
@@ -503,36 +464,10 @@ const CameraView = () => {
         </TabsContent>
 
         <TabsContent value="live" className="w-full">
-          <MobileGestureHandler
-            onSwipeLeft={handleSwipeRight}
-            onSwipeRight={handleSwipeLeft}
-          >
-            <LiveAnalysis />
-          </MobileGestureHandler>
+          <LiveAnalysis />
         </TabsContent>
       </Tabs>
-
-      {/* Controles Premium para Mobile */}
-      {isMobile && (
-        <MobilePremiumControls
-          onARToggle={handleARToggle}
-          onPremiumMode={handlePremiumModeToggle}
-          onIntensityChange={handleIntensityChange}
-          arEnabled={arEnabled}
-          premiumEnabled={premiumMode}
-          intensity={effectIntensity}
-        />
-      )}
     </motion.div>
-  );
-
-  // Wrap in mobile layout if on mobile
-  return isMobile ? (
-    <MobileLayout activeTab="camera" className="px-4 py-2">
-      {content}
-    </MobileLayout>
-  ) : (
-    content
   );
 };
 
