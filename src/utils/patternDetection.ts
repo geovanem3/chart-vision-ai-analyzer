@@ -20,6 +20,55 @@ export interface CompleteAnalysisResult {
   candles?: CandleData[];
 }
 
+// Função principal para análise de gráfico (compatibilidade com ControlPanel e LiveAnalysis)
+export const analyzeChart = async (
+  imageUrl: string, 
+  options: any
+): Promise<CompleteAnalysisResult & { 
+  timestamp: number; 
+  imageUrl: string;
+  technicalElements?: any;
+  volumeData?: any;
+  volatilityData?: any;
+  warnings?: string[];
+  confluences?: any;
+  priceActionSignals?: any;
+  detailedMarketContext?: any;
+  entryRecommendations?: any;
+}> => {
+  console.log('🔍 Executando análise completa do gráfico');
+  
+  // Para compatibilidade, criar uma região padrão se não fornecida
+  const defaultRegion: SelectedRegion = {
+    type: 'rectangle',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100
+  };
+  
+  const result = await performCompleteAnalysis(imageUrl, defaultRegion, {
+    timeframe: options.timeframe || '1m',
+    enableVolumeAnalysis: true,
+    enableVolatilityAnalysis: true,
+    enablePatternDetection: true
+  });
+  
+  return {
+    ...result,
+    timestamp: Date.now(),
+    imageUrl: imageUrl,
+    technicalElements: [],
+    volumeData: null,
+    volatilityData: null,
+    warnings: [],
+    confluences: [],
+    priceActionSignals: [],
+    detailedMarketContext: result.marketContext,
+    entryRecommendations: []
+  };
+};
+
 export const performCompleteAnalysis = async (
   imageUrl: string,
   selectedRegion: SelectedRegion,
@@ -61,6 +110,16 @@ export const performCompleteAnalysis = async (
     );
     console.log(`✅ ${detectedPatterns.length} padrões detectados`);
 
+    // Converter ChartPattern[] para PatternResult[]
+    const convertedPatterns: PatternResult[] = detectedPatterns.map(pattern => ({
+      type: pattern.pattern,
+      confidence: pattern.confidence,
+      position: { x: 0, y: 0 }, // Posição seria detectada na análise real de imagem
+      description: pattern.description,
+      action: pattern.action,
+      recommendation: pattern.recommendation
+    }));
+
     // ETAPA 3: Analisar contexto de mercado baseado nos dados reais
     const marketContext = analyzeMarketContext(detectedCandles, options.timeframe);
     console.log('📈 Contexto de mercado analisado:', marketContext.phase);
@@ -71,17 +130,17 @@ export const performCompleteAnalysis = async (
 
     // ETAPA 5: Gerar sinais de scalping para timeframes curtos
     const scalpingSignals = options.timeframe === '1m' || options.timeframe === '5m' 
-      ? generateScalpingSignals(detectedCandles, detectedPatterns)
+      ? generateScalpingSignals(detectedCandles, convertedPatterns)
       : [];
     console.log(`⚡ ${scalpingSignals.length} sinais de scalping gerados`);
 
     // ETAPA 6: Análise precisa de entrada
-    const preciseEntryAnalysis = generatePreciseEntryAnalysis(detectedCandles, detectedPatterns, options.timeframe);
+    const preciseEntryAnalysis = generatePreciseEntryAnalysis(detectedCandles, convertedPatterns, options.timeframe);
     console.log('🎯 Análise precisa de entrada gerada');
 
     // RESULTADO FINAL: Apenas dados reais, sem simulação
     const result = {
-      patterns: detectedPatterns,
+      patterns: convertedPatterns,
       marketContext,
       technicalIndicators,
       scalpingSignals,
