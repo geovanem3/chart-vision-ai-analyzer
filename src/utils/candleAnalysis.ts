@@ -41,7 +41,6 @@ export const detectCandles = async (imageUrl: string, selectedRegion: SelectedRe
         high: 1.2380,
         low: 1.2320,
         close: 1.2365,
-        volume: 1500,
         timestamp: Date.now() - 4 * 60000
       },
       {
@@ -49,7 +48,6 @@ export const detectCandles = async (imageUrl: string, selectedRegion: SelectedRe
         high: 1.2385,
         low: 1.2340,
         close: 1.2375,
-        volume: 1200,
         timestamp: Date.now() - 3 * 60000
       },
       {
@@ -57,7 +55,6 @@ export const detectCandles = async (imageUrl: string, selectedRegion: SelectedRe
         high: 1.2390,
         low: 1.2355,
         close: 1.2360,
-        volume: 1800,
         timestamp: Date.now() - 2 * 60000
       },
       {
@@ -65,7 +62,6 @@ export const detectCandles = async (imageUrl: string, selectedRegion: SelectedRe
         high: 1.2395,
         low: 1.2350,
         close: 1.2380,
-        volume: 2100,
         timestamp: Date.now() - 1 * 60000
       },
       {
@@ -73,7 +69,6 @@ export const detectCandles = async (imageUrl: string, selectedRegion: SelectedRe
         high: 1.2400,
         low: 1.2370,
         close: 1.2395,
-        volume: 1900,
         timestamp: Date.now()
       }
     ];
