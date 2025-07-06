@@ -120,8 +120,8 @@ const GraphAnalyzer = () => {
         },
         technicalIndicators: generateRealTechnicalIndicators(realAnalysis.candles),
         scalpingSignals: realAnalysis.priceActionSignals.map(signal => ({
-          type: 'entrada',
-          action: signal.direction === 'alta' ? 'compra' : 'venda',
+          type: signal.direction === 'alta' ? 'entrada' as const : 'entrada' as const,
+          action: signal.direction === 'alta' ? 'compra' as const : 'venda' as const,
           price: signal.entryZone?.optimal?.toString() || 'A definir',
           confidence: signal.confidence,
           timeframe: timeframe,
