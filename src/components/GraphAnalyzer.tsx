@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -402,25 +403,66 @@ const generateRealTechnicalIndicators = (candles: any[]) => {
   return indicators;
 };
 
+// Corrigir função calculateVolumeMetrics para retornar VolumeData compatível
 const calculateVolumeMetrics = (candles: any[]) => {
+  if (candles.length === 0) {
+    return {
+      value: 0,
+      trend: 'neutral' as const,
+      abnormal: false,
+      significance: 'low' as const,
+      relativeToAverage: 1,
+      distribution: 'neutral' as const,
+      divergence: false
+    };
+  }
+
+  const ranges = candles.map(c => c.high - c.low);
+  const avgRange = ranges.reduce((sum, range) => sum + range, 0) / ranges.length;
+  const currentRange = ranges[ranges.length - 1];
+  const relativeToAvg = avgRange > 0 ? currentRange / avgRange : 1;
+
   return {
-    current: candles.length > 0 ? candles[candles.length - 1].high - candles[candles.length - 1].low : 0,
-    average: candles.length > 0 ? candles.reduce((sum, c) => sum + (c.high - c.low), 0) / candles.length : 0,
-    trend: 'crescente'
+    value: currentRange,
+    trend: currentRange > avgRange ? 'increasing' as const : 'decreasing' as const,
+    abnormal: relativeToAvg > 1.5,
+    significance: relativeToAvg > 1.3 ? 'high' as const : relativeToAvg > 1.1 ? 'medium' as const : 'low' as const,
+    relativeToAverage: relativeToAvg,
+    distribution: 'neutral' as const,
+    divergence: false
   };
 };
 
+// Corrigir função calculateVolatilityMetrics para retornar VolatilityData compatível  
 const calculateVolatilityMetrics = (candles: any[]) => {
-  if (candles.length === 0) return { level: 'baixa', trend: 'estável' };
+  if (candles.length === 0) {
+    return {
+      value: 0,
+      trend: 'neutral' as const,
+      atr: 0,
+      percentageRange: 0,
+      isHigh: false,
+      historicalComparison: 'average' as const,
+      impliedVolatility: 0
+    };
+  }
   
   const ranges = candles.map(c => c.high - c.low);
   const avgRange = ranges.reduce((sum, range) => sum + range, 0) / ranges.length;
   const lastRange = ranges[ranges.length - 1];
+  const lastClose = candles[candles.length - 1].close;
+  
+  const percentageRange = lastClose > 0 ? (lastRange / lastClose) * 100 : 0;
+  const isHigh = lastRange > avgRange * 1.5;
   
   return {
-    level: lastRange > avgRange * 1.5 ? 'alta' : 'normal',
-    trend: lastRange > avgRange ? 'crescente' : 'decrescente',
-    value: avgRange
+    value: avgRange,
+    trend: lastRange > avgRange ? 'increasing' as const : 'decreasing' as const,
+    atr: avgRange,
+    percentageRange: percentageRange,
+    isHigh: isHigh,
+    historicalComparison: isHigh ? 'above_average' as const : 'below_average' as const,
+    impliedVolatility: percentageRange
   };
 };
 
