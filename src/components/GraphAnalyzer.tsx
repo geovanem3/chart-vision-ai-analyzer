@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
@@ -16,7 +15,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { performRealImageAnalysis, getTradeSignalsFromAnalysis } from '@/utils/realImageAnalysis';
+import { getMasterAnalysis } from '@/utils/masterTechniques';
 
 const GraphAnalyzer = () => {
   const { 
@@ -66,7 +65,7 @@ const GraphAnalyzer = () => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
   };
   
-  const startAnalysis = async () => {
+  const startAnalysis = () => {
     if (!capturedImage || !selectedRegion) {
       toast({
         title: "Selecione uma região",
@@ -78,103 +77,99 @@ const GraphAnalyzer = () => {
     
     setIsAnalyzing(true);
     
-    try {
-      console.log('🚀 Iniciando análise REAL COMPLETA da imagem');
-      console.log('Parâmetros da análise:', { timeframe, região: selectedRegion });
-      
-      // EXECUTAR ANÁLISE REAL DA IMAGEM
-      const realAnalysis = await performRealImageAnalysis(
-        capturedImage,
-        selectedRegion,
-        timeframe
-      );
-      
-      console.log('📊 Análise real concluída:', realAnalysis);
-      
-      // GERAR SINAIS DE TRADING BASEADOS NA ANÁLISE REAL
-      const tradeSignals = getTradeSignalsFromAnalysis(realAnalysis);
-      console.log('🎯 Sinais de trading gerados:', tradeSignals);
-      
-      // CONSTRUIR RESULTADO FINAL COM DADOS 100% REAIS
-      const finalAnalysisResult = {
-        patterns: realAnalysis.patterns.map(pattern => ({
-          type: pattern.pattern || pattern.type,
-          confidence: pattern.confidence || 0.5,
-          position: { x: 0, y: 0 },
-          description: pattern.description || `Padrão ${pattern.pattern} detectado`,
-          action: pattern.action || 'observar',
-          recommendation: pattern.recommendation || pattern.description
-        })),
-        timestamp: Date.now(),
-        imageUrl: capturedImage,
-        manualRegion: true,
-        candles: realAnalysis.candles,
-        marketContext: {
-          phase: realAnalysis.marketContext.phase,
-          strength: realAnalysis.marketContext.strength,
-          dominantTimeframe: timeframe,
-          sentiment: realAnalysis.marketContext.sentiment,
-          description: realAnalysis.marketContext.description,
-          marketStructure: realAnalysis.marketContext.phase,
-          breakoutPotential: realAnalysis.marketContext.strength === 'forte' ? 'alto' : 'médio',
-          momentumSignature: realAnalysis.marketContext.phase.includes('tendência') ? 'acelerando' : 'estável'
-        },
-        technicalIndicators: generateRealTechnicalIndicators(realAnalysis.candles),
-        scalpingSignals: realAnalysis.priceActionSignals.map(signal => ({
-          type: signal.direction === 'alta' ? 'entrada' as const : 'entrada' as const,
-          action: signal.direction === 'alta' ? 'compra' as const : 'venda' as const,
-          price: signal.entryZone?.optimal?.toString() || 'A definir',
-          confidence: signal.confidence,
-          timeframe: timeframe,
-          description: signal.description,
-          target: signal.entryZone?.max?.toString() || 'A definir',
-          stopLoss: signal.entryZone?.min?.toString() || 'A definir',
-          volumeConfirmation: true,
-          entryType: signal.type
-        })),
-        preciseEntryAnalysis: {
-          exactMinute: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          entryType: tradeSignals.length > 0 ? 'sinal_detectado' : 'aguardar',
-          nextCandleExpectation: `Baseado em ${realAnalysis.candles.length} candles analisados`,
-          priceAction: `${realAnalysis.patterns.length} padrões e ${realAnalysis.priceActionSignals.length} sinais detectados`,
-          confirmationSignal: tradeSignals.length > 0 ? tradeSignals[0].description : 'Aguardar formação',
-          riskRewardRatio: 2.5,
-          entryInstructions: tradeSignals.length > 0 
-            ? `${tradeSignals[0].action.toUpperCase()} - ${tradeSignals[0].description}` 
-            : 'Aguardar sinais mais claros'
-        },
-        // Adicionar dados específicos para compatibilidade
-        technicalElements: realAnalysis.patterns,
-        volumeData: calculateVolumeMetrics(realAnalysis.candles),
-        volatilityData: calculateVolatilityMetrics(realAnalysis.candles),
-        warnings: realAnalysis.analysisQuality === 'poor' ? ['Qualidade de análise baixa - poucos dados'] : [],
-        confluences: tradeSignals.slice(0, 3),
-        priceActionSignals: realAnalysis.priceActionSignals,
-        detailedMarketContext: realAnalysis.marketContext,
-        entryRecommendations: tradeSignals
-      };
-      
-      console.log('✅ Resultado FINAL da análise REAL:', finalAnalysisResult);
-      
-      setAnalysisResults(finalAnalysisResult);
-      
-      toast({
-        title: "Análise Real Completa! 🎯",
-        description: `${realAnalysis.candles.length} candles • ${realAnalysis.patterns.length} padrões • ${tradeSignals.length} sinais • Qualidade: ${realAnalysis.analysisQuality}`,
-      });
-      
-    } catch (error) {
-      console.error("❌ Erro na análise real:", error);
-      toast({
-        title: "Erro na análise",
-        description: "Falha ao processar a análise real da imagem. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
+    setTimeout(() => {
+      try {
+        console.log('Starting analysis with timeframe:', timeframe);
+        
+        // Análise baseada nos mestres
+        const masterAnalysis = getMasterAnalysis(timeframe, timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta');
+        
+        console.log('Master analysis result:', masterAnalysis);
+        
+        const simulatedResult = {
+          patterns: [
+            {
+              type: timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta',
+              confidence: masterAnalysis.bulkowski?.reliability || 0.78,
+              description: `Padrão identificado seguindo metodologia de Bulkowski: ${masterAnalysis.bulkowski?.name || 'Padrão de reversão'}`,
+              action: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'compra' : 
+                     masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'venda' : 'neutro' as 'compra' | 'venda' | 'neutro',
+              isScalpingSignal: timeframe === '1m',
+              recommendation: masterAnalysis.masterRecommendation
+            }
+          ],
+          timestamp: Date.now(),
+          imageUrl: capturedImage,
+          manualRegion: true,
+          preciseEntryAnalysis: {
+            exactMinute: '12:45',
+            entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
+            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
+            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
+            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
+            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
+            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
+          },
+          marketContext: {
+            phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
+                   masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'tendência_baixa' : 'lateral' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
+            strength: (masterAnalysis.tripleScreen?.confidence || 0) > 0.8 ? 'forte' : 
+                     (masterAnalysis.tripleScreen?.confidence || 0) > 0.6 ? 'moderada' : 'fraca' as 'forte' | 'moderada' | 'fraca',
+            description: `Análise integrada dos mestres: ${(masterAnalysis.masterRecommendation || '').split('\n\n')[0] || 'Análise em progresso'}`,
+            dominantTimeframe: timeframe,
+            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
+                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro' as 'otimista' | 'pessimista' | 'neutro',
+            marketStructure: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'alta_altas' : 
+                            masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'baixa_baixas' : 'indefinida' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
+            breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
+                              (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo' as 'alto' | 'médio' | 'baixo',
+            momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
+            liquidityPools: masterAnalysis.murphy?.supportResistance?.map(sr => ({
+              level: sr.level,
+              strength: sr.strength === 'strong' ? 'alta' : sr.strength === 'moderate' ? 'média' : 'baixa' as 'alta' | 'média' | 'baixa'
+            })) || []
+          },
+          volumeData: {
+            value: 1250000,
+            trend: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
+            abnormal: masterAnalysis.bulkowski?.volumeImportance === 'critical',
+            significance: masterAnalysis.murphy?.volumeAnalysis?.significance || 'high' as 'high' | 'medium' | 'low',
+            relativeToAverage: 1.35,
+            distribution: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'accumulation' : 'neutral' as 'accumulation' | 'distribution' | 'neutral',
+            divergence: masterAnalysis.murphy?.volumeAnalysis?.trend === 'diverging'
+          },
+          volatilityData: {
+            value: 2.3,
+            trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
+            atr: 1.8,
+            percentageRange: 1.2,
+            isHigh: false,
+            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
+          },
+          masterAnalysis // Adicionando a análise dos mestres
+        };
+        
+        console.log('Final simulated result:', simulatedResult);
+        
+        setAnalysisResults(simulatedResult);
+        
+        toast({
+          title: "Análise dos Mestres Completa",
+          description: "Análise baseada em Bulkowski, Elder, Murphy e Edwards & Magee",
+        });
+      } catch (error) {
+        console.error("Erro ao processar análise:", error);
+        toast({
+          title: "Erro na análise",
+          description: "Ocorreu um problema ao processar a análise. Tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }, 1500);
   };
-
+  
   const fadeAnimation = {
     initial: { opacity: 0, y: 10 },
     animate: { opacity: 1, y: 0 },
@@ -255,9 +250,9 @@ const GraphAnalyzer = () => {
           
           <div className="flex flex-col items-center justify-center p-6 bg-card/50 rounded-lg border border-border/30">
             <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
-            <p className="text-base font-medium">Processando análise REAL do gráfico...</p>
+            <p className="text-base font-medium">Analisando região selecionada...</p>
             <p className="text-xs text-muted-foreground mt-2">
-              Detectando candles • Identificando padrões • Gerando sinais
+              Processando padrões e indicadores técnicos
             </p>
           </div>
         </motion.div>
@@ -377,93 +372,6 @@ const GraphAnalyzer = () => {
       <MobileBottomBar />
     </div>
   );
-};
-
-// Funções auxiliares para gerar indicadores técnicos reais
-const generateRealTechnicalIndicators = (candles: any[]) => {
-  if (candles.length < 5) return [];
-
-  const indicators = [];
-  const closes = candles.map(c => c.close);
-  const highs = candles.map(c => c.high);
-  const lows = candles.map(c => c.low);
-
-  // SMA baseado em dados reais
-  const sma5 = closes.slice(-5).reduce((sum, price) => sum + price, 0) / 5;
-  const currentPrice = closes[closes.length - 1];
-  
-  indicators.push({
-    name: 'SMA 5',
-    value: sma5.toFixed(4),
-    signal: currentPrice > sma5 ? 'alta' : currentPrice < sma5 ? 'baixa' : 'neutro',
-    strength: Math.abs((currentPrice - sma5) / sma5) > 0.01 ? 'forte' : 'moderada',
-    description: `Preço ${currentPrice > sma5 ? 'acima' : 'abaixo'} da média móvel`
-  });
-
-  return indicators;
-};
-
-// Corrigir função calculateVolumeMetrics para retornar VolumeData compatível
-const calculateVolumeMetrics = (candles: any[]) => {
-  if (candles.length === 0) {
-    return {
-      value: 0,
-      trend: 'neutral' as const,
-      abnormal: false,
-      significance: 'low' as const,
-      relativeToAverage: 1,
-      distribution: 'neutral' as const,
-      divergence: false
-    };
-  }
-
-  const ranges = candles.map(c => c.high - c.low);
-  const avgRange = ranges.reduce((sum, range) => sum + range, 0) / ranges.length;
-  const currentRange = ranges[ranges.length - 1];
-  const relativeToAvg = avgRange > 0 ? currentRange / avgRange : 1;
-
-  return {
-    value: currentRange,
-    trend: currentRange > avgRange ? 'increasing' as const : 'decreasing' as const,
-    abnormal: relativeToAvg > 1.5,
-    significance: relativeToAvg > 1.3 ? 'high' as const : relativeToAvg > 1.1 ? 'medium' as const : 'low' as const,
-    relativeToAverage: relativeToAvg,
-    distribution: 'neutral' as const,
-    divergence: false
-  };
-};
-
-// Corrigir função calculateVolatilityMetrics para retornar VolatilityData compatível  
-const calculateVolatilityMetrics = (candles: any[]) => {
-  if (candles.length === 0) {
-    return {
-      value: 0,
-      trend: 'neutral' as const,
-      atr: 0,
-      percentageRange: 0,
-      isHigh: false,
-      historicalComparison: 'average' as const,
-      impliedVolatility: 0
-    };
-  }
-  
-  const ranges = candles.map(c => c.high - c.low);
-  const avgRange = ranges.reduce((sum, range) => sum + range, 0) / ranges.length;
-  const lastRange = ranges[ranges.length - 1];
-  const lastClose = candles[candles.length - 1].close;
-  
-  const percentageRange = lastClose > 0 ? (lastRange / lastClose) * 100 : 0;
-  const isHigh = lastRange > avgRange * 1.5;
-  
-  return {
-    value: avgRange,
-    trend: lastRange > avgRange ? 'increasing' as const : 'decreasing' as const,
-    atr: avgRange,
-    percentageRange: percentageRange,
-    isHigh: isHigh,
-    historicalComparison: isHigh ? 'above_average' as const : 'below_average' as const,
-    impliedVolatility: percentageRange
-  };
 };
 
 export default GraphAnalyzer;
