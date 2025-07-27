@@ -3,14 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp, CircleArrowUp, CircleArrowDown, ChartBar, ShieldAlert } from 'lucide-react';
+import { Camera, Play, Pause, Settings, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
 import { analyzeChart } from '@/utils/patternDetection';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { TradeSuccessPrediction } from '@/utils/tradeSuccessPrediction';
 
 interface LiveAnalysisResult {
   timestamp: number;
@@ -95,6 +94,7 @@ const LiveAnalysis = () => {
           
           // Verificar variação de cores e padrões lineares
           let colorVariations = 0;
+          let linePatterns = 0;
           
           for (let i = 0; i < imageData.data.length; i += 4) {
             const r = imageData.data[i];
@@ -438,182 +438,6 @@ const LiveAnalysis = () => {
   const toggleCameraFacing = () => {
     stopLiveAnalysis();
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  // Ultra quick entry decision with 60-second success prediction
-  const quickEntrySignal = () => {
-    // Se as condições são muito ruins, não dar sinal
-    if (operatingScore < 30 || advancedConditions?.recommendation === 'nao_operar') {
-      return (
-        <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-500 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="h-7 w-7 text-red-500 animate-pulse" />
-            <span className="font-bold text-red-700 dark:text-red-400 text-xl">NÃO OPERAR</span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">Score: {operatingScore}/100</div>
-            <div className="text-xs opacity-70">Condições adversas</div>
-          </div>
-        </div>
-      );
-    }
-    
-    // NOVO: Verificar predições de sucesso
-    const bestPrediction = analysisResults.tradeSuccessPredictions?.find(p => 
-      p.willSucceed && p.recommendation === 'enter_now'
-    );
-    
-    const waitPrediction = analysisResults.tradeSuccessPredictions?.find(p => 
-      p.recommendation === 'wait_next_candle'
-    );
-    
-    // Se há uma predição que indica entrada agora
-    if (bestPrediction && (isUptrend || isDowntrend)) {
-      const signal = isUptrend ? 'compra' : 'venda';
-      const adjustedConfidence = Math.round(bestPrediction.successProbability);
-      
-      return (
-        <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
-          adjustedConfidence >= 75 ? 
-          'bg-green-100 dark:bg-green-900/30 border-green-500' :
-          'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isUptrend ? (
-                <CircleArrowUp className={`h-7 w-7 animate-pulse ${
-                  adjustedConfidence >= 75 ? 'text-green-500' : 'text-yellow-600'
-                }`} />
-              ) : (
-                <CircleArrowDown className={`h-7 w-7 animate-pulse ${
-                  adjustedConfidence >= 75 ? 'text-red-500' : 'text-yellow-600'
-                }`} />
-              )}
-              <span className={`font-bold text-xl ${
-                adjustedConfidence >= 75 ? 
-                (isUptrend ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400') :
-                'text-yellow-700 dark:text-yellow-400'
-              }`}>
-                {signal.toUpperCase()}
-              </span>
-            </div>
-            <div className="text-right">
-              <div className="font-mono text-sm">⏱️ {bestPrediction.exitTime}s</div>
-              <div className="text-xs opacity-70">Sucesso: {adjustedConfidence}%</div>
-            </div>
-          </div>
-          
-          {/* Detalhes da predição */}
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between">
-              <span>Timing:</span>
-              <span className="font-medium">
-                {bestPrediction.entryTiming === 'same_candle' ? 'Mesma vela' : 'Próxima vela'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Volatilidade:</span>
-              <span className={`font-medium ${
-                bestPrediction.candleAnalysis.volatilityRisk === 'low' ? 'text-green-600' :
-                bestPrediction.candleAnalysis.volatilityRisk === 'medium' ? 'text-yellow-600' :
-                'text-red-600'
-              }`}>
-                {bestPrediction.candleAnalysis.volatilityRisk.toUpperCase()}
-              </span>
-            </div>
-            {bestPrediction.riskFactors.length > 0 && (
-              <div className="text-orange-600 text-xs">
-                ⚠️ {bestPrediction.riskFactors[0]}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-    
-    // Se deve aguardar próxima vela
-    if (waitPrediction) {
-      return (
-        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-500 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="h-6 w-6 text-blue-500 animate-pulse" />
-            <span className="font-bold text-blue-700 dark:text-blue-400 text-lg">AGUARDAR PRÓXIMA VELA</span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">⏳ {Math.round(waitPrediction.timeToEntry)}s</div>
-            <div className="text-xs opacity-70">Sucesso: {Math.round(waitPrediction.successProbability)}%</div>
-          </div>
-        </div>
-      );
-    }
-    
-    // Lógica original para casos sem predição específica
-    if (isUptrend && operatingScore >= 40) {
-      const adjustedConfidence = Math.round(confidenceReduction * 100);
-      
-      return (
-        <div className={`p-3 rounded-lg border flex items-center justify-between ${
-          operatingScore >= 60 ? 
-          'bg-green-100 dark:bg-green-900/30 border-green-500' :
-          'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500'
-        }`}>
-          <div className="flex items-center gap-2">
-            <CircleArrowUp className={`h-7 w-7 animate-pulse ${
-              operatingScore >= 60 ? 'text-green-500' : 'text-yellow-600'
-            }`} />
-            <span className={`font-bold text-xl ${
-              operatingScore >= 60 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
-            }`}>
-              COMPRAR {operatingScore < 60 ? '(CAUTELOSO)' : ''}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">{entryMinute}</div>
-            <div className="text-xs opacity-70">Conf: {adjustedConfidence}%</div>
-          </div>
-        </div>
-      );
-    }
-    
-    if (isDowntrend && operatingScore >= 40) {
-      const adjustedConfidence = Math.round(confidenceReduction * 100);
-      
-      return (
-        <div className={`p-3 rounded-lg border flex items-center justify-between ${
-          operatingScore >= 60 ? 
-          'bg-red-100 dark:bg-red-900/30 border-red-500' :
-          'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500'
-        }`}>
-          <div className="flex items-center gap-2">
-            <CircleArrowDown className={`h-7 w-7 animate-pulse ${
-              operatingScore >= 60 ? 'text-red-500' : 'text-yellow-600'
-            }`} />
-            <span className={`font-bold text-xl ${
-              operatingScore >= 60 ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'
-            }`}>
-              VENDER {operatingScore < 60 ? '(CAUTELOSO)' : ''}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-sm">{entryMinute}</div>
-            <div className="text-xs opacity-70">Conf: {adjustedConfidence}%</div>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ChartBar className="h-6 w-6 text-gray-500" />
-          <span className="font-bold text-gray-700 dark:text-gray-400 text-lg">AGUARDAR</span>
-        </div>
-        <div className="text-right">
-          <div className="font-mono text-sm">Score: {operatingScore}/100</div>
-          <div className="text-xs opacity-70">Sem sinal claro</div>
-        </div>
-      </div>
-    );
   };
 
   // Cleanup

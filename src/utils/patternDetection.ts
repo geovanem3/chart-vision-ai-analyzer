@@ -1,3 +1,4 @@
+
 import { PatternResult, AnalysisResult, VolumeData, VolatilityData, TechnicalIndicator, ScalpingSignal, CandleData } from "../context/AnalyzerContext";
 import { mockCandles as generateMockCandles } from "./mockData";
 import { analyzeVolume } from "./volumeAnalysis";
@@ -15,7 +16,6 @@ import {
   calculateConfidenceReduction,
   EnhancedMarketContext
 } from "./advancedMarketContext";
-import { predictTradeSuccess, TradeSuccessPrediction } from "./tradeSuccessPrediction";
 
 interface AnalysisOptions {
   timeframe?: '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
@@ -161,36 +161,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
   const technicalIndicators: TechnicalIndicator[] = detectTechnicalIndicators(candles);
   console.log(`⚙️ Indicadores técnicos detectados: ${technicalIndicators.length}`);
   
-  // NOVO: Predição de sucesso para cada padrão válido
-  const tradeSuccessPredictions: TradeSuccessPrediction[] = [];
-  
-  patterns.forEach(pattern => {
-    if (pattern.action !== 'neutro' && pattern.confidence > 0.5) {
-      const tradeEntry = {
-        action: pattern.action as 'compra' | 'venda',
-        confidence: pattern.confidence,
-        currentTime: Date.now(),
-        entryPrice: candles[candles.length - 1].close,
-        patterns: [pattern.type]
-      };
-      
-      const prediction = predictTradeSuccess(candles, tradeEntry);
-      console.log(`🎯 Predição para ${pattern.type}: ${prediction.successProbability.toFixed(1)}% | ${prediction.recommendation}`);
-      
-      tradeSuccessPredictions.push(prediction);
-      
-      // FILTRAR: Só manter padrões com alta probabilidade de sucesso
-      if (!prediction.willSucceed || prediction.recommendation === 'skip_entry') {
-        pattern.confidence *= 0.3; // Reduzir drasticamente a confiança
-        pattern.description += ` ❌ ENTRADA REJEITADA: ${prediction.riskFactors.join(', ')}`;
-      } else if (prediction.recommendation === 'wait_next_candle') {
-        pattern.description += ` ⏳ AGUARDAR PRÓXIMA VELA (${prediction.successProbability.toFixed(0)}% sucesso)`;
-      } else {
-        pattern.description += ` ✅ ENTRADA APROVADA (${prediction.successProbability.toFixed(0)}% sucesso em ${prediction.exitTime}s)`;
-      }
-    }
-  });
-  
   // Scalping signals
   const scalpingSignals: ScalpingSignal[] = candlePatterns.map(signal => ({
     type: 'entrada',
@@ -262,8 +232,6 @@ export const analyzeChart = async (imageData: string, options: AnalysisOptions =
       timeOfDay: 'horário_comercial',
       trend: 'lateral'
     },
-    entryRecommendations: [],
-    // NOVO: Adicionar predições de sucesso ao resultado
-    tradeSuccessPredictions
+    entryRecommendations: []
   };
 };
