@@ -1,6 +1,6 @@
+
 import { CandleData, Point } from "../context/AnalyzerContext";
 import { DetectedPattern } from "./types";
-import { analyzeCandleMetrics } from "./candleAnalysis";
 
 export interface PriceActionSignal {
   type: 'rejection' | 'absorption' | 'breakout' | 'retest' | 'liquidity_sweep' | 'institutional_move';
@@ -31,44 +31,94 @@ export interface MarketContextAnalysis {
   };
 }
 
-// Análise de Price Action para M1 com dados reais
+// Análise de Price Action para M1
 export const analyzePriceAction = (candles: CandleData[]): PriceActionSignal[] => {
   if (candles.length < 10) return [];
 
   const signals: PriceActionSignal[] = [];
-  const recentCandles = candles.slice(-20); // Analisar últimos 20 candles
+  const recentCandles = candles.slice(-10);
   
   // Detectar rejeições em níveis-chave
-  const rejectionSignals = detectRealRejections(recentCandles);
+  const rejectionSignals = detectRejections(recentCandles);
   signals.push(...rejectionSignals);
   
-  // Detectar absorção de volume/pressão
-  const absorptionSignals = detectRealAbsorption(recentCandles);
+  // Detectar absorção de volume
+  const absorptionSignals = detectAbsorption(recentCandles);
   signals.push(...absorptionSignals);
   
   // Detectar breakouts com follow-through
-  const breakoutSignals = detectRealBreakouts(recentCandles);
+  const breakoutSignals = detectBreakouts(recentCandles);
   signals.push(...breakoutSignals);
   
-  // Detectar retests de níveis importantes
-  const retestSignals = detectRealRetests(recentCandles);
+  // Detectar retests de níveis
+  const retestSignals = detectRetests(recentCandles);
   signals.push(...retestSignals);
   
-  // Detectar liquidity sweeps reais
-  const liquiditySignals = detectRealLiquiditySweeps(recentCandles);
+  // Detectar liquidity sweeps
+  const liquiditySignals = detectLiquiditySweeps(recentCandles);
   signals.push(...liquiditySignals);
 
-  // Detectar movimentos institucionais
-  const institutionalSignals = detectInstitutionalMoves(recentCandles);
-  signals.push(...institutionalSignals);
-
-  return signals
-    .filter(signal => signal.confidence > 0.5) // Apenas sinais com confiança > 50%
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 8); // Top 8 sinais mais confiáveis
+  return signals.sort((a, b) => b.confidence - a.confidence);
 };
 
-const detectRealRejections = (candles: CandleData[]): PriceActionSignal[] => {
+const detectRejections = (candles: CandleData[]): PriceActionSignal[] => {
+  const signals: PriceActionSignal[] = [];
+  
+  for (let i = 1; i < candles.length; i++) {
+    const current = candles[i];
+    const previous = candles[i - 1];
+    
+    // Rejeição de alta (pin bar bearish)
+    const upperWick = current.high - Math.max(current.open, current.close);
+    const lowerWick = Math.min(current.open, current.close) - current.low;
+    const body = Math.abs(current.close - current.open);
+    const totalRange = current.high - current.low;
+    
+    // Pin bar de rejeição de alta
+    if (upperWick > body * 2 && upperWick > totalRange * 0.6 && current.close < current.open) {
+      const strength = upperWick > body * 3 ? 'forte' : upperWick > body * 2.5 ? 'moderada' : 'fraca';
+      const confidence = Math.min(0.9, (upperWick / body) * 0.2 + 0.4);
+      
+      signals.push({
+        type: 'rejection',
+        strength,
+        direction: 'baixa',
+        confidence,
+        description: `Rejeição ${strength} no topo - Pin bar bearish com pavio de ${((upperWick / totalRange) * 100).toFixed(1)}%`,
+        entryZone: {
+          min: current.close - (body * 0.5),
+          max: current.close,
+          optimal: current.close - (body * 0.2)
+        },
+        riskReward: upperWick > body * 3 ? 3.5 : 2.8
+      });
+    }
+    
+    // Pin bar de rejeição de baixa
+    if (lowerWick > body * 2 && lowerWick > totalRange * 0.6 && current.close > current.open) {
+      const strength = lowerWick > body * 3 ? 'forte' : lowerWick > body * 2.5 ? 'moderada' : 'fraca';
+      const confidence = Math.min(0.9, (lowerWick / body) * 0.2 + 0.4);
+      
+      signals.push({
+        type: 'rejection',
+        strength,
+        direction: 'alta',
+        confidence,
+        description: `Rejeição ${strength} no fundo - Pin bar bullish com pavio de ${((lowerWick / totalRange) * 100).toFixed(1)}%`,
+        entryZone: {
+          min: current.close,
+          max: current.close + (body * 0.5),
+          optimal: current.close + (body * 0.2)
+        },
+        riskReward: lowerWick > body * 3 ? 3.5 : 2.8
+      });
+    }
+  }
+  
+  return signals;
+};
+
+const detectAbsorption = (candles: CandleData[]): PriceActionSignal[] => {
   const signals: PriceActionSignal[] = [];
   
   for (let i = 2; i < candles.length; i++) {
@@ -76,132 +126,43 @@ const detectRealRejections = (candles: CandleData[]): PriceActionSignal[] => {
     const previous = candles[i - 1];
     const beforePrevious = candles[i - 2];
     
-    const metrics = analyzeCandleMetrics(current);
-    const prevMetrics = analyzeCandleMetrics(previous);
-    
-    // Rejeição de alta com pin bar bearish
-    if (metrics.upperWickPercent > 60 && 
-        metrics.bodyPercent < 35 &&
-        current.high > previous.high && 
-        current.high > beforePrevious.high) {
-      
-      const strength = metrics.upperWickPercent > 75 ? 'forte' : 
-                      metrics.upperWickPercent > 65 ? 'moderada' : 'fraca';
-      
-      const confidence = Math.min(0.95, 
-        (metrics.upperWickPercent / 100) * 0.7 + 
-        (current.high > Math.max(previous.high, beforePrevious.high) ? 0.2 : 0) +
-        0.1
-      );
-      
-      signals.push({
-        type: 'rejection',
-        strength,
-        direction: 'baixa',
-        confidence,
-        description: `Rejeição ${strength} em máxima - Pin bar com pavio ${metrics.upperWickPercent.toFixed(1)}%`,
-        entryZone: {
-          min: current.close - (metrics.bodySize * 0.5),
-          max: current.close + (metrics.bodySize * 0.2),
-          optimal: current.close - (metrics.bodySize * 0.1)
-        },
-        riskReward: strength === 'forte' ? 3.5 : strength === 'moderada' ? 2.8 : 2.2
-      });
-    }
-    
-    // Rejeição de baixa com pin bar bullish
-    if (metrics.lowerWickPercent > 60 && 
-        metrics.bodyPercent < 35 &&
-        current.low < previous.low && 
-        current.low < beforePrevious.low) {
-      
-      const strength = metrics.lowerWickPercent > 75 ? 'forte' : 
-                      metrics.lowerWickPercent > 65 ? 'moderada' : 'fraca';
-      
-      const confidence = Math.min(0.95, 
-        (metrics.lowerWickPercent / 100) * 0.7 + 
-        (current.low < Math.min(previous.low, beforePrevious.low) ? 0.2 : 0) +
-        0.1
-      );
-      
-      signals.push({
-        type: 'rejection',
-        strength,
-        direction: 'alta',
-        confidence,
-        description: `Rejeição ${strength} em mínima - Pin bar com pavio ${metrics.lowerWickPercent.toFixed(1)}%`,
-        entryZone: {
-          min: current.close - (metrics.bodySize * 0.2),
-          max: current.close + (metrics.bodySize * 0.5),
-          optimal: current.close + (metrics.bodySize * 0.1)
-        },
-        riskReward: strength === 'forte' ? 3.5 : strength === 'moderada' ? 2.8 : 2.2
-      });
-    }
-  }
-  
-  return signals;
-};
-
-const detectRealAbsorption = (candles: CandleData[]): PriceActionSignal[] => {
-  const signals: PriceActionSignal[] = [];
-  
-  for (let i = 3; i < candles.length; i++) {
-    const current = candles[i];
-    const prev1 = candles[i - 1];
-    const prev2 = candles[i - 2];
-    const prev3 = candles[i - 3];
-    
-    const currentMetrics = analyzeCandleMetrics(current);
-    const avgPrevRange = (
-      (prev1.high - prev1.low) + 
-      (prev2.high - prev2.low) + 
-      (prev3.high - prev3.low)
-    ) / 3;
-    
-    // Absorção bullish - candle grande que absorve pressão de venda
-    if (currentMetrics.candleType === 'bullish' &&
-        current.open <= Math.min(prev1.low, prev2.low) &&
-        current.close >= Math.max(prev1.high, prev2.high) &&
-        (current.high - current.low) > avgPrevRange * 1.8) {
-      
-      const volumeRatio = (current.high - current.low) / avgPrevRange;
-      const confidence = Math.min(0.9, 0.4 + (volumeRatio - 1.8) * 0.2);
+    // Absorção bullish - candle grande que engole movimento de baixa
+    if (current.close > current.open && 
+        current.open <= previous.low && 
+        current.close >= beforePrevious.high &&
+        (current.high - current.low) > (previous.high - previous.low) * 1.5) {
       
       signals.push({
         type: 'absorption',
-        strength: volumeRatio > 2.5 ? 'forte' : 'moderada',
+        strength: 'forte',
         direction: 'alta',
-        confidence,
-        description: `Absorção bullish - Candle ${volumeRatio.toFixed(1)}x maior absorvendo vendas`,
+        confidence: 0.75,
+        description: 'Absorção bullish - Candle grande absorvendo pressão de venda',
         entryZone: {
-          min: current.close - (currentMetrics.bodySize * 0.3),
+          min: current.close - ((current.close - current.open) * 0.3),
           max: current.close,
-          optimal: current.close - (currentMetrics.bodySize * 0.1)
+          optimal: current.close - ((current.close - current.open) * 0.1)
         },
         riskReward: 3.2
       });
     }
     
-    // Absorção bearish - candle grande que absorve pressão de compra
-    if (currentMetrics.candleType === 'bearish' &&
-        current.open >= Math.max(prev1.high, prev2.high) &&
-        current.close <= Math.min(prev1.low, prev2.low) &&
-        (current.high - current.low) > avgPrevRange * 1.8) {
-      
-      const volumeRatio = (current.high - current.low) / avgPrevRange;
-      const confidence = Math.min(0.9, 0.4 + (volumeRatio - 1.8) * 0.2);
+    // Absorção bearish - candle grande que engole movimento de alta
+    if (current.close < current.open && 
+        current.open >= previous.high && 
+        current.close <= beforePrevious.low &&
+        (current.high - current.low) > (previous.high - previous.low) * 1.5) {
       
       signals.push({
         type: 'absorption',
-        strength: volumeRatio > 2.5 ? 'forte' : 'moderada',
+        strength: 'forte',
         direction: 'baixa',
-        confidence,
-        description: `Absorção bearish - Candle ${volumeRatio.toFixed(1)}x maior absorvendo compras`,
+        confidence: 0.75,
+        description: 'Absorção bearish - Candle grande absorvendo pressão de compra',
         entryZone: {
           min: current.close,
-          max: current.close + (currentMetrics.bodySize * 0.3),
-          optimal: current.close + (currentMetrics.bodySize * 0.1)
+          max: current.close + ((current.open - current.close) * 0.3),
+          optimal: current.close + ((current.open - current.close) * 0.1)
         },
         riskReward: 3.2
       });
@@ -211,244 +172,117 @@ const detectRealAbsorption = (candles: CandleData[]): PriceActionSignal[] => {
   return signals;
 };
 
-const detectRealBreakouts = (candles: CandleData[]): PriceActionSignal[] => {
+const detectBreakouts = (candles: CandleData[]): PriceActionSignal[] => {
   const signals: PriceActionSignal[] = [];
   
-  if (candles.length < 8) return signals;
+  if (candles.length < 5) return signals;
   
-  for (let i = 7; i < candles.length; i++) {
-    const current = candles[i];
-    const consolidation = candles.slice(i - 7, i);
+  const recent = candles.slice(-5);
+  const highs = recent.map(c => c.high);
+  const lows = recent.map(c => c.low);
+  const maxHigh = Math.max(...highs.slice(0, -1));
+  const minLow = Math.min(...lows.slice(0, -1));
+  
+  const current = candles[candles.length - 1];
+  
+  // Breakout de alta
+  if (current.close > maxHigh && current.close > current.open) {
+    const strength = current.close > maxHigh * 1.005 ? 'forte' : 'moderada';
     
-    const highs = consolidation.map(c => c.high);
-    const lows = consolidation.map(c => c.low);
-    const resistance = Math.max(...highs);
-    const support = Math.min(...lows);
-    const range = resistance - support;
-    const avgPrice = (resistance + support) / 2;
-    const rangePercent = (range / avgPrice) * 100;
+    signals.push({
+      type: 'breakout',
+      strength,
+      direction: 'alta',
+      confidence: 0.7,
+      description: `Breakout ${strength} de alta - Rompimento de máxima em ${maxHigh.toFixed(4)}`,
+      entryZone: {
+        min: maxHigh,
+        max: current.close + ((current.close - current.open) * 0.2),
+        optimal: maxHigh + ((current.close - maxHigh) * 0.3)
+      },
+      riskReward: 2.8
+    });
+  }
+  
+  // Breakout de baixa
+  if (current.close < minLow && current.close < current.open) {
+    const strength = current.close < minLow * 0.995 ? 'forte' : 'moderada';
     
-    // Só considera breakout se houve consolidação (range < 0.3%)
-    if (rangePercent > 0.05 && rangePercent < 0.3) {
-      const currentMetrics = analyzeCandleMetrics(current);
-      
-      // Breakout de alta
-      if (current.close > resistance && 
-          currentMetrics.candleType === 'bullish' &&
-          currentMetrics.bodyPercent > 40) {
-        
-        const breakoutStrength = ((current.close - resistance) / range) * 100;
-        const confidence = Math.min(0.85, 0.5 + (breakoutStrength / 100) * 0.3);
-        
-        signals.push({
-          type: 'breakout',
-          strength: breakoutStrength > 50 ? 'forte' : 'moderada',
-          direction: 'alta',
-          confidence,
-          description: `Breakout de alta - Rompimento de ${resistance.toFixed(4)} com força ${breakoutStrength.toFixed(1)}%`,
-          entryZone: {
-            min: resistance,
-            max: current.close + (range * 0.2),
-            optimal: resistance + (range * 0.1)
-          },
-          riskReward: 2.5
-        });
-      }
-      
-      // Breakout de baixa
-      if (current.close < support && 
-          currentMetrics.candleType === 'bearish' &&
-          currentMetrics.bodyPercent > 40) {
-        
-        const breakoutStrength = ((support - current.close) / range) * 100;
-        const confidence = Math.min(0.85, 0.5 + (breakoutStrength / 100) * 0.3);
-        
-        signals.push({
-          type: 'breakout',
-          strength: breakoutStrength > 50 ? 'forte' : 'moderada',
-          direction: 'baixa',
-          confidence,
-          description: `Breakout de baixa - Rompimento de ${support.toFixed(4)} com força ${breakoutStrength.toFixed(1)}%`,
-          entryZone: {
-            min: current.close - (range * 0.2),
-            max: support,
-            optimal: support - (range * 0.1)
-          },
-          riskReward: 2.5
-        });
-      }
-    }
+    signals.push({
+      type: 'breakout',
+      strength,
+      direction: 'baixa',
+      confidence: 0.7,
+      description: `Breakout ${strength} de baixa - Rompimento de mínima em ${minLow.toFixed(4)}`,
+      entryZone: {
+        min: current.close - ((current.open - current.close) * 0.2),
+        max: minLow,
+        optimal: minLow - ((minLow - current.close) * 0.3)
+      },
+      riskReward: 2.8
+    });
   }
   
   return signals;
 };
 
-const detectRealRetests = (candles: CandleData[]): PriceActionSignal[] => {
+const detectRetests = (candles: CandleData[]): PriceActionSignal[] => {
   const signals: PriceActionSignal[] = [];
   
-  // Implementar detecção real de retests
-  for (let i = 5; i < candles.length; i++) {
-    const current = candles[i];
-    const recent = candles.slice(i - 5, i);
-    
-    // Buscar níveis importantes nos últimos 5 candles
-    const importantLevels = findImportantLevels(recent);
-    
-    for (const level of importantLevels) {
-      const distance = Math.abs(current.close - level.price);
-      const pricePercent = (distance / current.close) * 100;
-      
-      // Se está próximo de um nível importante (dentro de 0.05%)
-      if (pricePercent < 0.05) {
-        const metrics = analyzeCandleMetrics(current);
-        
-        if (level.type === 'resistance' && metrics.wickDominance === 'upper') {
-          signals.push({
-            type: 'retest',
-            strength: 'moderada',
-            direction: 'baixa',
-            confidence: 0.7,
-            description: `Retest de resistência em ${level.price.toFixed(4)} - Rejeição detectada`,
-            riskReward: 2.8
-          });
-        } else if (level.type === 'support' && metrics.wickDominance === 'lower') {
-          signals.push({
-            type: 'retest',
-            strength: 'moderada',
-            direction: 'alta',
-            confidence: 0.7,
-            description: `Retest de suporte em ${level.price.toFixed(4)} - Sustentação detectada`,
-            riskReward: 2.8
-          });
-        }
-      }
-    }
-  }
+  // Lógica para detectar retests de níveis importantes
+  // Implementação simplificada para o exemplo
   
   return signals;
 };
 
-const detectRealLiquiditySweeps = (candles: CandleData[]): PriceActionSignal[] => {
+const detectLiquiditySweeps = (candles: CandleData[]): PriceActionSignal[] => {
   const signals: PriceActionSignal[] = [];
   
-  for (let i = 5; i < candles.length - 1; i++) {
+  if (candles.length < 7) return signals;
+  
+  for (let i = 3; i < candles.length - 1; i++) {
     const current = candles[i];
     const next = candles[i + 1];
-    const previous5 = candles.slice(i - 5, i);
+    const previous3 = candles.slice(i - 3, i);
     
-    const recentHigh = Math.max(...previous5.map(c => c.high));
-    const recentLow = Math.min(...previous5.map(c => c.low));
-    
-    // Liquidity Sweep Bullish (fake breakout down seguido de reversão)
-    if (current.low < recentLow && 
-        next.close > current.open &&
-        next.close > recentLow) {
-      
-      const sweepDistance = recentLow - current.low;
-      const recoveryStrength = next.close - current.low;
-      const ratio = recoveryStrength / sweepDistance;
-      
-      if (ratio > 2) { // Recuperação forte
-        signals.push({
-          type: 'liquidity_sweep',
-          strength: ratio > 4 ? 'forte' : 'moderada',
-          direction: 'alta',
-          confidence: Math.min(0.9, 0.6 + (ratio - 2) * 0.1),
-          description: `Liquidity Sweep bullish - Falso rompimento em ${recentLow.toFixed(4)} seguido de reversão`,
-          entryZone: {
-            min: recentLow,
-            max: next.close,
-            optimal: recentLow + ((next.close - recentLow) * 0.3)
-          },
-          riskReward: 4.0
-        });
-      }
-    }
-    
-    // Liquidity Sweep Bearish (fake breakout up seguido de reversão)
-    if (current.high > recentHigh && 
-        next.close < current.open &&
-        next.close < recentHigh) {
-      
-      const sweepDistance = current.high - recentHigh;
-      const recoveryStrength = current.high - next.close;
-      const ratio = recoveryStrength / sweepDistance;
-      
-      if (ratio > 2) { // Recuperação forte
-        signals.push({
-          type: 'liquidity_sweep',
-          strength: ratio > 4 ? 'forte' : 'moderada',
-          direction: 'baixa',
-          confidence: Math.min(0.9, 0.6 + (ratio - 2) * 0.1),
-          description: `Liquidity Sweep bearish - Falso rompimento em ${recentHigh.toFixed(4)} seguido de reversão`,
-          entryZone: {
-            min: next.close,
-            max: recentHigh,
-            optimal: recentHigh - ((recentHigh - next.close) * 0.3)
-          },
-          riskReward: 4.0
-        });
-      }
-    }
-  }
-  
-  return signals;
-};
-
-const detectInstitutionalMoves = (candles: CandleData[]): PriceActionSignal[] => {
-  const signals: PriceActionSignal[] = [];
-  
-  for (let i = 3; i < candles.length; i++) {
-    const current = candles[i];
-    const prev3 = candles.slice(i - 3, i);
-    
-    const currentMetrics = analyzeCandleMetrics(current);
-    const avgVolume = prev3.reduce((sum, c) => sum + (c.high - c.low), 0) / 3;
-    const currentVolume = current.high - current.low;
-    
-    // Movimento institucional: candle grande com corpo dominante
-    if (currentVolume > avgVolume * 2.5 && 
-        currentMetrics.bodyPercent > 70 &&
-        currentMetrics.totalRange > avgVolume * 2) {
-      
-      const strength = currentVolume > avgVolume * 4 ? 'forte' : 'moderada';
-      const direction = currentMetrics.candleType === 'bullish' ? 'alta' : 'baixa';
-      
+    // Sweep de liquidez de baixa (fake breakout down)
+    const recentLow = Math.min(...previous3.map(c => c.low));
+    if (current.low < recentLow && next.close > current.open && next.close > recentLow) {
       signals.push({
-        type: 'institutional_move',
-        strength,
-        direction,
+        type: 'liquidity_sweep',
+        strength: 'forte',
+        direction: 'alta',
         confidence: 0.8,
-        description: `Movimento institucional ${direction} - Candle ${(currentVolume / avgVolume).toFixed(1)}x maior que média`,
-        riskReward: 3.5
+        description: 'Liquidity Sweep bullish - Falso rompimento seguido de reversão',
+        entryZone: {
+          min: recentLow,
+          max: next.close,
+          optimal: recentLow + ((next.close - recentLow) * 0.3)
+        },
+        riskReward: 4.0
+      });
+    }
+    
+    // Sweep de liquidez de alta (fake breakout up)
+    const recentHigh = Math.max(...previous3.map(c => c.high));
+    if (current.high > recentHigh && next.close < current.open && next.close < recentHigh) {
+      signals.push({
+        type: 'liquidity_sweep',
+        strength: 'forte',
+        direction: 'baixa',
+        confidence: 0.8,
+        description: 'Liquidity Sweep bearish - Falso rompimento seguido de reversão',
+        entryZone: {
+          min: next.close,
+          max: recentHigh,
+          optimal: recentHigh - ((recentHigh - next.close) * 0.3)
+        },
+        riskReward: 4.0
       });
     }
   }
   
   return signals;
-};
-
-// Funções auxiliares
-const findImportantLevels = (candles: CandleData[]): Array<{type: 'support' | 'resistance', price: number}> => {
-  const levels: Array<{type: 'support' | 'resistance', price: number}> = [];
-  
-  for (let i = 1; i < candles.length - 1; i++) {
-    const current = candles[i];
-    const prev = candles[i - 1];
-    const next = candles[i + 1];
-    
-    // Swing high (resistência)
-    if (current.high > prev.high && current.high > next.high) {
-      levels.push({ type: 'resistance', price: current.high });
-    }
-    
-    // Swing low (suporte)
-    if (current.low < prev.low && current.low < next.low) {
-      levels.push({ type: 'support', price: current.low });
-    }
-  }
-  
-  return levels;
 };
 
 // Análise de contexto de mercado em tempo real
