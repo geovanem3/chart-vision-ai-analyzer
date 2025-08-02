@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { getMasterAnalysis } from '@/utils/masterTechniques';
+import { professionalAnalysisService } from '@/services/professionalAnalysisService';
 
 const GraphAnalyzer = () => {
   const { 
@@ -152,6 +153,46 @@ const GraphAnalyzer = () => {
         console.log('Final simulated result:', simulatedResult);
         
         setAnalysisResults(simulatedResult);
+
+        // Salvar análise no banco de dados profissional
+        const saveAnalysisToDB = async () => {
+          try {
+            const dbData = professionalAnalysisService.convertAnalysisToDbFormat(simulatedResult);
+            
+            // Adicionar dados específicos da sessão
+            dbData.image_url = capturedImage;
+            dbData.analysis_region = selectedRegion;
+            dbData.timeframe = timeframe.replace('m', 'M').replace('h', 'H').replace('d', 'D').replace('w', 'W') as any;
+            
+            // Mapear tipos de padrão corretamente
+            if (simulatedResult.patterns && simulatedResult.patterns.length > 0) {
+              const pattern = simulatedResult.patterns[0];
+              if (pattern.type === 'Pin Bar') {
+                dbData.primary_pattern = 'hammer';
+              } else if (pattern.type === 'Engolfo de Alta') {
+                dbData.primary_pattern = 'bullish_engulfing';
+              } else {
+                dbData.primary_pattern = 'bullish_engulfing'; // padrão
+              }
+            }
+            
+            const result = await professionalAnalysisService.saveAnalysis(dbData);
+            
+            if (result?.id) {
+              console.log('Análise salva com sucesso:', result.id);
+              toast({
+                title: "Análise Salva",
+                description: "Análise profissional salva no banco de dados",
+              });
+            }
+          } catch (error) {
+            console.error('Erro ao salvar análise:', error);
+            // Não mostrar erro ao usuário para não atrapalhar a experiência
+          }
+        };
+
+        // Executar salvamento em background
+        saveAnalysisToDB();
         
         toast({
           title: "Análise dos Mestres Completa",
