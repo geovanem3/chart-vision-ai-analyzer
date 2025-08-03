@@ -45,6 +45,31 @@ const LiveAnalysis = () => {
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Ajustar intervalo automaticamente baseado no timeframe
+  const getIntervalForTimeframe = (mode: 'seconds' | 'M1' | 'M5') => {
+    switch (mode) {
+      case 'seconds': return 3000; // 3 segundos
+      case 'M1': return 30000; // 30 segundos
+      case 'M5': return 60000; // 1 minuto
+      default: return 3000;
+    }
+  };
+
+  // Atualizar intervalo quando timeframe mudar
+  const handleTimeframeChange = (newMode: 'seconds' | 'M1' | 'M5') => {
+    // Parar análise ativa se estiver rodando
+    if (isLiveActive) {
+      stopLiveAnalysis();
+    }
+    
+    setTimeframeMode(newMode);
+    setAnalysisInterval(getIntervalForTimeframe(newMode));
+    
+    // Limpar resultados anteriores
+    setLiveResults([]);
+    setCurrentAnalysis(null);
+  };
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [confluenceDetails, setConfluenceDetails] = useState<any>(null);
@@ -522,7 +547,7 @@ const LiveAnalysis = () => {
 
             <select 
               value={timeframeMode} 
-              onChange={(e) => setTimeframeMode(e.target.value as 'seconds' | 'M1' | 'M5')}
+              onChange={(e) => handleTimeframeChange(e.target.value as 'seconds' | 'M1' | 'M5')}
               disabled={isLiveActive}
               className="px-3 py-2 border rounded-md text-sm"
             >
