@@ -41,6 +41,7 @@ const LiveAnalysis = () => {
   
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [analysisInterval, setAnalysisInterval] = useState(3000); // 3 segundos por padrão
+  const [timeframeMode, setTimeframeMode] = useState<'seconds' | 'M1' | 'M5'>('seconds');
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<LiveAnalysisResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -225,15 +226,25 @@ const LiveAnalysis = () => {
       // Melhorar imagem para análise
       const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
       
+      // Definir timeframe baseado no modo selecionado
+      let analysisTimeframe: '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' = '1m';
+      if (timeframeMode === 'M1') {
+        analysisTimeframe = '1m';
+      } else if (timeframeMode === 'M5') {
+        analysisTimeframe = '5m';
+      } else {
+        analysisTimeframe = '1m'; // Para modo seconds, usar 1m
+      }
+
       // Analisar com todas as funcionalidades ativadas
       const analysisResult = await analyzeChart(enhancedImageUrl, {
-        timeframe: '1m',
-        optimizeForScalping: true,
-        scalpingStrategy,
+        timeframe: analysisTimeframe,
+        optimizeForScalping: timeframeMode === 'seconds',
+        scalpingStrategy: timeframeMode === 'seconds' ? scalpingStrategy : 'institutional',
         considerVolume,
         considerVolatility,
         marketContextEnabled,
-        marketAnalysisDepth,
+        marketAnalysisDepth: timeframeMode === 'M5' ? 'deep' : marketAnalysisDepth,
         enableCandleDetection: true,
         isLiveAnalysis: true,
         useConfluences: true,
@@ -396,7 +407,7 @@ const LiveAnalysis = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
+  }, [isAnalyzing, timeframeMode, scalpingStrategy, considerVolume, considerVolatility, marketContextEnabled, marketAnalysisDepth, toast]);
 
   // Iniciar análise em tempo real
   const startLiveAnalysis = async () => {
@@ -464,7 +475,7 @@ const LiveAnalysis = () => {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
-            Análise Live M1 - IA Aprimorada
+            Análise Live {timeframeMode === 'seconds' ? 'Segundos' : timeframeMode} - IA Aprimorada
             {isLiveActive && (
               <Badge variant="default" className="ml-2 animate-pulse">
                 AO VIVO
@@ -508,6 +519,17 @@ const LiveAnalysis = () => {
               <Camera className="w-4 h-4" />
               {facingMode === 'environment' ? 'Traseira' : 'Frontal'}
             </Button>
+
+            <select 
+              value={timeframeMode} 
+              onChange={(e) => setTimeframeMode(e.target.value as 'seconds' | 'M1' | 'M5')}
+              disabled={isLiveActive}
+              className="px-3 py-2 border rounded-md text-sm"
+            >
+              <option value="seconds">Segundos</option>
+              <option value="M1">M1 (1 min)</option>
+              <option value="M5">M5 (5 min)</option>
+            </select>
 
             <select 
               value={analysisInterval} 
