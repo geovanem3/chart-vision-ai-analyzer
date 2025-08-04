@@ -122,20 +122,60 @@ const CameraView = () => {
             // Get the basic captured image
             const basicImageUrl = canvas.toDataURL('image/jpeg', 0.95);
             
+            toast({
+              variant: "default",
+              title: "📊 Processando captura...",
+              description: "Detectando região do gráfico e otimizando imagem.",
+            });
+
+            let finalImageUrl = basicImageUrl;
+            let processingMessage = "";
+
+            try {
+              // Import detectChartRegion here to avoid circular dependencies
+              const { detectChartRegion, cropToRegion } = await import('@/utils/imageProcessing');
+              
+              // Detect chart region automatically
+              const regionResult = await detectChartRegion(basicImageUrl);
+              
+              if (regionResult.success && regionResult.data) {
+                // Crop to detected chart region
+                const cropResult = await cropToRegion(basicImageUrl, {
+                  type: 'rectangle',
+                  x: regionResult.data.x,
+                  y: regionResult.data.y,
+                  width: regionResult.data.width,
+                  height: regionResult.data.height
+                });
+                
+                if (cropResult.success && cropResult.data) {
+                  finalImageUrl = cropResult.data;
+                  processingMessage = "Região do gráfico detectada e capturada automaticamente. ";
+                } else {
+                  processingMessage = "Usando captura completa - não foi possível isolar o gráfico. ";
+                }
+              } else {
+                processingMessage = "Usando captura completa - região do gráfico não detectada. ";
+              }
+            } catch (regionError) {
+              console.warn('Chart region detection failed:', regionError);
+              processingMessage = "Usando captura completa - detecção automática indisponível. ";
+            }
+
             // Check if the image is clear enough for analysis
-            const clarityCheck = await isImageClearForAnalysis(basicImageUrl);
+            const clarityCheck = await isImageClearForAnalysis(finalImageUrl);
             
             if (!clarityCheck.isClear) {
-              // Image not clear enough, show warning but continue
+              // Image not clear enough, show warning but continue with enhancement
               toast({
                 variant: "default",
-                title: "⚠ Imagem com Baixa Qualidade",
-                description: clarityCheck.issues.join('. ') + ". Tentando melhorar automaticamente.",
+                title: "⚠ Melhorando qualidade",
+                description: clarityCheck.issues.join('. ') + ". Aplicando otimizações...",
               });
             }
             
-            // Enhance the image for better analysis
-            const enhancedImageUrl = await enhanceImageForAnalysis(basicImageUrl);
+            // Enhance the final image for better analysis
+            const enhancedImageUrl = await enhanceImageForAnalysis(finalImageUrl);
             
             // Check quality of enhanced image
             const qualityCheck = await checkImageQuality(enhancedImageUrl);
@@ -146,14 +186,14 @@ const CameraView = () => {
             if (qualityCheck.isGoodQuality) {
               toast({
                 variant: "default",
-                title: "✓ Imagem Capturada",
-                description: "Imagem processada com sucesso e pronta para análise.",
+                title: "✓ Gráfico capturado",
+                description: processingMessage + "Imagem otimizada e pronta para análise.",
               });
             } else {
               toast({
                 variant: "default",
-                title: "⚠ Imagem Processada",
-                description: "Imagem capturada, mas a qualidade pode afetar a precisão da análise.",
+                title: "⚠ Gráfico capturado",
+                description: processingMessage + "Qualidade pode afetar a precisão da análise.",
               });
             }
           } catch (error) {
