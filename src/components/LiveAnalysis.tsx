@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceImageForAnalysis } from '@/utils/imagePreProcessing';
 import { analyzeChart } from '@/utils/patternDetection';
+import { performAnalyticalVerification, SignalVerification, AnalyticalContext } from '@/utils/signalVerification';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -17,7 +18,7 @@ interface LiveAnalysisResult {
   signal: 'compra' | 'venda' | 'neutro';
   patterns: string[];
   trend: 'alta' | 'baixa' | 'lateral';
-  signalQuality?: string;
+  signalQuality?: 'excelente' | 'forte' | 'boa' | 'moderada' | 'fraca' | 'inválida';
   confluenceScore?: number;
   supportResistance?: any[];
   criticalLevels?: any[];
@@ -32,6 +33,14 @@ interface LiveAnalysisResult {
     reliability: number;
     marketAlignment: boolean;
   };
+  // Novos campos para verificação analítica
+  analyticalVerification?: SignalVerification;
+  analyticalContext?: AnalyticalContext;
+  technicalLevels?: any[];
+  trendLines?: any[];
+  chartPatterns?: any[];
+  invalidationLevel?: number;
+  targetLevels?: number[];
 }
 
 const LiveAnalysis = () => {
@@ -285,79 +294,58 @@ const LiveAnalysis = () => {
       });
       setEntryRecommendations(analysisResult.entryRecommendations || []);
 
-      // Processar resultado para formato live com validação melhorada
-      let finalConfidence = 0;
-      let signalQuality = 'fraca';
-      let riskReward = 2.0;
+      // Converter padrões para formato esperado pela verificação
+      const patternResults = analysisResult.patterns.map(p => ({
+        type: p.type,
+        confidence: p.confidence,
+        action: p.action as 'compra' | 'venda' | 'neutro',
+        description: p.description
+      }));
+
+      // Determinar sinal principal inicial
       let mainSignal: 'compra' | 'venda' | 'neutro' = 'neutro';
-      
-      // Determinar sinal principal baseado no padrão mais forte e consistente
       const validPatterns = analysisResult.patterns.filter(p => p.action !== 'neutro');
       
       if (validPatterns.length > 0) {
-        // Verificar consistência entre padrões
         const actions = validPatterns.map(p => p.action);
         const uniqueActions = [...new Set(actions)];
         
         if (uniqueActions.length === 1) {
-          // Sinais consistentes
           mainSignal = uniqueActions[0] as 'compra' | 'venda';
-          finalConfidence = validPatterns.reduce((sum, p) => sum + p.confidence, 0) / validPatterns.length;
         } else {
-          // Sinais conflitantes - usar o mais forte mas reduzir confiança
           const strongestPattern = validPatterns.reduce((prev, current) => 
             (current.confidence > prev.confidence) ? current : prev
           );
           mainSignal = strongestPattern.action as 'compra' | 'venda';
-          finalConfidence = strongestPattern.confidence * 0.7; // Penalizar conflito
         }
       }
-      
-      // Validar com price action
-      const alignedPASignals = analysisResult.priceActionSignals?.filter(pa => 
-        (mainSignal === 'compra' && pa.direction === 'alta') ||
-        (mainSignal === 'venda' && pa.direction === 'baixa')
-      ) || [];
-      
-      if (alignedPASignals.length > 0) {
-        const paConfidence = alignedPASignals.reduce((sum, pa) => sum + pa.confidence, 0) / alignedPASignals.length;
-        finalConfidence = (finalConfidence + paConfidence) / 2;
-      } else if (analysisResult.priceActionSignals?.length > 0 && mainSignal !== 'neutro') {
-        // Price action contradiz - reduzir confiança
-        finalConfidence *= 0.6;
-      }
-      
-      // Determinar qualidade do sinal
-      if (finalConfidence > 0.85) {
-        signalQuality = 'excelente';
-      } else if (finalConfidence > 0.75) {
-        signalQuality = 'forte';
-      } else if (finalConfidence > 0.65) {
-        signalQuality = 'boa';
-      } else if (finalConfidence > 0.55) {
-        signalQuality = 'moderada';
-      } else {
-        signalQuality = 'fraca';
-      }
-      
-      // Ajustar baseado em confluências
-      if (analysisResult.confluences) {
-        const confluenceBonus = analysisResult.confluences.confluenceScore / 100 * 0.1;
-        finalConfidence = Math.min(1, finalConfidence + confluenceBonus);
-        
-        if (analysisResult.confluences.confluenceScore > 80) {
-          signalQuality = 'excelente';
-        }
-      }
-      
-      // Obter melhor recomendação de entrada
-      const bestEntry = analysisResult.entryRecommendations?.find(entry => 
-        entry.action === mainSignal
+
+      // VERIFICAÇÃO ANALÍTICA AVANÇADA
+      const analyticalResult = performAnalyticalVerification(
+        mainSignal,
+        patternResults,
+        analysisResult.candles || []
       );
+
+      // Usar os resultados da verificação analítica
+      let finalConfidence = analyticalResult.verification.confidence / 100; // Converter para 0-1
+      let riskReward = analyticalResult.verification.riskReward;
       
-      if (bestEntry) {
-        riskReward = bestEntry.riskReward;
-        finalConfidence = Math.max(finalConfidence, bestEntry.confidence);
+      // Mapear qualidade para português
+      const qualityMap: { [key in 'excellent' | 'strong' | 'good' | 'weak' | 'invalid']: 'excelente' | 'forte' | 'boa' | 'moderada' | 'fraca' | 'inválida' } = {
+        'excellent': 'excelente',
+        'strong': 'forte',
+        'good': 'boa',
+        'weak': 'moderada', // Mapear weak para moderada
+        'invalid': 'inválida'
+      };
+      let signalQuality: 'excelente' | 'forte' | 'boa' | 'moderada' | 'fraca' | 'inválida' = qualityMap[analyticalResult.verification.quality] || 'fraca';
+
+      // Se o sinal foi invalidado pela análise, tornar neutro
+      if (analyticalResult.verification.quality === 'invalid') {
+        mainSignal = 'neutro';
+        finalConfidence = 0;
+        signalQuality = 'inválida';
       }
 
       // Mapear tendência corretamente - corrigir tipo de comparação
@@ -386,7 +374,7 @@ const LiveAnalysis = () => {
         patterns: analysisResult.patterns.map(p => p.type),
         trend: mappedTrend,
         signalQuality,
-        confluenceScore: analysisResult.confluences?.confluenceScore || 0,
+        confluenceScore: analyticalResult.verification.confluenceScore,
         supportResistance: analysisResult.confluences?.supportResistance?.slice(0, 3) || [],
         criticalLevels: analysisResult.confluences?.criticalLevels || [],
         priceActionSignals: analysisResult.priceActionSignals?.slice(0, 2) || [],
@@ -396,7 +384,15 @@ const LiveAnalysis = () => {
           entry.action === mainSignal
         ).slice(0, 2) || [],
         riskReward,
-        analysisHealth
+        analysisHealth,
+        // Dados da verificação analítica
+        analyticalVerification: analyticalResult.verification,
+        analyticalContext: analyticalResult.context,
+        technicalLevels: analyticalResult.context.supportResistanceLevels,
+        trendLines: analyticalResult.context.trendLines,
+        chartPatterns: analyticalResult.context.chartPatterns,
+        invalidationLevel: analyticalResult.verification.invalidationLevel,
+        targetLevels: analyticalResult.verification.targetLevels
       };
 
       setCurrentAnalysis(liveResult);
@@ -410,19 +406,32 @@ const LiveAnalysis = () => {
         lastValidSignalTime: mainSignal !== 'neutro' ? Date.now() : prev.lastValidSignalTime
       }));
 
-      // Notificar apenas sinais de alta qualidade
-      if (finalConfidence > 0.7 && mainSignal !== 'neutro' && signalQuality !== 'fraca') {
-        const paText = alignedPASignals.length > 0 ? 
-          ` | PA: ${alignedPASignals[0].type}` : '';
+      // Notificar apenas sinais de alta qualidade com verificação analítica
+      if (finalConfidence > 0.55 && mainSignal !== 'neutro' && signalQuality !== 'fraca' && signalQuality !== 'inválida') {
+        const supportingFactors = analyticalResult.verification.supportingFactors.slice(0, 2).join(', ');
+        const warnings = analyticalResult.verification.warnings.length > 0 ? 
+          ` ⚠️ ${analyticalResult.verification.warnings[0]}` : '';
         const rrText = riskReward > 2 ? ` | R:R ${riskReward.toFixed(1)}` : '';
-        const healthText = analysisHealth.consistency > 80 ? ' ✅' : ' ⚠️';
+        const probabilityText = ` | Prob: ${Math.round(analyticalResult.verification.probability)}%`;
         
         toast({
           variant: mainSignal === 'compra' ? "default" : "destructive",
-          title: `🚨 ENTRADA ${signalQuality.toUpperCase()} - ${mainSignal.toUpperCase()}${healthText}`,
-          description: `Confiança: ${Math.round(finalConfidence * 100)}% | Fase: ${liveResult.marketPhase}${paText}${rrText}`,
-          duration: 8000,
+          title: `🎯 SINAL ${signalQuality.toUpperCase()} - ${mainSignal.toUpperCase()}`,
+          description: `Confiança: ${Math.round(finalConfidence * 100)}%${probabilityText}${rrText}${warnings}`,
+          duration: 10000,
         });
+
+        // Toast adicional com fatores de confirmação se for sinal excelente/forte
+        if (signalQuality === 'excelente' || signalQuality === 'forte') {
+          setTimeout(() => {
+            toast({
+              variant: "default",
+              title: "🔍 Análise Técnica",
+              description: supportingFactors || "Múltiplas confluências detectadas",
+              duration: 6000,
+            });
+          }, 1500);
+        }
       }
 
       console.log(`✅ Análise completa - Sinal: ${mainSignal} (${Math.round(finalConfidence * 100)}%)`);
