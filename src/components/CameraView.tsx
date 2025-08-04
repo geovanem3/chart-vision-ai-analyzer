@@ -183,90 +183,167 @@ const CameraView = () => {
   // Handle file upload with processing
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setIsProcessing(false);
+      return;
+    }
 
     try {
       setIsProcessing(true);
+      setCameraError(null); // Clear any previous errors
       
+      // File type validation
       if (!file.type.startsWith('image/')) {
-        setCameraError('Por favor, selecione um arquivo de imagem válido.');
+        const errorMsg = 'Por favor, selecione um arquivo de imagem válido (JPG, PNG, WEBP).';
+        setCameraError(errorMsg);
         toast({
           variant: "destructive",
           title: "✗ Arquivo inválido",
-          description: "Por favor, selecione um arquivo de imagem válido.",
+          description: errorMsg,
+        });
+        return;
+      }
+
+      // File size validation (max 10MB)
+      const maxSizeInMB = 10;
+      const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+      if (file.size > maxSizeInBytes) {
+        const errorMsg = `Arquivo muito grande. Tamanho máximo: ${maxSizeInMB}MB.`;
+        setCameraError(errorMsg);
+        toast({
+          variant: "destructive",
+          title: "✗ Arquivo muito grande",
+          description: errorMsg,
         });
         return;
       }
 
       const reader = new FileReader();
+      
       reader.onload = async (e) => {
-        const imageUrl = e.target?.result as string;
-        if (imageUrl) {
+        try {
+          const imageUrl = e.target?.result as string;
+          if (!imageUrl) {
+            throw new Error('Não foi possível ler o arquivo de imagem');
+          }
+
+          // Validate that the image URL is valid
+          if (!imageUrl.startsWith('data:image/')) {
+            throw new Error('Formato de imagem inválido');
+          }
+
+          toast({
+            variant: "default",
+            title: "📊 Processando imagem...",
+            description: "Verificando qualidade e otimizando para análise.",
+          });
+
+          let finalImageUrl = imageUrl;
+          let qualityMessage = "";
+
           try {
-            // Check image clarity
+            // Check image clarity first
             const clarityCheck = await isImageClearForAnalysis(imageUrl);
             
-            if (!clarityCheck.isClear) {
-              // Warn about image quality
+            if (!clarityCheck.isClear && clarityCheck.issues.length > 0) {
+              qualityMessage = "Qualidade baixa detectada. ";
               toast({
                 variant: "default",
-                title: "⚠ Imagem com Baixa Qualidade",
-                description: clarityCheck.issues.join('. ') + ". Tentando melhorar automaticamente.",
+                title: "⚠ Melhorando qualidade",
+                description: clarityCheck.issues.join('. ') + ". Aplicando otimizações...",
               });
             }
-            
-            // Enhance the image
+
+            // Try to enhance the image
             const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
             
-            // Check quality of enhanced image
-            const qualityCheck = await checkImageQuality(enhancedImageUrl);
-            
-            setCapturedImage(enhancedImageUrl);
-            
-            if (qualityCheck.isGoodQuality) {
-              toast({
-                variant: "default",
-                title: "✓ Imagem Carregada",
-                description: "Imagem processada com sucesso e pronta para análise.",
-              });
+            // Validate enhanced image
+            if (enhancedImageUrl && enhancedImageUrl !== imageUrl) {
+              finalImageUrl = enhancedImageUrl;
+              
+              // Check quality of enhanced image
+              const qualityCheck = await checkImageQuality(enhancedImageUrl);
+              
+              if (qualityCheck.isGoodQuality) {
+                qualityMessage += "Imagem otimizada com sucesso.";
+              } else {
+                qualityMessage += "Imagem otimizada, mas qualidade pode afetar análise.";
+              }
             } else {
-              toast({
-                variant: "default",
-                title: "⚠ Imagem Processada",
-                description: "Imagem carregada, mas a qualidade pode afetar a precisão da análise.",
-              });
+              // Enhancement failed, use original
+              const qualityCheck = await checkImageQuality(imageUrl);
+              if (qualityCheck.isGoodQuality) {
+                qualityMessage = "Imagem original tem boa qualidade.";
+              } else {
+                qualityMessage = "Usando imagem original. " + qualityCheck.message;
+              }
             }
-          } catch (error) {
-            console.error('Error processing uploaded image:', error);
-            setCapturedImage(imageUrl); // Fallback to original
-            toast({
-              variant: "default",
-              title: "⚠ Processamento Limitado",
-              description: "Não foi possível otimizar a imagem. Usando imagem original.",
-            });
+          } catch (processingError) {
+            console.warn('Image processing failed, using original:', processingError);
+            finalImageUrl = imageUrl;
+            qualityMessage = "Usando imagem original sem otimizações.";
           }
+
+          // Set the final image
+          setCapturedImage(finalImageUrl);
+          
+          // Success notification
+          toast({
+            variant: "default",
+            title: "✓ Imagem carregada com sucesso",
+            description: qualityMessage + " Pronta para análise.",
+          });
+
+        } catch (error) {
+          console.error('Error in file reader onload:', error);
+          setCameraError('Erro ao processar imagem. Tente outro arquivo.');
+          toast({
+            variant: "destructive",
+            title: "✗ Erro no processamento",
+            description: "Não foi possível processar a imagem. Tente outro arquivo.",
+          });
         }
       };
       
-      reader.onerror = () => {
-        setCameraError('Erro ao ler o arquivo. Por favor, tente novamente.');
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        const errorMsg = 'Erro ao ler o arquivo. Verifique se o arquivo não está corrompido.';
+        setCameraError(errorMsg);
         toast({
           variant: "destructive",
           title: "✗ Erro de leitura",
-          description: "Erro ao ler o arquivo. Por favor, tente novamente.",
+          description: errorMsg,
+        });
+      };
+
+      reader.onabort = () => {
+        console.warn('File reading was aborted');
+        setCameraError('Leitura do arquivo foi cancelada.');
+        toast({
+          variant: "destructive",
+          title: "✗ Leitura cancelada",
+          description: "A leitura do arquivo foi interrompida.",
         });
       };
       
+      // Start reading the file
       reader.readAsDataURL(file);
+      
     } catch (error) {
-      console.error('Error handling file upload:', error);
+      console.error('Error in handleFileUpload:', error);
+      const errorMsg = 'Erro inesperado ao processar arquivo. Tente novamente.';
+      setCameraError(errorMsg);
       toast({
         variant: "destructive",
         title: "✗ Erro no upload",
-        description: "Falha ao processar o arquivo. Por favor, tente outro.",
+        description: errorMsg,
       });
     } finally {
       setIsProcessing(false);
+      // Clear the file input to allow re-uploading the same file
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
 
