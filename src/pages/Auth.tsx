@@ -79,8 +79,8 @@ const Auth = () => {
             </CardTitle>
             <CardDescription>
               {isLogin 
-                ? 'Entre na sua conta para acessar a análise técnica avançada'
-                : 'Crie sua conta para começar a usar o Chart Vision AI'
+                ? 'Entre na sua conta para acessar o sistema de análise de gráficos e upload de imagens da galeria'
+                : 'Crie sua conta para acessar o analisador interno e fazer upload de imagens de gráficos da sua galeria'
               }
             </CardDescription>
           </CardHeader>
