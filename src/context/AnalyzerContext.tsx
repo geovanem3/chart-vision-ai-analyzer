@@ -31,7 +31,7 @@ export type TechnicalElement = {
   | { type: 'rectangle', position: Point, width: number, height: number }
   | { type: 'circle', center: Point, radius: number }
   | { type: 'label', position: Point, text: string, backgroundColor?: string }
-  | { type: 'pattern', patternType: 'OCO' | 'triangulo' | 'cunha' | 'bandeira' | 'topoduplo' | 'fundoduplo' | 'eliotwave' | 'dowtheory' | 'trendline', points: Point[] }
+  | { type: 'pattern', patternType: 'OCO' | 'triangulo' | 'cunha' | 'bandeira' | 'topoduplo' | 'fundoduplo' | 'eliotwave' | 'dowtheory' | 'trendline' | 'fibonacci' | 'channel' | 'support' | 'resistance' | 'triangle' | 'wedge' | 'flag' | 'pennant' | 'headshoulders' | 'doubletop' | 'cuphandle' | 'breakout' | 'volume' | 'divergence' | 'consolidation' | 'gap', points: Point[] }
 );
 
 export type CandleData = {
@@ -181,7 +181,7 @@ export type SelectedRegion = RectangleRegion | CircleRegion;
 
 export type MarkupSize = 'small' | 'medium' | 'large';
 
-export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory';
+export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory' | 'fibonacci' | 'channel' | 'support' | 'resistance' | 'triangle' | 'wedge' | 'flag' | 'pennant' | 'headshoulders' | 'doubletop' | 'cuphandle' | 'breakout' | 'volume' | 'divergence' | 'consolidation' | 'gap';
 
 export type TimeframeType = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
 

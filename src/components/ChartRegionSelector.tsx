@@ -177,6 +177,203 @@ const ChartRegionSelector = () => {
             thickness: 2,
             label: 'Teoria de Dow'
           };
+        case 'fibonacci':
+          return {
+            type: 'pattern',
+            patternType: 'fibonacci',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FFD700',
+            thickness: 1,
+            dashArray: [2, 2],
+            label: 'Fibonacci'
+          };
+        case 'channel':
+          return {
+            type: 'pattern',
+            patternType: 'channel',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#9370DB',
+            thickness: 2,
+            label: 'Canal'
+          };
+        case 'support':
+          return {
+            type: 'pattern',
+            patternType: 'support',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: startPoint.y }
+            ],
+            color: '#00FF00',
+            thickness: 2,
+            label: 'Suporte'
+          };
+        case 'resistance':
+          return {
+            type: 'pattern',
+            patternType: 'resistance',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: startPoint.y }
+            ],
+            color: '#FF0000',
+            thickness: 2,
+            label: 'Resistência'
+          };
+        case 'triangle':
+          return {
+            type: 'pattern',
+            patternType: 'triangle',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FF8C00',
+            thickness: 2,
+            label: 'Triângulo'
+          };
+        case 'wedge':
+          return {
+            type: 'pattern',
+            patternType: 'wedge',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#DC143C',
+            thickness: 2,
+            label: 'Cunha'
+          };
+        case 'flag':
+          return {
+            type: 'pattern',
+            patternType: 'flag',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#1E90FF',
+            thickness: 2,
+            label: 'Bandeira'
+          };
+        case 'pennant':
+          return {
+            type: 'pattern',
+            patternType: 'pennant',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FF1493',
+            thickness: 2,
+            label: 'Flâmula'
+          };
+        case 'headshoulders':
+          return {
+            type: 'pattern',
+            patternType: 'headshoulders',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#8A2BE2',
+            thickness: 2,
+            label: 'Ombro-Cabeça-Ombro'
+          };
+        case 'doubletop':
+          return {
+            type: 'pattern',
+            patternType: 'doubletop',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FF6347',
+            thickness: 2,
+            label: 'Topo/Fundo Duplo'
+          };
+        case 'cuphandle':
+          return {
+            type: 'pattern',
+            patternType: 'cuphandle',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#32CD32',
+            thickness: 2,
+            label: 'Xícara e Alça'
+          };
+        case 'breakout':
+          return {
+            type: 'pattern',
+            patternType: 'breakout',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FFD700',
+            thickness: 3,
+            label: 'Breakout'
+          };
+        case 'volume':
+          return {
+            type: 'pattern',
+            patternType: 'volume',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#4169E1',
+            thickness: 2,
+            backgroundColor: 'rgba(65, 105, 225, 0.2)',
+            label: 'Zona de Volume'
+          };
+        case 'divergence':
+          return {
+            type: 'pattern',
+            patternType: 'divergence',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FF4500',
+            thickness: 2,
+            dashArray: [8, 4],
+            label: 'Divergência'
+          };
+        case 'consolidation':
+          return {
+            type: 'pattern',
+            patternType: 'consolidation',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#708090',
+            thickness: 2,
+            backgroundColor: 'rgba(112, 128, 144, 0.2)',
+            label: 'Consolidação'
+          };
+        case 'gap':
+          return {
+            type: 'pattern',
+            patternType: 'gap',
+            points: [
+              { x: startPoint.x, y: startPoint.y },
+              { x: currentPoint.x, y: currentPoint.y }
+            ],
+            color: '#FF69B4',
+            thickness: 2,
+            dashArray: [10, 5],
+            label: 'Gap'
+          };
         default:
           return {
             type: 'line',
