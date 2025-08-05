@@ -279,49 +279,20 @@ const CameraView = () => {
           });
 
           let finalImageUrl = imageUrl;
-          let qualityMessage = "";
+          let qualityMessage = "Imagem carregada da galeria.";
 
           try {
-            // Check image clarity first
-            const clarityCheck = await isImageClearForAnalysis(imageUrl);
-            
-            if (!clarityCheck.isClear && clarityCheck.issues.length > 0) {
-              qualityMessage = "Qualidade baixa detectada. ";
-              toast({
-                variant: "default",
-                title: "⚠ Melhorando qualidade",
-                description: clarityCheck.issues.join('. ') + ". Aplicando otimizações...",
-              });
-            }
-
-            // Try to enhance the image
+            // Enhance the image for better analysis
             const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
             
-            // Validate enhanced image
             if (enhancedImageUrl && enhancedImageUrl !== imageUrl) {
               finalImageUrl = enhancedImageUrl;
-              
-              // Check quality of enhanced image
-              const qualityCheck = await checkImageQuality(enhancedImageUrl);
-              
-              if (qualityCheck.isGoodQuality) {
-                qualityMessage += "Imagem otimizada com sucesso.";
-              } else {
-                qualityMessage += "Imagem otimizada, mas qualidade pode afetar análise.";
-              }
-            } else {
-              // Enhancement failed, use original
-              const qualityCheck = await checkImageQuality(imageUrl);
-              if (qualityCheck.isGoodQuality) {
-                qualityMessage = "Imagem original tem boa qualidade.";
-              } else {
-                qualityMessage = "Usando imagem original. " + qualityCheck.message;
-              }
+              qualityMessage = "Imagem otimizada para análise.";
             }
           } catch (processingError) {
             console.warn('Image processing failed, using original:', processingError);
             finalImageUrl = imageUrl;
-            qualityMessage = "Usando imagem original sem otimizações.";
+            qualityMessage = "Usando imagem original.";
           }
 
           // Set the final image
