@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TrendingUp, Volume, Activity, BarChart3, AlertTriangle } from 'lucide-react';
 import MasterAnalysisDisplay from './MasterAnalysisDisplay';
+import AdvancedStrategiesDisplay from './AdvancedStrategiesDisplay';
 
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
@@ -24,7 +25,8 @@ const AnalysisResults = () => {
     marketContext, 
     volumeData, 
     volatilityData, 
-    masterAnalysis 
+    masterAnalysis,
+    advancedStrategies = []
   } = analysisResults;
 
   console.log('AnalysisResults - extracted data:', { 
@@ -164,6 +166,13 @@ const AnalysisResults = () => {
       {masterAnalysis && (
         <div className="w-full">
           <MasterAnalysisDisplay masterAnalysis={masterAnalysis} />
+        </div>
+      )}
+
+      {/* Advanced Strategies Display */}
+      {advancedStrategies.length > 0 && (
+        <div className="w-full">
+          <AdvancedStrategiesDisplay strategies={advancedStrategies} />
         </div>
       )}
 

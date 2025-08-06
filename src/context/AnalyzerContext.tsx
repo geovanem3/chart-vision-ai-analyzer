@@ -104,6 +104,7 @@ export type AnalysisResult = {
   warnings?: string[];
   preciseEntryAnalysis?: PreciseEntryAnalysis;
   masterAnalysis?: any;
+  advancedStrategies?: any[];
   // Add missing properties for advanced analysis
   confluences?: {
     confluenceScore: number;

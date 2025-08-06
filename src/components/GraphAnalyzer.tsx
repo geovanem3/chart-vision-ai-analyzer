@@ -17,6 +17,8 @@ import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { getMasterAnalysis } from '@/utils/masterTechniques';
 import { professionalAnalysisService } from '@/services/professionalAnalysisService';
+import { runAllAdvancedStrategies } from '@/utils/advancedAnalysisStrategies';
+import AdvancedStrategiesDisplay from './AdvancedStrategiesDisplay';
 
 const GraphAnalyzer = () => {
   const { 
@@ -85,6 +87,18 @@ const GraphAnalyzer = () => {
         // Análise baseada nos mestres
         const masterAnalysis = getMasterAnalysis(timeframe, timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta');
         
+        // Executar estratégias avançadas (simulação com dados básicos)
+        const mockCandleData = Array.from({ length: 50 }, (_, i) => ({
+          open: 1.2000 + Math.random() * 0.01,
+          high: 1.2020 + Math.random() * 0.01,
+          low: 1.1980 + Math.random() * 0.01,
+          close: 1.2010 + Math.random() * 0.01,
+          volume: 1000 + Math.random() * 500,
+          timestamp: Date.now() - (49 - i) * 60000
+        }));
+        
+        const advancedStrategies = runAllAdvancedStrategies(mockCandleData);
+        
         console.log('Master analysis result:', masterAnalysis);
         
         const simulatedResult = {
@@ -147,7 +161,8 @@ const GraphAnalyzer = () => {
             isHigh: false,
             historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
           },
-          masterAnalysis // Adicionando a análise dos mestres
+          masterAnalysis, // Adicionando a análise dos mestres
+          advancedStrategies // Adicionando estratégias avançadas
         };
         
         console.log('Final simulated result:', simulatedResult);
