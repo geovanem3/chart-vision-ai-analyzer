@@ -6,6 +6,7 @@ import { useAnalyzer } from '@/context/AnalyzerContext';
 import { TrendingUp, Volume, Activity, BarChart3, AlertTriangle } from 'lucide-react';
 import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 import AdvancedStrategiesDisplay from './AdvancedStrategiesDisplay';
+import ComprehensiveAnalysisDisplay from './ComprehensiveAnalysisDisplay';
 
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
@@ -26,7 +27,8 @@ const AnalysisResults = () => {
     volumeData, 
     volatilityData, 
     masterAnalysis,
-    advancedStrategies = []
+    advancedStrategies = [],
+    comprehensiveAnalysis
   } = analysisResults;
 
   console.log('AnalysisResults - extracted data:', { 
@@ -39,6 +41,12 @@ const AnalysisResults = () => {
 
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
+      {/* Comprehensive Analysis Display - Priority */}
+      {comprehensiveAnalysis && (
+        <div className="w-full">
+          <ComprehensiveAnalysisDisplay analysis={comprehensiveAnalysis} />
+        </div>
+      )}
       {/* Patterns Section */}
       {patterns.length > 0 && (
         <Card>
@@ -177,7 +185,7 @@ const AnalysisResults = () => {
       )}
 
       {/* Warning if no significant data */}
-      {patterns.length === 0 && !masterAnalysis && (
+      {patterns.length === 0 && !masterAnalysis && !comprehensiveAnalysis && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-800">
