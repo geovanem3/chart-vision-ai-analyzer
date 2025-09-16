@@ -3,7 +3,7 @@ import CameraView from './CameraView';
 import ChartRegionSelector from './ChartRegionSelector';
 import ControlPanel from './ControlPanel';
 import AnalysisResults from './AnalysisResults';
-import MobileBottomBar from './MobileBottomBar';
+
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ZoomIn, BarChart2, ChevronRight, Clock, Camera, Settings } from 'lucide-react';
@@ -425,7 +425,6 @@ const GraphAnalyzer = () => {
   return (
     <div className={`w-full ${isMobile ? 'px-1' : 'max-w-4xl'} mx-auto overflow-hidden`}>
       {renderMainContent()}
-      <MobileBottomBar />
     </div>
   );
 };

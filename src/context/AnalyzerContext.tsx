@@ -312,7 +312,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
       }));
 
       // Executar análises avançadas
-      const masterAnalysis = await getMasterAnalysis(mockCandles, timeframe);
+      const masterAnalysis = await getMasterAnalysis(timeframe, 'reversal');
       const advancedStrategies = await runAllAdvancedStrategies(mockCandles);
       
       // Executar análise abrangente
