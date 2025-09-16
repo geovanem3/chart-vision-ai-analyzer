@@ -1,12 +1,131 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, Zap, BarChart2 } from 'lucide-react';
+import { Camera, Upload, Zap, BarChart2, X, RotateCcw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAnalyzer } from '@/context/AnalyzerContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Capture = () => {
   const isMobile = useIsMobile();
+  const { setCapturedImage, setTimeframe } = useAnalyzer();
+  const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsStreaming(true);
+        setShowCamera(true);
+      }
+    } catch (error) {
+      console.error('Erro ao acessar câmera:', error);
+      alert('Não foi possível acessar a câmera. Verifique as permissões.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsStreaming(false);
+    setShowCamera(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const imageUrl = URL.createObjectURL(blob);
+            setCapturedImage(imageUrl);
+            stopCamera();
+            navigate('/');
+          }
+        }, 'image/jpeg', 0.95);
+      }
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const imageUrl = URL.createObjectURL(file);
+      setCapturedImage(imageUrl);
+      navigate('/');
+    }
+  };
+
+  const handleQuickMode = () => {
+    setTimeframe('1m');
+    startCamera();
+  };
+
+  if (showCamera) {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+        <div className="flex-1 relative">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          <canvas ref={canvasRef} className="hidden" />
+          
+          {/* Controls overlay */}
+          <div className="absolute inset-0 flex flex-col justify-between p-4">
+            <div className="flex justify-between items-center">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={stopCamera}
+                className="bg-black/50 hover:bg-black/70 text-white border-none"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Fechar
+              </Button>
+            </div>
+            
+            <div className="flex justify-center items-center">
+              <Button
+                size="lg"
+                onClick={capturePhoto}
+                className="bg-white hover:bg-gray-100 text-black rounded-full w-16 h-16 p-0"
+              >
+                <Camera className="h-8 w-8" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${isMobile ? 'p-4' : 'container py-8'}`}>
@@ -40,7 +159,7 @@ const Capture = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" size="lg">
+              <Button className="w-full" size="lg" onClick={startCamera}>
                 <Camera className="mr-2 h-5 w-5" />
                 Abrir Câmera
               </Button>
@@ -62,7 +181,19 @@ const Capture = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full" size="lg">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                size="lg"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 <Upload className="mr-2 h-5 w-5" />
                 Selecionar Arquivo
               </Button>
@@ -84,7 +215,12 @@ const Capture = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Button variant="secondary" className="w-full" size="lg">
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                size="lg"
+                onClick={handleQuickMode}
+              >
                 <Zap className="mr-2 h-5 w-5" />
                 Modo Rápido
               </Button>
