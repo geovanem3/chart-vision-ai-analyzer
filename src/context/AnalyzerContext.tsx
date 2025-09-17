@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { getMasterAnalysis } from '../utils/masterTechniques';
 import { runAllAdvancedStrategies } from '../utils/advancedAnalysisStrategies';
 import { performComprehensiveAnalysis, type ComprehensiveAnalysisResult } from '../utils/comprehensiveAnalysis';
+import { performSmartAnalysis, SmartAnalysisResult } from '../utils/intelligentAreaRecognition';
+import { executeAdvancedStrategicAnalysis, StrategicAnalysisFramework } from '../utils/advancedStrategicAnalysis';
 
 export type PatternResult = {
   type: string;
@@ -110,6 +112,8 @@ export type AnalysisResult = {
   masterAnalysis?: any;
   advancedStrategies?: any[];
   comprehensiveAnalysis?: ComprehensiveAnalysisResult;
+  smartAnalysis?: SmartAnalysisResult;
+  strategicFramework?: StrategicAnalysisFramework;
   // Add missing properties for advanced analysis
   confluences?: {
     confluenceScore: number;
@@ -315,6 +319,14 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
       const masterAnalysis = await getMasterAnalysis(timeframe, 'reversal');
       const advancedStrategies = await runAllAdvancedStrategies(mockCandles);
       
+      // Executar análise inteligente com reconhecimento de área
+      const smartAnalysis = performSmartAnalysis(mockCandles);
+      console.log('Smart analysis completed:', smartAnalysis);
+
+      // Executar framework estratégico avançado
+      const strategicFramework = executeAdvancedStrategicAnalysis(mockCandles);
+      console.log('Strategic framework completed:', strategicFramework);
+
       // Executar análise abrangente
       let comprehensiveAnalysis: ComprehensiveAnalysisResult | undefined;
       try {
@@ -339,6 +351,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         imageUrl,
         candles: mockCandles,
         manualRegion: !!region,
+        smartAnalysis,
+        strategicFramework,
         masterAnalysis,
         advancedStrategies,
         comprehensiveAnalysis
