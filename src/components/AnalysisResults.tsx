@@ -7,6 +7,8 @@ import { TrendingUp, Volume, Activity, BarChart3, AlertTriangle } from 'lucide-r
 import MasterAnalysisDisplay from './MasterAnalysisDisplay';
 import AdvancedStrategiesDisplay from './AdvancedStrategiesDisplay';
 import ComprehensiveAnalysisDisplay from './ComprehensiveAnalysisDisplay';
+import SmartAnalysisDisplay from './SmartAnalysisDisplay';
+import StrategicFrameworkDisplay from './StrategicFrameworkDisplay';
 
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
@@ -28,7 +30,9 @@ const AnalysisResults = () => {
     volatilityData, 
     masterAnalysis,
     advancedStrategies = [],
-    comprehensiveAnalysis
+    comprehensiveAnalysis,
+    smartAnalysis,
+    strategicFramework
   } = analysisResults;
 
   console.log('AnalysisResults - extracted data:', { 
@@ -41,7 +45,21 @@ const AnalysisResults = () => {
 
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
-      {/* Comprehensive Analysis Display - Priority */}
+      {/* 🧠 Smart Analysis - PRIORIDADE MÁXIMA */}
+      {smartAnalysis && (
+        <div className="w-full">
+          <SmartAnalysisDisplay analysis={smartAnalysis} />
+        </div>
+      )}
+
+      {/* 📈 Strategic Framework - SEGUNDO NÍVEL */}
+      {strategicFramework && (
+        <div className="w-full">
+          <StrategicFrameworkDisplay framework={strategicFramework} />
+        </div>
+      )}
+
+      {/* Comprehensive Analysis Display */}
       {comprehensiveAnalysis && (
         <div className="w-full">
           <ComprehensiveAnalysisDisplay analysis={comprehensiveAnalysis} />
@@ -185,7 +203,7 @@ const AnalysisResults = () => {
       )}
 
       {/* Warning if no significant data */}
-      {patterns.length === 0 && !masterAnalysis && !comprehensiveAnalysis && (
+      {patterns.length === 0 && !masterAnalysis && !comprehensiveAnalysis && !smartAnalysis && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-800">
