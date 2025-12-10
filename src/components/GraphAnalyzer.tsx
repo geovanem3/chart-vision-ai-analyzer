@@ -28,9 +28,8 @@ const GraphAnalyzer = () => {
     selectedRegion, 
     timeframe,
     setTimeframe,
-    setIsAnalyzing,
     isAnalyzing,
-    setAnalysisResults
+    analyzeChartRegion
   } = useAnalyzer();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("region");
@@ -68,162 +67,39 @@ const GraphAnalyzer = () => {
     setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
   };
   
-  const startAnalysis = () => {
-    if (!capturedImage || !selectedRegion) {
+  const startAnalysis = async () => {
+    if (!capturedImage) {
       toast({
-        title: "Selecione uma região",
-        description: "Você precisa selecionar uma região do gráfico para análise",
+        title: "Imagem necessária",
+        description: "Capture ou selecione uma imagem do gráfico",
         variant: "destructive",
       });
       return;
     }
     
-    setIsAnalyzing(true);
+    console.log('🚀 Iniciando análise avançada com reconhecimento inteligente...');
     
-    setTimeout(() => {
-      try {
-        console.log('Starting analysis with timeframe:', timeframe);
-        
-        // Análise baseada nos mestres
-        const masterAnalysis = getMasterAnalysis(timeframe, timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta');
-        
-        // Executar estratégias avançadas (simulação com dados básicos)
-        const mockCandleData = Array.from({ length: 50 }, (_, i) => ({
-          open: 1.2000 + Math.random() * 0.01,
-          high: 1.2020 + Math.random() * 0.01,
-          low: 1.1980 + Math.random() * 0.01,
-          close: 1.2010 + Math.random() * 0.01,
-          volume: 1000 + Math.random() * 500,
-          timestamp: Date.now() - (49 - i) * 60000
-        }));
-        
-        const advancedStrategies = runAllAdvancedStrategies(mockCandleData);
-        
-        console.log('Master analysis result:', masterAnalysis);
-        
-        const simulatedResult = {
-          patterns: [
-            {
-              type: timeframe === '1m' ? 'Pin Bar' : 'Engolfo de Alta',
-              confidence: masterAnalysis.bulkowski?.reliability || 0.78,
-              description: `Padrão identificado seguindo metodologia de Bulkowski: ${masterAnalysis.bulkowski?.name || 'Padrão de reversão'}`,
-              action: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'compra' : 
-                     masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'venda' : 'neutro' as 'compra' | 'venda' | 'neutro',
-              isScalpingSignal: timeframe === '1m',
-              recommendation: masterAnalysis.masterRecommendation
-            }
-          ],
-          timestamp: Date.now(),
-          imageUrl: capturedImage,
-          manualRegion: true,
-          preciseEntryAnalysis: {
-            exactMinute: '12:45',
-            entryType: 'reversão' as 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência',
-            nextCandleExpectation: `Elder: ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'Alta provável' : 'Baixa provável'} com fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} da ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'máxima' : 'mínima'} anterior`,
-            priceAction: `Murphy: ${masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'Volume confirmando' : 'Volume divergindo'} movimento`,
-            confirmationSignal: `Bulkowski: ${masterAnalysis.bulkowski?.volumeImportance === 'critical' ? 'Volume crítico necessário' : 'Volume importante para confirmação'}`,
-            riskRewardRatio: masterAnalysis.bulkowski?.averageMove ? Math.abs(masterAnalysis.bulkowski.averageMove) / 5 : 2.5,
-            entryInstructions: `Edwards & Magee: Aguardar fechamento ${masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'acima' : 'abaixo'} do nível com volume 50% acima da média`
-          },
-          marketContext: {
-            phase: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'tendência_alta' : 
-                   masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'tendência_baixa' : 'lateral' as 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida',
-            strength: (masterAnalysis.tripleScreen?.confidence || 0) > 0.8 ? 'forte' : 
-                     (masterAnalysis.tripleScreen?.confidence || 0) > 0.6 ? 'moderada' : 'fraca' as 'forte' | 'moderada' | 'fraca',
-            description: `Análise integrada dos mestres: ${(masterAnalysis.masterRecommendation || '').split('\n\n')[0] || 'Análise em progresso'}`,
-            dominantTimeframe: timeframe,
-            sentiment: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'otimista' : 
-                      masterAnalysis.tripleScreen?.shortTermEntry === 'short' ? 'pessimista' : 'neutro' as 'otimista' | 'pessimista' | 'neutro',
-            marketStructure: masterAnalysis.murphy?.trendAnalysis?.primary === 'bullish' ? 'alta_altas' : 
-                            masterAnalysis.murphy?.trendAnalysis?.primary === 'bearish' ? 'baixa_baixas' : 'indefinida' as 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida',
-            breakoutPotential: (masterAnalysis.bulkowski?.reliability || 0) > 0.7 ? 'alto' : 
-                              (masterAnalysis.bulkowski?.reliability || 0) > 0.6 ? 'médio' : 'baixo' as 'alto' | 'médio' | 'baixo',
-            momentumSignature: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'acelerando' : 'divergente' as 'acelerando' | 'estável' | 'desacelerando' | 'divergente',
-            liquidityPools: masterAnalysis.murphy?.supportResistance?.map(sr => ({
-              level: sr.level,
-              strength: sr.strength === 'strong' ? 'alta' : sr.strength === 'moderate' ? 'média' : 'baixa' as 'alta' | 'média' | 'baixa'
-            })) || []
-          },
-          volumeData: {
-            value: 1250000,
-            trend: masterAnalysis.murphy?.volumeAnalysis?.trend === 'confirming' ? 'increasing' : 'neutral' as 'increasing' | 'decreasing' | 'neutral',
-            abnormal: masterAnalysis.bulkowski?.volumeImportance === 'critical',
-            significance: masterAnalysis.murphy?.volumeAnalysis?.significance || 'high' as 'high' | 'medium' | 'low',
-            relativeToAverage: 1.35,
-            distribution: masterAnalysis.tripleScreen?.shortTermEntry === 'long' ? 'accumulation' : 'neutral' as 'accumulation' | 'distribution' | 'neutral',
-            divergence: masterAnalysis.murphy?.volumeAnalysis?.trend === 'diverging'
-          },
-          volatilityData: {
-            value: 2.3,
-            trend: 'increasing' as 'increasing' | 'decreasing' | 'neutral',
-            atr: 1.8,
-            percentageRange: 1.2,
-            isHigh: false,
-            historicalComparison: 'above_average' as 'above_average' | 'below_average' | 'average'
-          },
-          masterAnalysis, // Adicionando a análise dos mestres
-          advancedStrategies // Adicionando estratégias avançadas
-        };
-        
-        console.log('Final simulated result:', simulatedResult);
-        
-        setAnalysisResults(simulatedResult);
-
-        // Salvar análise no banco de dados profissional
-        const saveAnalysisToDB = async () => {
-          try {
-            const dbData = professionalAnalysisService.convertAnalysisToDbFormat(simulatedResult);
-            
-            // Adicionar dados específicos da sessão
-            dbData.image_url = capturedImage;
-            dbData.analysis_region = selectedRegion;
-            dbData.timeframe = timeframe.replace('m', 'M').replace('h', 'H').replace('d', 'D').replace('w', 'W') as any;
-            
-            // Mapear tipos de padrão corretamente
-            if (simulatedResult.patterns && simulatedResult.patterns.length > 0) {
-              const pattern = simulatedResult.patterns[0];
-              if (pattern.type === 'Pin Bar') {
-                dbData.primary_pattern = 'hammer';
-              } else if (pattern.type === 'Engolfo de Alta') {
-                dbData.primary_pattern = 'bullish_engulfing';
-              } else {
-                dbData.primary_pattern = 'bullish_engulfing'; // padrão
-              }
-            }
-            
-            const result = await professionalAnalysisService.saveAnalysis(dbData);
-            
-            if (result?.id) {
-              console.log('Análise salva com sucesso:', result.id);
-              toast({
-                title: "Análise Salva",
-                description: "Análise profissional salva no banco de dados",
-              });
-            }
-          } catch (error) {
-            console.error('Erro ao salvar análise:', error);
-            // Não mostrar erro ao usuário para não atrapalhar a experiência
-          }
-        };
-
-        // Executar salvamento em background
-        saveAnalysisToDB();
-        
-        toast({
-          title: "Análise dos Mestres Completa",
-          description: "Análise baseada em Bulkowski, Elder, Murphy e Edwards & Magee",
-        });
-      } catch (error) {
-        console.error("Erro ao processar análise:", error);
-        toast({
-          title: "Erro na análise",
-          description: "Ocorreu um problema ao processar a análise. Tente novamente.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, 1500);
+    toast({
+      title: "Analisando...",
+      description: "Processando com análise inteligente multi-camada",
+    });
+    
+    try {
+      // Usar o novo sistema de análise do contexto
+      await analyzeChartRegion(capturedImage, selectedRegion || undefined);
+      
+      toast({
+        title: "✅ Análise Completa",
+        description: "Smart Analysis + Strategic Framework + Master Analysis",
+      });
+    } catch (error) {
+      console.error("Erro ao processar análise:", error);
+      toast({
+        title: "Erro na análise",
+        description: "Ocorreu um problema ao processar a análise. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
   
   const fadeAnimation = {
