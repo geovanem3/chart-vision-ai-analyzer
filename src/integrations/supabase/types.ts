@@ -109,6 +109,7 @@ export type Database = {
           bulkowski_pattern_name: string | null
           bulkowski_reliability: number | null
           candle_data: Json[] | null
+          confluence_count: number | null
           confluences: Json[] | null
           created_at: string
           divergences: Json[] | null
@@ -118,10 +119,14 @@ export type Database = {
           elder_short_entry: string | null
           ema_20: number | null
           ema_50: number | null
+          entry_confidence_score: number | null
           entry_recommendations: Json[] | null
+          entry_type: string | null
+          entry_verification_status: string | null
           id: string
           image_metadata: Json | null
           image_url: string | null
+          is_valid_entry: boolean | null
           macd_histogram: number | null
           macd_line: number | null
           macd_signal: number | null
@@ -132,6 +137,7 @@ export type Database = {
             | null
           market_strength: number | null
           master_recommendation: string | null
+          min_confidence_threshold: number | null
           murphy_support_resistance: Json[] | null
           murphy_trend_primary: string | null
           murphy_trend_secondary: string | null
@@ -146,17 +152,23 @@ export type Database = {
             | Database["public"]["Enums"]["analysis_pattern_type"]
             | null
           reliability_score: number | null
+          risk_level: string | null
           risk_reward_ratio: number | null
           rsi_value: number | null
           scalping_signals: Json[] | null
+          signal_quality: string | null
           sma_200: number | null
+          smart_analysis_result: Json | null
           stochastic_d: number | null
           stochastic_k: number | null
           stop_loss_level: number | null
+          strategic_framework_result: Json | null
           take_profit_levels: number[] | null
           timeframe: Database["public"]["Enums"]["timeframe_type"] | null
           updated_at: string
           user_id: string
+          verification_notes: string | null
+          verified_at: string | null
           volatility_atr: number | null
           volatility_comparison: string | null
           volatility_trend: string | null
@@ -178,6 +190,7 @@ export type Database = {
           bulkowski_pattern_name?: string | null
           bulkowski_reliability?: number | null
           candle_data?: Json[] | null
+          confluence_count?: number | null
           confluences?: Json[] | null
           created_at?: string
           divergences?: Json[] | null
@@ -187,10 +200,14 @@ export type Database = {
           elder_short_entry?: string | null
           ema_20?: number | null
           ema_50?: number | null
+          entry_confidence_score?: number | null
           entry_recommendations?: Json[] | null
+          entry_type?: string | null
+          entry_verification_status?: string | null
           id?: string
           image_metadata?: Json | null
           image_url?: string | null
+          is_valid_entry?: boolean | null
           macd_histogram?: number | null
           macd_line?: number | null
           macd_signal?: number | null
@@ -201,6 +218,7 @@ export type Database = {
             | null
           market_strength?: number | null
           master_recommendation?: string | null
+          min_confidence_threshold?: number | null
           murphy_support_resistance?: Json[] | null
           murphy_trend_primary?: string | null
           murphy_trend_secondary?: string | null
@@ -215,17 +233,23 @@ export type Database = {
             | Database["public"]["Enums"]["analysis_pattern_type"]
             | null
           reliability_score?: number | null
+          risk_level?: string | null
           risk_reward_ratio?: number | null
           rsi_value?: number | null
           scalping_signals?: Json[] | null
+          signal_quality?: string | null
           sma_200?: number | null
+          smart_analysis_result?: Json | null
           stochastic_d?: number | null
           stochastic_k?: number | null
           stop_loss_level?: number | null
+          strategic_framework_result?: Json | null
           take_profit_levels?: number[] | null
           timeframe?: Database["public"]["Enums"]["timeframe_type"] | null
           updated_at?: string
           user_id: string
+          verification_notes?: string | null
+          verified_at?: string | null
           volatility_atr?: number | null
           volatility_comparison?: string | null
           volatility_trend?: string | null
@@ -247,6 +271,7 @@ export type Database = {
           bulkowski_pattern_name?: string | null
           bulkowski_reliability?: number | null
           candle_data?: Json[] | null
+          confluence_count?: number | null
           confluences?: Json[] | null
           created_at?: string
           divergences?: Json[] | null
@@ -256,10 +281,14 @@ export type Database = {
           elder_short_entry?: string | null
           ema_20?: number | null
           ema_50?: number | null
+          entry_confidence_score?: number | null
           entry_recommendations?: Json[] | null
+          entry_type?: string | null
+          entry_verification_status?: string | null
           id?: string
           image_metadata?: Json | null
           image_url?: string | null
+          is_valid_entry?: boolean | null
           macd_histogram?: number | null
           macd_line?: number | null
           macd_signal?: number | null
@@ -270,6 +299,7 @@ export type Database = {
             | null
           market_strength?: number | null
           master_recommendation?: string | null
+          min_confidence_threshold?: number | null
           murphy_support_resistance?: Json[] | null
           murphy_trend_primary?: string | null
           murphy_trend_secondary?: string | null
@@ -284,17 +314,23 @@ export type Database = {
             | Database["public"]["Enums"]["analysis_pattern_type"]
             | null
           reliability_score?: number | null
+          risk_level?: string | null
           risk_reward_ratio?: number | null
           rsi_value?: number | null
           scalping_signals?: Json[] | null
+          signal_quality?: string | null
           sma_200?: number | null
+          smart_analysis_result?: Json | null
           stochastic_d?: number | null
           stochastic_k?: number | null
           stop_loss_level?: number | null
+          strategic_framework_result?: Json | null
           take_profit_levels?: number[] | null
           timeframe?: Database["public"]["Enums"]["timeframe_type"] | null
           updated_at?: string
           user_id?: string
+          verification_notes?: string | null
+          verified_at?: string | null
           volatility_atr?: number | null
           volatility_comparison?: string | null
           volatility_trend?: string | null
