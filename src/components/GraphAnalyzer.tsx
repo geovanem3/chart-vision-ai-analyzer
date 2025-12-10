@@ -29,7 +29,8 @@ const GraphAnalyzer = () => {
     timeframe,
     setTimeframe,
     isAnalyzing,
-    analyzeChartRegion
+    analyzeChartRegion,
+    setAnalysisResults
   } = useAnalyzer();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("region");
