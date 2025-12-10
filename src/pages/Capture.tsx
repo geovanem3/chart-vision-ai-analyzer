@@ -1,11 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, Zap, BarChart2, X, RotateCcw } from 'lucide-react';
+import { Camera, Upload, Zap, BarChart2, X, Focus } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 const Capture = () => {
   const isMobile = useIsMobile();
@@ -16,39 +17,11 @@ const Capture = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [isInstantCapture, setIsInstantCapture] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const { toast } = useToast();
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsStreaming(true);
-        setShowCamera(true);
-      }
-    } catch (error) {
-      console.error('Erro ao acessar câmera:', error);
-      alert('Não foi possível acessar a câmera. Verifique as permissões.');
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    setIsStreaming(false);
-    setShowCamera(false);
-  };
-
-  const capturePhoto = () => {
+  const capturePhoto = useCallback(() => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -70,6 +43,68 @@ const Capture = () => {
         }, 'image/jpeg', 0.95);
       }
     }
+  }, [setCapturedImage, navigate]);
+
+  const stopCamera = useCallback(() => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsStreaming(false);
+    setShowCamera(false);
+    setIsInstantCapture(false);
+    setCountdown(null);
+  }, []);
+
+  const startCamera = async (instant: boolean = false) => {
+    try {
+      setIsInstantCapture(instant);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsStreaming(true);
+        setShowCamera(true);
+        
+        // Se for captura instantânea, aguarda o vídeo carregar e captura com countdown
+        if (instant) {
+          videoRef.current.onloadeddata = () => {
+            // Countdown de 3 segundos para posicionar
+            setCountdown(3);
+            let count = 3;
+            const countdownInterval = setInterval(() => {
+              count--;
+              if (count > 0) {
+                setCountdown(count);
+              } else {
+                clearInterval(countdownInterval);
+                setCountdown(null);
+                capturePhoto();
+                toast({
+                  title: "✓ Foto capturada!",
+                  description: "Analisando gráfico...",
+                });
+              }
+            }, 1000);
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao acessar câmera:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro na câmera",
+        description: "Não foi possível acessar a câmera. Verifique as permissões.",
+      });
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,7 +118,16 @@ const Capture = () => {
 
   const handleQuickMode = () => {
     setTimeframe('1m');
-    startCamera();
+    startCamera(true); // Captura instantânea no modo rápido
+  };
+
+  // Captura instantânea - um clique
+  const handleInstantCapture = () => {
+    toast({
+      title: "📸 Preparando captura...",
+      description: "Posicione o celular em frente ao gráfico. Captura em 3 segundos!",
+    });
+    startCamera(true);
   };
 
   if (showCamera) {
@@ -98,6 +142,21 @@ const Capture = () => {
           />
           <canvas ref={canvasRef} className="hidden" />
           
+          {/* Countdown overlay */}
+          {countdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <motion.div
+                key={countdown}
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 1.5, opacity: 0 }}
+                className="text-white text-9xl font-bold"
+              >
+                {countdown}
+              </motion.div>
+            </div>
+          )}
+          
           {/* Controls overlay */}
           <div className="absolute inset-0 flex flex-col justify-between p-4">
             <div className="flex justify-between items-center">
@@ -108,19 +167,34 @@ const Capture = () => {
                 className="bg-black/50 hover:bg-black/70 text-white border-none"
               >
                 <X className="mr-2 h-4 w-4" />
-                Fechar
+                Cancelar
               </Button>
+              
+              {isInstantCapture && countdown === null && (
+                <div className="bg-green-500/80 text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse">
+                  Capturando...
+                </div>
+              )}
             </div>
             
-            <div className="flex justify-center items-center">
-              <Button
-                size="lg"
-                onClick={capturePhoto}
-                className="bg-white hover:bg-gray-100 text-black rounded-full w-16 h-16 p-0"
-              >
-                <Camera className="h-8 w-8" />
-              </Button>
-            </div>
+            {!isInstantCapture && (
+              <div className="flex justify-center items-center">
+                <Button
+                  size="lg"
+                  onClick={capturePhoto}
+                  className="bg-white hover:bg-gray-100 text-black rounded-full w-16 h-16 p-0"
+                >
+                  <Camera className="h-8 w-8" />
+                </Button>
+              </div>
+            )}
+            
+            {isInstantCapture && countdown !== null && (
+              <div className="text-center text-white">
+                <p className="text-lg font-medium">Posicione o gráfico na tela</p>
+                <p className="text-sm text-white/70">Foto automática em {countdown}s</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -144,22 +218,45 @@ const Capture = () => {
         </div>
 
         <div className="grid gap-6 max-w-2xl mx-auto">
-          <Card className="hover:shadow-lg transition-shadow">
+          {/* NOVO: Captura com 1 Clique */}
+          <Card className="hover:shadow-lg transition-shadow border-primary/50 bg-primary/5">
             <CardHeader>
               <div className="flex items-center space-x-3">
-                <div className="bg-primary/10 rounded-lg p-2">
-                  <Camera className="h-6 w-6 text-primary" />
+                <div className="bg-primary rounded-lg p-2">
+                  <Focus className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Capturar com Câmera</CardTitle>
+                  <CardTitle className="text-lg">Captura Instantânea</CardTitle>
                   <CardDescription>
-                    Use a câmera do dispositivo para capturar gráficos em tempo real
+                    Um clique! Posicione e a foto é tirada automaticamente em 3s
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" size="lg" onClick={startCamera}>
+              <Button className="w-full" size="lg" onClick={handleInstantCapture}>
+                <Focus className="mr-2 h-5 w-5" />
+                Capturar em 1 Clique
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-center space-x-3">
+                <div className="bg-muted rounded-lg p-2">
+                  <Camera className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Câmera Manual</CardTitle>
+                  <CardDescription>
+                    Abra a câmera e escolha o momento de capturar
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="w-full" size="lg" onClick={() => startCamera(false)}>
                 <Camera className="mr-2 h-5 w-5" />
                 Abrir Câmera
               </Button>
@@ -207,9 +304,9 @@ const Capture = () => {
                   <Zap className="h-6 w-6 text-amber-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Análise Rápida</CardTitle>
+                  <CardTitle className="text-lg">Scalping M1</CardTitle>
                   <CardDescription>
-                    Modo otimizado para análises de scalping em M1
+                    Captura instantânea otimizada para operações de 1 minuto
                   </CardDescription>
                 </div>
               </div>
@@ -222,7 +319,7 @@ const Capture = () => {
                 onClick={handleQuickMode}
               >
                 <Zap className="mr-2 h-5 w-5" />
-                Modo Rápido
+                Modo Scalping
               </Button>
             </CardContent>
           </Card>
@@ -234,10 +331,10 @@ const Capture = () => {
             Dicas para melhor análise
           </h3>
           <ul className="text-sm text-muted-foreground space-y-1">
+            <li>• <strong>Captura Instantânea:</strong> Posicione o celular apoiado e clique - foto em 3s</li>
             <li>• Certifique-se que o gráfico esteja nítido e bem iluminado</li>
             <li>• Inclua indicadores e timeframe visíveis na imagem</li>
             <li>• Para scalping M1, prefira gráficos com candles recentes</li>
-            <li>• Evite reflexos e obstruções na tela</li>
           </ul>
         </div>
       </motion.div>
