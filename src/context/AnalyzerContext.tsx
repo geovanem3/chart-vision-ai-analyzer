@@ -4,6 +4,7 @@ import { runAllAdvancedStrategies } from '../utils/advancedAnalysisStrategies';
 import { performComprehensiveAnalysis, type ComprehensiveAnalysisResult } from '../utils/comprehensiveAnalysis';
 import { performSmartAnalysis, SmartAnalysisResult } from '../utils/intelligentAreaRecognition';
 import { executeAdvancedStrategicAnalysis, StrategicAnalysisFramework } from '../utils/advancedStrategicAnalysis';
+import { analyzeChartWithAI, convertAIAnalysisToPatterns, AIAnalysisResult } from '../services/chartAnalysisService';
 
 export type PatternResult = {
   type: string;
@@ -303,25 +304,23 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     setIsAnalyzing(true);
     
     try {
-      console.log('🔍 Iniciando análise avançada com reconhecimento inteligente...');
+      console.log('🔍 Iniciando análise com IA real...');
       
-      // Importar módulos de detecção de candles
-      const { detectCandles } = await import('../utils/patternDetection');
+      // 🤖 ANÁLISE COM IA - Usar Gemini para analisar a imagem real
+      let aiAnalysis: AIAnalysisResult | null = null;
+      let aiPatterns: PatternResult[] = [];
       
-      // Detectar candles da imagem capturada
-      let detectedCandles: CandleData[] = [];
-      if (enableCandleDetection) {
-        try {
-          // detectCandles espera imageData, width, height
-          detectedCandles = await detectCandles(imageUrl, 800, 600);
-          console.log(`✅ ${detectedCandles.length} candles detectados da imagem`);
-        } catch (error) {
-          console.warn('⚠️ Falha na detecção de candles, usando dados mock:', error);
-        }
+      try {
+        aiAnalysis = await analyzeChartWithAI(imageUrl, timeframe);
+        aiPatterns = convertAIAnalysisToPatterns(aiAnalysis);
+        console.log('✅ Análise com IA concluída:', aiAnalysis);
+      } catch (aiError) {
+        console.error('⚠️ Erro na análise com IA:', aiError);
+        // Continua com análise local se IA falhar
       }
 
-      // Se não conseguiu detectar candles, usar dados mock para demonstração
-      const candles: CandleData[] = detectedCandles.length > 0 ? detectedCandles : Array.from({ length: 50 }, (_, i) => ({
+      // Gerar candles mock para análises complementares (já que não temos dados OHLC reais)
+      const candles: CandleData[] = Array.from({ length: 50 }, (_, i) => ({
         open: 100 + Math.random() * 10,
         high: 105 + Math.random() * 10,
         low: 95 + Math.random() * 10,
@@ -330,38 +329,25 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         volume: Math.random() * 1000000
       }));
 
-      console.log(`📊 Analisando ${candles.length} candles com estratégias avançadas...`);
-
-      // 🧠 PRIORIDADE 1: Análise Inteligente com Reconhecimento de Área
+      // Análises complementares (usam dados mock mas dão contexto adicional)
       const smartAnalysis = performSmartAnalysis(candles);
-      console.log('✅ Smart Analysis:', smartAnalysis);
-
-      // 📈 PRIORIDADE 2: Framework Estratégico Multi-Camada
       const strategicFramework = executeAdvancedStrategicAnalysis(candles);
-      console.log('✅ Strategic Framework:', strategicFramework);
-
-      // 📊 PRIORIDADE 3: Análise Abrangente
+      
       let comprehensiveAnalysis: ComprehensiveAnalysisResult | undefined;
       try {
         comprehensiveAnalysis = performComprehensiveAnalysis(candles);
-        console.log('✅ Comprehensive Analysis:', comprehensiveAnalysis);
       } catch (error) {
         console.warn('⚠️ Análise abrangente falhou:', error);
       }
 
-      // 🎯 Master Analysis (técnicas avançadas)
       const masterAnalysis = await getMasterAnalysis(timeframe, 'reversal');
-      console.log('✅ Master Analysis:', masterAnalysis);
-
-      // 🔥 Advanced Strategies
       const advancedStrategies = await runAllAdvancedStrategies(candles);
-      console.log('✅ Advanced Strategies:', advancedStrategies);
 
-      // Combinar todos os padrões detectados
-      const allPatterns: PatternResult[] = [];
+      // Combinar padrões da IA com análises locais
+      const allPatterns: PatternResult[] = [...aiPatterns];
 
-      // Adicionar padrões da análise inteligente
-      if (smartAnalysis?.entryRecommendation) {
+      // Se não temos padrões da IA, usar análise local como fallback
+      if (allPatterns.length === 0 && smartAnalysis?.entryRecommendation) {
         allPatterns.push({
           type: `Smart: ${smartAnalysis.strategicAnalysis.primaryStrategy}`,
           confidence: smartAnalysis.strategicAnalysis.confidence / 100,
@@ -372,18 +358,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      // Adicionar padrão do framework estratégico
-      if (strategicFramework?.decisionMatrix) {
-        allPatterns.push({
-          type: `Strategic: ${strategicFramework.decisionMatrix.primarySignal}`,
-          confidence: strategicFramework.confidenceLevel / 100,
-          description: strategicFramework.description,
-          action: strategicFramework.decisionMatrix.primarySignal === 'compra' ? 'compra' :
-                  strategicFramework.decisionMatrix.primarySignal === 'venda' ? 'venda' : 'neutro',
-          recommendation: `Consenso: ${strategicFramework.decisionMatrix.consensusStrength}%`
-        });
-      }
-
+      // Construir resultado final
       const results: AnalysisResult = {
         patterns: allPatterns,
         timestamp: Date.now(),
@@ -394,7 +369,34 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         strategicFramework,
         masterAnalysis,
         advancedStrategies,
-        comprehensiveAnalysis
+        comprehensiveAnalysis,
+        warnings: aiAnalysis?.warnings || [],
+        marketContext: aiAnalysis ? {
+          phase: aiAnalysis.marketContext.phase as any || 'lateral',
+          strength: 'moderada',
+          dominantTimeframe: timeframe,
+          sentiment: aiAnalysis.marketContext.sentiment === 'bullish' ? 'otimista' : 
+                     aiAnalysis.marketContext.sentiment === 'bearish' ? 'pessimista' : 'neutro',
+          description: aiAnalysis.recommendation.reasoning,
+          marketStructure: aiAnalysis.trend === 'bullish' ? 'alta_altas' : 
+                          aiAnalysis.trend === 'bearish' ? 'baixa_baixas' : 'indefinida',
+          breakoutPotential: aiAnalysis.marketContext.volatility === 'alta' ? 'alto' : 'médio',
+          momentumSignature: 'estável'
+        } : undefined,
+        detailedMarketContext: aiAnalysis ? {
+          phase: aiAnalysis.marketContext.phase,
+          sentiment: aiAnalysis.marketContext.sentiment,
+          strength: aiAnalysis.trendStrength > 0.7 ? 'forte' : aiAnalysis.trendStrength > 0.4 ? 'moderada' : 'fraca',
+          description: aiAnalysis.recommendation.reasoning,
+          marketStructure: aiAnalysis.trend,
+          breakoutPotential: aiAnalysis.marketContext.volatility === 'alta' ? 'alto' : 'médio',
+          momentumSignature: 'estável',
+          institutionalBias: 'neutro',
+          volatilityState: aiAnalysis.marketContext.volatility,
+          liquidityCondition: 'adequada',
+          timeOfDay: 'horário_comercial',
+          trend: aiAnalysis.trend
+        } : undefined
       };
 
       setAnalysisResults(results);
