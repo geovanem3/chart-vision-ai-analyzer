@@ -8,7 +8,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
 import Home from "./pages/Home";
-import Capture from "./pages/Capture";
 import Analysis from "./pages/Analysis";
 import Quick from "./pages/Quick";
 import Settings from "./pages/Settings";
@@ -30,13 +29,6 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Home />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/capture" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Capture />
                 </AppLayout>
               </ProtectedRoute>
             } />

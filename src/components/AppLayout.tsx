@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Home, 
-  Camera, 
   BarChart2, 
   Settings, 
   Zap,
@@ -101,12 +100,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             label="Início" 
             active={location.pathname === '/'}
             onClick={() => navigate('/')}
-          />
-          <NavButton 
-            icon={<Camera />} 
-            label="Capturar" 
-            active={location.pathname === '/capture'}
-            onClick={() => navigate('/capture')}
           />
           <NavButton 
             icon={<BarChart2 />} 
