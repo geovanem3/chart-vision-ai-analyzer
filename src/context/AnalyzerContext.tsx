@@ -1,9 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { getMasterAnalysis } from '../utils/masterTechniques';
-import { runAllAdvancedStrategies } from '../utils/advancedAnalysisStrategies';
-import { performComprehensiveAnalysis, type ComprehensiveAnalysisResult } from '../utils/comprehensiveAnalysis';
-import { performSmartAnalysis, SmartAnalysisResult } from '../utils/intelligentAreaRecognition';
-import { executeAdvancedStrategicAnalysis, StrategicAnalysisFramework } from '../utils/advancedStrategicAnalysis';
 import { analyzeChartWithAI, convertAIAnalysisToPatterns, AIAnalysisResult } from '../services/chartAnalysisService';
 
 export type PatternResult = {
@@ -12,10 +7,6 @@ export type PatternResult = {
   description: string;
   recommendation?: string;
   action?: 'compra' | 'venda' | 'neutro';
-  isScalpingSignal?: boolean; // Added for m1 timeframe signals
-  entryPrice?: string;
-  stopLoss?: string;
-  takeProfit?: string;
 };
 
 export type Point = {
@@ -33,142 +24,35 @@ export type TechnicalElement = {
 } & (
   | { type: 'line', points: Point[] }
   | { type: 'arrow', start: Point, end: Point }
-  | { type: 'arrow', start: Point, end: Point }
   | { type: 'rectangle', position: Point, width: number, height: number }
   | { type: 'circle', center: Point, radius: number }
   | { type: 'label', position: Point, text: string, backgroundColor?: string }
-  | { type: 'pattern', patternType: 'OCO' | 'triangulo' | 'cunha' | 'bandeira' | 'topoduplo' | 'fundoduplo' | 'eliotwave' | 'dowtheory' | 'trendline' | 'fibonacci' | 'channel' | 'support' | 'resistance' | 'triangle' | 'wedge' | 'flag' | 'pennant' | 'headshoulders' | 'doubletop' | 'cuphandle' | 'breakout' | 'volume' | 'divergence' | 'consolidation' | 'gap', points: Point[] }
+  | { type: 'pattern', patternType: string, points: Point[] }
 );
 
-export type CandleData = {
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  timestamp: number; // Add timestamp property
-  volume?: number; // Add optional volume property
-  color?: 'verde' | 'vermelho';
-  position?: Point;
-  width?: number;
-  height?: number;
-};
-
-// Enhanced volume analysis type
-export type VolumeData = {
-  value: number;
-  trend: 'increasing' | 'decreasing' | 'neutral';
-  abnormal: boolean; // Indicates volume spikes
-  significance: 'high' | 'medium' | 'low';
-  relativeToAverage: number; // Ratio compared to average
-  distribution: 'accumulation' | 'distribution' | 'neutral'; // Volume distribution pattern
-  divergence: boolean; // Price-volume divergence indicator
-};
-
-// Enhanced volatility analysis type
-export type VolatilityData = {
-  value: number; // Current volatility
-  trend: 'increasing' | 'decreasing' | 'neutral';
-  atr?: number; // Average True Range
-  percentageRange?: number; // Range as percentage of price
-  isHigh: boolean;
-  historicalComparison: 'above_average' | 'below_average' | 'average'; // Comparing to historical volatility
-  impliedVolatility?: number; // Forward-looking volatility expectation
-};
-
-// Enhanced market context type with more detailed phase recognition
 export type MarketContext = {
-  phase: 'acumulação' | 'tendência_alta' | 'tendência_baixa' | 'distribuição' | 'lateral' | 'indefinida';
-  strength: 'forte' | 'moderada' | 'fraca';
-  dominantTimeframe: TimeframeType;
-  sentiment: 'otimista' | 'pessimista' | 'neutro';
+  phase: string;
+  sentiment: string;
+  volatility: string;
   description: string;
-  trendAngle?: number; // Angle of the trend line (steepness)
-  marketStructure: 'alta_altas' | 'alta_baixas' | 'baixa_altas' | 'baixa_baixas' | 'indefinida'; // Higher highs/higher lows, etc.
-  liquidityPools?: { level: number, strength: 'alta' | 'média' | 'baixa' }[]; // Key liquidity levels
-  keyLevels?: { price: number, type: 'suporte' | 'resistência', strength: 'forte' | 'moderada' | 'fraca' }[]; 
-  breakoutPotential: 'alto' | 'médio' | 'baixo';
-  momentumSignature: 'acelerando' | 'estável' | 'desacelerando' | 'divergente';
+  trend: string;
+  trendStrength: number;
 };
-
-export interface EnhancedMarketContext extends MarketContext {
-  advancedConditions?: any;
-  operatingScore?: number;
-  confidenceReduction?: number;
-}
 
 export type AnalysisResult = {
   patterns: PatternResult[];
   timestamp: number;
   imageUrl?: string;
-  technicalElements?: TechnicalElement[];
-  candles?: CandleData[];
-  manualRegion?: boolean;
-  scalpingSignals?: ScalpingSignal[];
-  technicalIndicators?: TechnicalIndicator[];
-  volumeData?: VolumeData;
-  volatilityData?: VolatilityData;
-  marketContext?: EnhancedMarketContext;
   warnings?: string[];
-  preciseEntryAnalysis?: PreciseEntryAnalysis;
-  masterAnalysis?: any;
-  advancedStrategies?: any[];
-  comprehensiveAnalysis?: ComprehensiveAnalysisResult;
-  smartAnalysis?: SmartAnalysisResult;
-  strategicFramework?: StrategicAnalysisFramework;
-  // Add missing properties for advanced analysis
-  confluences?: {
-    confluenceScore: number;
-    supportResistance?: any[];
-    marketStructure?: any;
-    priceAction?: any;
-    criticalLevels?: any[];
+  marketContext?: MarketContext;
+  supportLevels?: string[];
+  resistanceLevels?: string[];
+  recommendation?: {
+    action: string;
+    confidence: number;
+    reasoning: string;
+    riskLevel: string;
   };
-  priceActionSignals?: any[];
-  detailedMarketContext?: {
-    phase: string;
-    sentiment: string;
-    strength: string;
-    description: string;
-    marketStructure: string;
-    breakoutPotential: string;
-    momentumSignature: string;
-    institutionalBias: string;
-    volatilityState: string;
-    liquidityCondition: string;
-    timeOfDay: string;
-    trend?: string;
-  };
-  entryRecommendations?: any[];
-};
-
-// New type for technical indicators for enhanced M1 strategy
-export type TechnicalIndicator = {
-  name: string;
-  value: string;
-  signal: 'alta' | 'baixa' | 'neutro';
-  strength: 'forte' | 'moderada' | 'fraca';
-  description: string;
-};
-
-export type ScalpingSignal = {
-  type: 'entrada' | 'saída';
-  action: 'compra' | 'venda';
-  price: string;
-  confidence: number;
-  timeframe: string;
-  description: string;
-  target?: string;
-  stopLoss?: string;
-  volumeConfirmation?: boolean; // New property for volume confirmation
-  volatilityCondition?: string; // New property for volatility condition
-  marketPhaseAlignment?: boolean; // New property for market phase alignment
-  marketStructureAlignment?: boolean; // New property to check if aligned with market structure
-  liquidityTarget?: boolean; // Whether the signal targets a liquidity pool
-  // New fields for precise timing
-  exactEntryTime?: string; // Exact minute for entry
-  entryType?: 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência';
-  nextCandleExpectation?: string; // What to expect on the next candle
-  entryCondition?: string; // Detailed condition for entry
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -192,26 +76,9 @@ export type SelectedRegion = RectangleRegion | CircleRegion;
 
 export type MarkupSize = 'small' | 'medium' | 'large';
 
-export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label' | 'trendline' | 'eliotwave' | 'dowtheory' | 'fibonacci' | 'channel' | 'support' | 'resistance' | 'triangle' | 'wedge' | 'flag' | 'pennant' | 'headshoulders' | 'doubletop' | 'cuphandle' | 'breakout' | 'volume' | 'divergence' | 'consolidation' | 'gap';
+export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label';
 
 export type TimeframeType = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
-
-// New type for M1 strategy preferences
-export type ScalpingStrategy = 'momentum' | 'reversal' | 'breakout' | 'range';
-
-// New type for market analysis depth
-export type MarketAnalysisDepth = 'basic' | 'advanced' | 'comprehensive';
-
-// New type for precise entry analysis
-export type PreciseEntryAnalysis = {
-  exactMinute: string;
-  entryType: 'reversão' | 'retração' | 'pullback' | 'breakout' | 'teste_suporte' | 'teste_resistência';
-  nextCandleExpectation: string;
-  priceAction: string;
-  confirmationSignal: string;
-  riskRewardRatio: number;
-  entryInstructions: string;
-};
 
 type AnalyzerContextType = {
   capturedImage: string | null;
@@ -241,20 +108,6 @@ type AnalyzerContextType = {
   setMarkupMode: (enabled: boolean) => void;
   timeframe: TimeframeType;
   setTimeframe: (timeframe: TimeframeType) => void;
-  optimizeForScalping: boolean;
-  setOptimizeForScalping: (optimize: boolean) => void;
-  scalpingStrategy: ScalpingStrategy; 
-  setScalpingStrategy: (strategy: ScalpingStrategy) => void;
-  considerVolume: boolean; // New property for volume analysis
-  setConsiderVolume: (consider: boolean) => void; // New setter
-  considerVolatility: boolean; // New property for volatility analysis
-  setConsiderVolatility: (consider: boolean) => void; // New setter
-  marketContextEnabled: boolean; // New property for market context understanding
-  setMarketContextEnabled: (enabled: boolean) => void; // New setter
-  marketAnalysisDepth: MarketAnalysisDepth;
-  setMarketAnalysisDepth: (depth: MarketAnalysisDepth) => void;
-  enableCandleDetection: boolean; // Nova propriedade para detecção de candles
-  setEnableCandleDetection: (enabled: boolean) => void; // Novo setter
   analyzeChartRegion: (imageUrl: string, region?: SelectedRegion) => Promise<void>;
 };
 
@@ -273,13 +126,6 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
   const [isMarkupMode, setMarkupMode] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
-  const [optimizeForScalping, setOptimizeForScalping] = useState(false);
-  const [scalpingStrategy, setScalpingStrategy] = useState<ScalpingStrategy>('momentum');
-  const [considerVolume, setConsiderVolume] = useState(true); // New state for volume analysis
-  const [considerVolatility, setConsiderVolatility] = useState(true); // New state for volatility analysis
-  const [marketContextEnabled, setMarketContextEnabled] = useState(true); // New state for market context
-  const [marketAnalysisDepth, setMarketAnalysisDepth] = useState<MarketAnalysisDepth>('comprehensive'); // New state for market analysis depth
-  const [enableCandleDetection, setEnableCandleDetection] = useState(true); // Novo estado para detecção de candles
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -304,103 +150,40 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     setIsAnalyzing(true);
     
     try {
-      console.log('🔍 Iniciando análise com IA real...');
+      console.log('🔍 Iniciando análise com IA Gemini...');
       
-      // 🤖 ANÁLISE COM IA - Usar Gemini para analisar a imagem real
-      let aiAnalysis: AIAnalysisResult | null = null;
-      let aiPatterns: PatternResult[] = [];
+      // Análise com IA real
+      const aiAnalysis: AIAnalysisResult = await analyzeChartWithAI(imageUrl, timeframe);
+      const aiPatterns = convertAIAnalysisToPatterns(aiAnalysis);
       
-      try {
-        aiAnalysis = await analyzeChartWithAI(imageUrl, timeframe);
-        aiPatterns = convertAIAnalysisToPatterns(aiAnalysis);
-        console.log('✅ Análise com IA concluída:', aiAnalysis);
-      } catch (aiError) {
-        console.error('⚠️ Erro na análise com IA:', aiError);
-        // Continua com análise local se IA falhar
-      }
-
-      // Gerar candles mock para análises complementares (já que não temos dados OHLC reais)
-      const candles: CandleData[] = Array.from({ length: 50 }, (_, i) => ({
-        open: 100 + Math.random() * 10,
-        high: 105 + Math.random() * 10,
-        low: 95 + Math.random() * 10,
-        close: 100 + Math.random() * 10,
-        timestamp: Date.now() - (50 - i) * 60000,
-        volume: Math.random() * 1000000
-      }));
-
-      // Análises complementares (usam dados mock mas dão contexto adicional)
-      const smartAnalysis = performSmartAnalysis(candles);
-      const strategicFramework = executeAdvancedStrategicAnalysis(candles);
-      
-      let comprehensiveAnalysis: ComprehensiveAnalysisResult | undefined;
-      try {
-        comprehensiveAnalysis = performComprehensiveAnalysis(candles);
-      } catch (error) {
-        console.warn('⚠️ Análise abrangente falhou:', error);
-      }
-
-      const masterAnalysis = await getMasterAnalysis(timeframe, 'reversal');
-      const advancedStrategies = await runAllAdvancedStrategies(candles);
-
-      // Combinar padrões da IA com análises locais
-      const allPatterns: PatternResult[] = [...aiPatterns];
-
-      // Se não temos padrões da IA, usar análise local como fallback
-      if (allPatterns.length === 0 && smartAnalysis?.entryRecommendation) {
-        allPatterns.push({
-          type: `Smart: ${smartAnalysis.strategicAnalysis.primaryStrategy}`,
-          confidence: smartAnalysis.strategicAnalysis.confidence / 100,
-          description: smartAnalysis.entryRecommendation.reasoning,
-          action: smartAnalysis.entryRecommendation.action === 'compra' ? 'compra' : 
-                  smartAnalysis.entryRecommendation.action === 'venda' ? 'venda' : 'neutro',
-          recommendation: `${smartAnalysis.entryRecommendation.action.toUpperCase()} - Risco: ${smartAnalysis.entryRecommendation.riskLevel}`
-        });
-      }
+      console.log('✅ Análise com IA concluída:', aiAnalysis);
 
       // Construir resultado final
       const results: AnalysisResult = {
-        patterns: allPatterns,
+        patterns: aiPatterns,
         timestamp: Date.now(),
         imageUrl,
-        candles,
-        manualRegion: !!region,
-        smartAnalysis,
-        strategicFramework,
-        masterAnalysis,
-        advancedStrategies,
-        comprehensiveAnalysis,
-        warnings: aiAnalysis?.warnings || [],
-        marketContext: aiAnalysis ? {
-          phase: aiAnalysis.marketContext.phase as any || 'lateral',
-          strength: 'moderada',
-          dominantTimeframe: timeframe,
-          sentiment: aiAnalysis.marketContext.sentiment === 'bullish' ? 'otimista' : 
-                     aiAnalysis.marketContext.sentiment === 'bearish' ? 'pessimista' : 'neutro',
-          description: aiAnalysis.recommendation.reasoning,
-          marketStructure: aiAnalysis.trend === 'bullish' ? 'alta_altas' : 
-                          aiAnalysis.trend === 'bearish' ? 'baixa_baixas' : 'indefinida',
-          breakoutPotential: aiAnalysis.marketContext.volatility === 'alta' ? 'alto' : 'médio',
-          momentumSignature: 'estável'
-        } : undefined,
-        detailedMarketContext: aiAnalysis ? {
+        warnings: aiAnalysis.warnings || [],
+        supportLevels: aiAnalysis.supportLevels,
+        resistanceLevels: aiAnalysis.resistanceLevels,
+        recommendation: {
+          action: aiAnalysis.recommendation.action,
+          confidence: aiAnalysis.recommendation.confidence,
+          reasoning: aiAnalysis.recommendation.reasoning,
+          riskLevel: aiAnalysis.recommendation.riskLevel
+        },
+        marketContext: {
           phase: aiAnalysis.marketContext.phase,
           sentiment: aiAnalysis.marketContext.sentiment,
-          strength: aiAnalysis.trendStrength > 0.7 ? 'forte' : aiAnalysis.trendStrength > 0.4 ? 'moderada' : 'fraca',
+          volatility: aiAnalysis.marketContext.volatility,
           description: aiAnalysis.recommendation.reasoning,
-          marketStructure: aiAnalysis.trend,
-          breakoutPotential: aiAnalysis.marketContext.volatility === 'alta' ? 'alto' : 'médio',
-          momentumSignature: 'estável',
-          institutionalBias: 'neutro',
-          volatilityState: aiAnalysis.marketContext.volatility,
-          liquidityCondition: 'adequada',
-          timeOfDay: 'horário_comercial',
-          trend: aiAnalysis.trend
-        } : undefined
+          trend: aiAnalysis.trend,
+          trendStrength: aiAnalysis.trendStrength
+        }
       };
 
       setAnalysisResults(results);
-      console.log('✅ Análise completa finalizada com sucesso!');
+      console.log('✅ Análise finalizada com sucesso!');
       
     } catch (error) {
       console.error('❌ Erro durante análise:', error);
@@ -444,20 +227,6 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarkupMode,
         timeframe,
         setTimeframe,
-        optimizeForScalping,
-        setOptimizeForScalping,
-        scalpingStrategy,
-        setScalpingStrategy,
-        considerVolume,
-        setConsiderVolume,
-        considerVolatility,
-        setConsiderVolatility,
-        marketContextEnabled,
-        setMarketContextEnabled,
-        marketAnalysisDepth,
-        setMarketAnalysisDepth,
-        enableCandleDetection,
-        setEnableCandleDetection,
         analyzeChartRegion,
       }}
     >
@@ -466,7 +235,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useAnalyzer = (): AnalyzerContextType => {
+export const useAnalyzer = () => {
   const context = useContext(AnalyzerContext);
   if (context === undefined) {
     throw new Error('useAnalyzer must be used within an AnalyzerProvider');
