@@ -5,7 +5,6 @@ import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle, ScanSearch, ScanFace, BarChart2, CandlestickChart, Activity } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { enhanceImageForAnalysis, isImageClearForAnalysis } from '@/utils/imagePreProcessing';
 import { checkImageQuality } from '@/utils/imageProcessing';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -162,32 +161,17 @@ const CameraView = () => {
               processingMessage = "Usando captura completa - detecção automática indisponível. ";
             }
 
-            // Check if the image is clear enough for analysis
-            const clarityCheck = await isImageClearForAnalysis(finalImageUrl);
+            // Check quality of the captured image
+            const qualityCheck = await checkImageQuality(finalImageUrl);
             
-            if (!clarityCheck.isClear) {
-              // Image not clear enough, show warning but continue with enhancement
-              toast({
-                variant: "default",
-                title: "⚠ Melhorando qualidade",
-                description: clarityCheck.issues.join('. ') + ". Aplicando otimizações...",
-              });
-            }
-            
-            // Enhance the final image for better analysis
-            const enhancedImageUrl = await enhanceImageForAnalysis(finalImageUrl);
-            
-            // Check quality of enhanced image
-            const qualityCheck = await checkImageQuality(enhancedImageUrl);
-            
-            setCapturedImage(enhancedImageUrl);
+            setCapturedImage(finalImageUrl);
             stopCamera();
             
             if (qualityCheck.isGoodQuality) {
               toast({
                 variant: "default",
                 title: "✓ Gráfico capturado",
-                description: processingMessage + "Imagem otimizada e pronta para análise.",
+                description: processingMessage + "Imagem pronta para análise.",
               });
             } else {
               toast({
@@ -281,18 +265,12 @@ const CameraView = () => {
           let finalImageUrl = imageUrl;
           let qualityMessage = "Imagem carregada da galeria.";
 
-          try {
-            // Enhance the image for better analysis
-            const enhancedImageUrl = await enhanceImageForAnalysis(imageUrl);
-            
-            if (enhancedImageUrl && enhancedImageUrl !== imageUrl) {
-              finalImageUrl = enhancedImageUrl;
-              qualityMessage = "Imagem otimizada para análise.";
-            }
-          } catch (processingError) {
-            console.warn('Image processing failed, using original:', processingError);
-            finalImageUrl = imageUrl;
-            qualityMessage = "Usando imagem original.";
+          // Check image quality
+          const qualityCheck = await checkImageQuality(imageUrl);
+          if (qualityCheck.isGoodQuality) {
+            qualityMessage = "Imagem com boa qualidade para análise.";
+          } else {
+            qualityMessage = "Qualidade da imagem pode afetar a análise.";
           }
 
           // Set the final image
