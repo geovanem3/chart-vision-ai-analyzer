@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { analyzeChartWithAI, convertAIAnalysisToPatterns, AIAnalysisResult } from '../services/chartAnalysisService';
+import { supabase } from '@/integrations/supabase/client';
+import { convertAIToDbFormat, convertDbToSavedAnalysis, SavedAnalysis } from '@/hooks/useAnalysisPersistence';
 
 export type PatternResult = {
   type: string;
@@ -40,6 +42,7 @@ export type MarketContext = {
 };
 
 export type AnalysisResult = {
+  id?: string; // ID do banco de dados
   patterns: PatternResult[];
   timestamp: number;
   imageUrl?: string;
@@ -53,6 +56,7 @@ export type AnalysisResult = {
     reasoning: string;
     riskLevel: string;
   };
+  savedToDb?: boolean;
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -109,6 +113,9 @@ type AnalyzerContextType = {
   timeframe: TimeframeType;
   setTimeframe: (timeframe: TimeframeType) => void;
   analyzeChartRegion: (imageUrl: string, region?: SelectedRegion) => Promise<void>;
+  loadLastAnalysis: () => Promise<AnalysisResult | null>;
+  recentAnalyses: SavedAnalysis[];
+  loadRecentAnalyses: () => Promise<void>;
 };
 
 const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
@@ -126,6 +133,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
   const [isMarkupMode, setMarkupMode] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
+  const [recentAnalyses, setRecentAnalyses] = useState<SavedAnalysis[]>([]);
 
   const resetAnalysis = () => {
     setCapturedImage(null);
@@ -146,6 +154,126 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     setManualMarkups(prev => prev.slice(0, -1));
   };
 
+  // Save analysis to database
+  const saveAnalysisToDb = async (
+    aiResult: AIAnalysisResult,
+    imageUrl?: string
+  ): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn('⚠️ Usuário não autenticado - análise não será salva');
+        return null;
+      }
+
+      const dbData = convertAIToDbFormat(aiResult, imageUrl, timeframe, 'capture');
+      
+      const { data, error } = await supabase
+        .from('professional_analyses')
+        .insert({
+          user_id: user.id,
+          ...dbData
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('❌ Erro ao salvar análise:', error);
+        return null;
+      }
+
+      console.log('✅ Análise salva no banco com ID:', data.id);
+      return data.id;
+    } catch (error) {
+      console.error('❌ Erro ao salvar análise:', error);
+      return null;
+    }
+  };
+
+  // Load last analysis from database (fallback)
+  const loadLastAnalysis = useCallback(async (): Promise<AnalysisResult | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('professional_analyses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.log('Nenhuma análise anterior encontrada');
+        return null;
+      }
+
+      const saved = convertDbToSavedAnalysis(data);
+      
+      // Convert to AnalysisResult format
+      const result: AnalysisResult = {
+        id: saved.id,
+        patterns: saved.patterns.map(p => ({
+          type: p,
+          confidence: saved.confidence,
+          description: saved.reasoning
+        })),
+        timestamp: saved.timestamp,
+        imageUrl: saved.imageUrl,
+        supportLevels: saved.supportLevels,
+        resistanceLevels: saved.resistanceLevels,
+        recommendation: {
+          action: saved.signal,
+          confidence: saved.confidence,
+          reasoning: saved.reasoning,
+          riskLevel: saved.riskLevel
+        },
+        marketContext: {
+          phase: '',
+          sentiment: saved.trend,
+          volatility: 'normal',
+          description: saved.reasoning,
+          trend: saved.trend,
+          trendStrength: saved.confidence
+        },
+        savedToDb: true
+      };
+
+      console.log('✅ Análise anterior carregada do banco');
+      return result;
+    } catch (error) {
+      console.error('❌ Erro ao carregar análise:', error);
+      return null;
+    }
+  }, []);
+
+  // Load recent analyses
+  const loadRecentAnalyses = useCallback(async (): Promise<void> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('professional_analyses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('❌ Erro ao carregar análises recentes:', error);
+        return;
+      }
+
+      const analyses = (data || []).map(convertDbToSavedAnalysis);
+      setRecentAnalyses(analyses);
+      console.log(`✅ ${analyses.length} análises recentes carregadas`);
+    } catch (error) {
+      console.error('❌ Erro ao carregar análises:', error);
+    }
+  }, []);
+
   const analyzeChartRegion = async (imageUrl: string, region?: SelectedRegion) => {
     setIsAnalyzing(true);
     
@@ -158,8 +286,12 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
       
       console.log('✅ Análise com IA concluída:', aiAnalysis);
 
+      // Salvar no banco de dados automaticamente
+      const savedId = await saveAnalysisToDb(aiAnalysis, imageUrl);
+
       // Construir resultado final
       const results: AnalysisResult = {
+        id: savedId || undefined,
         patterns: aiPatterns,
         timestamp: Date.now(),
         imageUrl,
@@ -179,19 +311,39 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
           description: aiAnalysis.recommendation.reasoning,
           trend: aiAnalysis.trend,
           trendStrength: aiAnalysis.trendStrength
-        }
+        },
+        savedToDb: !!savedId
       };
 
       setAnalysisResults(results);
-      console.log('✅ Análise finalizada com sucesso!');
+      
+      // Atualizar lista de análises recentes
+      loadRecentAnalyses();
+      
+      console.log('✅ Análise finalizada e salva com sucesso!');
       
     } catch (error) {
       console.error('❌ Erro durante análise:', error);
-      setAnalysisResults({
-        patterns: [],
-        timestamp: Date.now(),
-        warnings: ['Erro durante a análise: ' + (error as Error).message]
-      });
+      
+      // Tentar carregar última análise do banco como fallback
+      console.log('🔄 Tentando carregar última análise do banco...');
+      const lastAnalysis = await loadLastAnalysis();
+      
+      if (lastAnalysis) {
+        setAnalysisResults({
+          ...lastAnalysis,
+          warnings: [
+            'Erro na análise em tempo real. Exibindo última análise salva.',
+            (error as Error).message
+          ]
+        });
+      } else {
+        setAnalysisResults({
+          patterns: [],
+          timestamp: Date.now(),
+          warnings: ['Erro durante a análise: ' + (error as Error).message]
+        });
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -228,6 +380,9 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         timeframe,
         setTimeframe,
         analyzeChartRegion,
+        loadLastAnalysis,
+        recentAnalyses,
+        loadRecentAnalyses,
       }}
     >
       {children}
