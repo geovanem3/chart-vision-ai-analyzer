@@ -1,16 +1,19 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, Play, Pause, TrendingUp, TrendingDown, AlertTriangle, Target, Shield } from 'lucide-react';
+import { Camera, Play, Pause, TrendingUp, TrendingDown, AlertTriangle, Shield, Database, Wifi, WifiOff } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { analyzeChartWithAI, AIAnalysisResult } from '@/services/chartAnalysisService';
+import { supabase } from '@/integrations/supabase/client';
+import { convertAIToDbFormat, convertDbToSavedAnalysis, SavedAnalysis } from '@/hooks/useAnalysisPersistence';
 
 interface LiveAnalysisResult {
+  id?: string;
   timestamp: number;
   confidence: number;
   signal: 'compra' | 'venda' | 'neutro';
@@ -20,6 +23,7 @@ interface LiveAnalysisResult {
   riskLevel: string;
   supportLevels: string[];
   resistanceLevels: string[];
+  savedToDb: boolean;
 }
 
 const LiveAnalysis = () => {
@@ -33,10 +37,96 @@ const LiveAnalysis = () => {
   const [liveResults, setLiveResults] = useState<LiveAnalysisResult[]>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { timeframe } = useAnalyzer();
+
+  // Load saved live analyses on mount
+  useEffect(() => {
+    loadSavedLiveAnalyses();
+  }, []);
+
+  // Load saved live analyses from database
+  const loadSavedLiveAnalyses = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('professional_analyses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Erro ao carregar análises live:', error);
+        return;
+      }
+
+      const analyses: LiveAnalysisResult[] = (data || [])
+        .filter(d => (d.smart_analysis_result as any)?.source === 'live')
+        .map(d => {
+          const saved = convertDbToSavedAnalysis(d);
+          return {
+            id: saved.id,
+            timestamp: saved.timestamp,
+            confidence: saved.confidence,
+            signal: saved.signal,
+            patterns: saved.patterns,
+            trend: saved.trend,
+            reasoning: saved.reasoning,
+            riskLevel: saved.riskLevel,
+            supportLevels: saved.supportLevels,
+            resistanceLevels: saved.resistanceLevels,
+            savedToDb: true
+          };
+        });
+
+      if (analyses.length > 0) {
+        setLiveResults(analyses);
+        setCurrentAnalysis(analyses[0]);
+        console.log(`✅ ${analyses.length} análises live carregadas do banco`);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar análises:', error);
+    }
+  };
+
+  // Save live analysis to database
+  const saveLiveAnalysis = async (aiResult: AIAnalysisResult, imageUrl?: string): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn('⚠️ Usuário não autenticado - análise live não será salva');
+        return null;
+      }
+
+      const dbData = convertAIToDbFormat(aiResult, imageUrl, timeframe, 'live');
+      
+      const { data, error } = await supabase
+        .from('professional_analyses')
+        .insert({
+          user_id: user.id,
+          ...dbData
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('❌ Erro ao salvar análise live:', error);
+        return null;
+      }
+
+      console.log('✅ Análise live salva no banco com ID:', data.id);
+      return data.id;
+    } catch (error) {
+      console.error('❌ Erro ao salvar análise live:', error);
+      return null;
+    }
+  };
 
   // Iniciar câmera
   const startCamera = async () => {
@@ -84,6 +174,7 @@ const LiveAnalysis = () => {
 
     try {
       setIsAnalyzing(true);
+      setIsOfflineMode(false);
       console.log('🎥 Capturando frame para análise Live com IA...');
       
       const video = videoRef.current;
@@ -101,7 +192,11 @@ const LiveAnalysis = () => {
       // Analisar com IA real
       const aiAnalysis: AIAnalysisResult = await analyzeChartWithAI(imageUrl, timeframe);
       
+      // Salvar no banco de dados
+      const savedId = await saveLiveAnalysis(aiAnalysis, imageUrl);
+      
       const liveResult: LiveAnalysisResult = {
+        id: savedId || undefined,
         timestamp: Date.now(),
         confidence: aiAnalysis.recommendation.confidence,
         signal: aiAnalysis.recommendation.action,
@@ -110,7 +205,8 @@ const LiveAnalysis = () => {
         reasoning: aiAnalysis.recommendation.reasoning,
         riskLevel: aiAnalysis.recommendation.riskLevel,
         supportLevels: aiAnalysis.supportLevels,
-        resistanceLevels: aiAnalysis.resistanceLevels
+        resistanceLevels: aiAnalysis.resistanceLevels,
+        savedToDb: !!savedId
       };
 
       setCurrentAnalysis(liveResult);
@@ -126,14 +222,26 @@ const LiveAnalysis = () => {
         });
       }
 
-      console.log(`✅ Análise Live - Sinal: ${liveResult.signal} (${Math.round(liveResult.confidence * 100)}%)`);
+      console.log(`✅ Análise Live - Sinal: ${liveResult.signal} (${Math.round(liveResult.confidence * 100)}%) - Salvo: ${liveResult.savedToDb}`);
 
     } catch (error) {
       console.error('❌ Erro na análise Live:', error);
+      setIsOfflineMode(true);
+      
+      // Fallback: usar última análise do banco
+      if (liveResults.length === 0) {
+        await loadSavedLiveAnalyses();
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Erro na análise",
+        description: "Usando dados salvos. Verifique sua conexão.",
+      });
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, timeframe, toast]);
+  }, [isAnalyzing, timeframe, toast, liveResults.length]);
 
   // Iniciar análise Live
   const startLiveAnalysis = async () => {
@@ -147,7 +255,7 @@ const LiveAnalysis = () => {
     toast({
       variant: "default",
       title: "✅ Análise Live Iniciada",
-      description: `Analisando com IA a cada ${analysisInterval / 1000} segundos`,
+      description: `Analisando com IA a cada ${analysisInterval / 1000} segundos - Dados salvos automaticamente`,
     });
   };
 
@@ -160,10 +268,11 @@ const LiveAnalysis = () => {
     stopCamera();
     setIsLiveActive(false);
 
+    const savedCount = liveResults.filter(r => r.savedToDb).length;
     toast({
       variant: "default",
       title: "⏹️ Análise Live Parada",
-      description: `${liveResults.length} análises realizadas`,
+      description: `${liveResults.length} análises realizadas, ${savedCount} salvas no banco`,
     });
   };
 
@@ -184,11 +293,24 @@ const LiveAnalysis = () => {
               <Camera className="h-5 w-5" />
               Análise Live com IA
             </div>
-            {isLiveActive && (
-              <Badge variant="outline" className="animate-pulse bg-red-500/20 text-red-400">
-                ● AO VIVO
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {isOfflineMode ? (
+                <Badge variant="outline" className="text-yellow-400 border-yellow-400/30">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-green-400 border-green-400/30">
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Online
+                </Badge>
+              )}
+              {isLiveActive && (
+                <Badge variant="outline" className="animate-pulse bg-red-500/20 text-red-400">
+                  ● AO VIVO
+                </Badge>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -208,6 +330,11 @@ const LiveAnalysis = () => {
                 <div className="text-center text-white">
                   <Camera className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p className="text-sm opacity-75">Câmera desativada</p>
+                  {liveResults.length > 0 && (
+                    <p className="text-xs opacity-50 mt-2">
+                      {liveResults.length} análises salvas disponíveis
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -264,7 +391,12 @@ const LiveAnalysis = () => {
                         <div className="text-2xl font-bold text-primary">
                           {Math.round(currentAnalysis.confidence * 100)}%
                         </div>
-                        <div className="text-xs text-muted-foreground">Confiança</div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                          {currentAnalysis.savedToDb && (
+                            <Database className="h-3 w-3 text-green-400" />
+                          )}
+                          Confiança
+                        </div>
                       </div>
                     </div>
 
@@ -298,7 +430,13 @@ const LiveAnalysis = () => {
           {/* Histórico */}
           {liveResults.length > 1 && (
             <div className="mt-4">
-              <h4 className="text-sm font-medium mb-2">Histórico Recente</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium">Histórico Recente</h4>
+                <Badge variant="outline" className="text-xs">
+                  <Database className="h-3 w-3 mr-1" />
+                  {liveResults.filter(r => r.savedToDb).length} salvos
+                </Badge>
+              </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {liveResults.slice(1, 6).map((result, index) => (
                   <div 
@@ -312,6 +450,9 @@ const LiveAnalysis = () => {
                       <span className="text-muted-foreground">
                         {new Date(result.timestamp).toLocaleTimeString()}
                       </span>
+                      {result.savedToDb && (
+                        <Database className="h-3 w-3 text-green-400/70" />
+                      )}
                     </div>
                     <span className="font-medium">
                       {Math.round(result.confidence * 100)}%

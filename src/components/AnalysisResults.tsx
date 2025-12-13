@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Shield, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Shield, BarChart3, Database, Clock } from 'lucide-react';
 
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
@@ -16,12 +16,15 @@ const AnalysisResults = () => {
   }
 
   const { 
+    id,
     patterns = [], 
     marketContext, 
     supportLevels = [],
     resistanceLevels = [],
     recommendation,
-    warnings = []
+    warnings = [],
+    savedToDb,
+    timestamp
   } = analysisResults;
 
   const getActionColor = (action: string) => {
@@ -43,6 +46,20 @@ const AnalysisResults = () => {
 
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
+      {/* Status de salvamento */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <div className="flex items-center gap-2">
+          <Clock className="h-3 w-3" />
+          <span>{new Date(timestamp).toLocaleString()}</span>
+        </div>
+        {savedToDb && (
+          <Badge variant="outline" className="text-green-400 border-green-400/30 text-xs">
+            <Database className="h-3 w-3 mr-1" />
+            Salvo
+          </Badge>
+        )}
+      </div>
+
       {/* Recomendação Principal */}
       {recommendation && (
         <Card className="border-2 border-primary/30 bg-gradient-to-br from-card to-card/50">
