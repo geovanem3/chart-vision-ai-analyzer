@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_cache: {
+        Row: {
+          analysis_result: Json
+          cache_key: string
+          confidence_score: number | null
+          created_at: string | null
+          expires_at: string | null
+          hit_count: number | null
+          id: string
+          last_used_at: string | null
+          market_conditions_hash: string
+          patterns_detected: string[] | null
+          sentiment: string | null
+          timeframe: string
+        }
+        Insert: {
+          analysis_result: Json
+          cache_key: string
+          confidence_score?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          last_used_at?: string | null
+          market_conditions_hash: string
+          patterns_detected?: string[] | null
+          sentiment?: string | null
+          timeframe: string
+        }
+        Update: {
+          analysis_result?: Json
+          cache_key?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          last_used_at?: string | null
+          market_conditions_hash?: string
+          patterns_detected?: string[] | null
+          sentiment?: string | null
+          timeframe?: string
+        }
+        Relationships: []
+      }
+      analysis_decisions: {
+        Row: {
+          analysis_source: string
+          confidence_score: number | null
+          created_at: string | null
+          decision_type: string
+          id: string
+          indicators_used: string[] | null
+          outcome: string | null
+          outcome_recorded_at: string | null
+          patterns_used: string[] | null
+          price_at_decision: number | null
+          reasoning: Json | null
+          timeframe: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_source: string
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type: string
+          id?: string
+          indicators_used?: string[] | null
+          outcome?: string | null
+          outcome_recorded_at?: string | null
+          patterns_used?: string[] | null
+          price_at_decision?: number | null
+          reasoning?: Json | null
+          timeframe?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_source?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type?: string
+          id?: string
+          indicators_used?: string[] | null
+          outcome?: string | null
+          outcome_recorded_at?: string | null
+          patterns_used?: string[] | null
+          price_at_decision?: number | null
+          reasoning?: Json | null
+          timeframe?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       image_analyses: {
         Row: {
           analysis_result: Json | null
@@ -41,6 +134,48 @@ export type Database = {
           master_analysis?: Json | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      indicator_rules: {
+        Row: {
+          condition_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          indicator_name: string
+          parameters: Json | null
+          rule_name: string
+          signal_type: string
+          threshold_max: number | null
+          threshold_min: number | null
+          weight: number | null
+        }
+        Insert: {
+          condition_type: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          indicator_name: string
+          parameters?: Json | null
+          rule_name: string
+          signal_type: string
+          threshold_max?: number | null
+          threshold_min?: number | null
+          weight?: number | null
+        }
+        Update: {
+          condition_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          indicator_name?: string
+          parameters?: Json | null
+          rule_name?: string
+          signal_type?: string
+          threshold_max?: number | null
+          threshold_min?: number | null
+          weight?: number | null
         }
         Relationships: []
       }
@@ -96,6 +231,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pattern_library: {
+        Row: {
+          average_move_percent: number | null
+          confirmation_required: boolean | null
+          created_at: string | null
+          description: string | null
+          entry_rules: Json | null
+          exit_rules: Json | null
+          failure_rate: number | null
+          id: string
+          pattern_name: string
+          pattern_type: string
+          reliability_score: number | null
+          timeframe_preference: string[] | null
+          visual_characteristics: Json | null
+          volume_requirement: string | null
+        }
+        Insert: {
+          average_move_percent?: number | null
+          confirmation_required?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          entry_rules?: Json | null
+          exit_rules?: Json | null
+          failure_rate?: number | null
+          id?: string
+          pattern_name: string
+          pattern_type: string
+          reliability_score?: number | null
+          timeframe_preference?: string[] | null
+          visual_characteristics?: Json | null
+          volume_requirement?: string | null
+        }
+        Update: {
+          average_move_percent?: number | null
+          confirmation_required?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          entry_rules?: Json | null
+          exit_rules?: Json | null
+          failure_rate?: number | null
+          id?: string
+          pattern_name?: string
+          pattern_type?: string
+          reliability_score?: number | null
+          timeframe_preference?: string[] | null
+          visual_characteristics?: Json | null
+          volume_requirement?: string | null
+        }
+        Relationships: []
       }
       professional_analyses: {
         Row: {
@@ -364,6 +550,48 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_analysis_settings: {
+        Row: {
+          created_at: string | null
+          fallback_to_local: boolean | null
+          id: string
+          indicators_enabled: string[] | null
+          min_confidence_threshold: number | null
+          patterns_enabled: string[] | null
+          preferred_timeframes: string[] | null
+          risk_tolerance: string | null
+          updated_at: string | null
+          use_ai_when_available: boolean | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          fallback_to_local?: boolean | null
+          id?: string
+          indicators_enabled?: string[] | null
+          min_confidence_threshold?: number | null
+          patterns_enabled?: string[] | null
+          preferred_timeframes?: string[] | null
+          risk_tolerance?: string | null
+          updated_at?: string | null
+          use_ai_when_available?: boolean | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          fallback_to_local?: boolean | null
+          id?: string
+          indicators_enabled?: string[] | null
+          min_confidence_threshold?: number | null
+          patterns_enabled?: string[] | null
+          preferred_timeframes?: string[] | null
+          risk_tolerance?: string | null
+          updated_at?: string | null
+          use_ai_when_available?: boolean | null
+          user_id?: string
         }
         Relationships: []
       }
