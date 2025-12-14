@@ -10,6 +10,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BarChart2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+// Schema de validação para autenticação
+const loginSchema = z.object({
+  email: z.string().trim().email('Email inválido').max(255, 'Email muito longo'),
+  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').max(128, 'Senha muito longa'),
+});
+
+const signupSchema = loginSchema.extend({
+  fullName: z.string().trim().min(2, 'Nome deve ter no mínimo 2 caracteres').max(100, 'Nome muito longo'),
+});
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -30,8 +41,19 @@ const Auth = () => {
     setError('');
 
     try {
+      // Validação com Zod
+      const trimmedEmail = email.trim();
+      const trimmedFullName = fullName.trim();
+
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const validation = loginSchema.safeParse({ email: trimmedEmail, password });
+        if (!validation.success) {
+          setError(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signIn(trimmedEmail, password);
         if (error) {
           setError(error.message);
         } else {
@@ -42,7 +64,18 @@ const Auth = () => {
           navigate('/');
         }
       } else {
-        const { error } = await signUp(email, password, fullName);
+        const validation = signupSchema.safeParse({ 
+          email: trimmedEmail, 
+          password, 
+          fullName: trimmedFullName 
+        });
+        if (!validation.success) {
+          setError(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signUp(trimmedEmail, password, trimmedFullName);
         if (error) {
           setError(error.message);
         } else {
