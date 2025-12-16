@@ -2,7 +2,8 @@ import React from 'react';
 import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
-import { BarChart2, Zap, Clock, ChartCandlestick } from 'lucide-react';
+import AnalysisHistory from '@/components/AnalysisHistory';
+import { BarChart2, Zap, ChartCandlestick } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Home = () => {
@@ -94,6 +95,10 @@ const Home = () => {
           </div>
           
           <GraphAnalyzer />
+          
+          <div className={`${isMobile ? 'mt-4' : 'mt-8'}`}>
+            <AnalysisHistory />
+          </div>
         </div>
       </AnalyzerProvider>
     </LanguageProvider>
