@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle, ScanSearch, ScanFace, BarChart2, CandlestickChart, Activity } from 'lucide-react';
+import { Camera, X, FlipHorizontal, Upload, Image, AlertTriangle, ScanSearch, ScanFace, Activity } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { checkImageQuality } from '@/utils/imageProcessing';
@@ -490,43 +490,6 @@ const CameraView = () => {
             )}
           </div>
 
-          {/* Sample chart examples - more compact for mobile */}
-          {!isCameraActive && (
-            <motion.div 
-              className="grid grid-cols-2 gap-2 w-full mt-4"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Button 
-                variant="outline" 
-                onClick={() => setCapturedImage('/chart-example-1.jpg')} 
-                className="h-auto p-2 rounded-lg" 
-                disabled={isProcessing}
-              >
-                <div className="flex flex-col items-center w-full">
-                  <span className="text-xs mb-1">Exemplo 1</span>
-                  <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
-                    <CandlestickChart className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                </div>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                onClick={() => setCapturedImage('/chart-example-2.jpg')} 
-                className="h-auto p-2 rounded-lg" 
-                disabled={isProcessing}
-              >
-                <div className="flex flex-col items-center w-full">
-                  <span className="text-xs mb-1">Exemplo 2</span>
-                  <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
-                    <BarChart2 className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                </div>
-              </Button>
-            </motion.div>
-          )}
         </TabsContent>
 
         <TabsContent value="live" className="w-full">
