@@ -26,7 +26,7 @@ const GraphAnalyzer = () => {
   const { toast } = useToast();
 
   const handleTimeframeChange = (value: string) => {
-    setTimeframe(value as '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w');
+    setTimeframe(value as '1m' | '5m');
   };
   
   const startAnalysis = async () => {
@@ -172,12 +172,6 @@ const GraphAnalyzer = () => {
                 <SelectContent side="bottom">
                   <SelectItem value="1m">1m</SelectItem>
                   <SelectItem value="5m">5m</SelectItem>
-                  <SelectItem value="15m">15m</SelectItem>
-                  <SelectItem value="30m">30m</SelectItem>
-                  <SelectItem value="1h">1h</SelectItem>
-                  <SelectItem value="4h">4h</SelectItem>
-                  <SelectItem value="1d">1d</SelectItem>
-                  <SelectItem value="1w">1w</SelectItem>
                 </SelectContent>
               </Select>
             </div>

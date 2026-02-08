@@ -82,7 +82,7 @@ export type MarkupSize = 'small' | 'medium' | 'large';
 
 export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label';
 
-export type TimeframeType = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
+export type TimeframeType = '1m' | '5m';
 
 type AnalyzerContextType = {
   capturedImage: string | null;
