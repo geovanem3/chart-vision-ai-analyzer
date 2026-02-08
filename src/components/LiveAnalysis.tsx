@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { analyzeChartWithAI, AIAnalysisResult } from '@/services/chartAnalysisService';
+import { analyzeChartWithAI, AIAnalysisResult, AnalysisSource } from '@/services/chartAnalysisService';
 import { supabase } from '@/integrations/supabase/client';
 import { convertAIToDbFormat, convertDbToSavedAnalysis, SavedAnalysis } from '@/hooks/useAnalysisPersistence';
 
@@ -189,11 +189,18 @@ const LiveAnalysis = () => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
       
-      // Analisar com IA real
-      const aiAnalysis: AIAnalysisResult = await analyzeChartWithAI(imageUrl, timeframe);
+      // Analisar (com fallback automático do backend)
+      const response = await analyzeChartWithAI(imageUrl, timeframe);
+      const aiAnalysis = response.analysis;
+      const analysisSource = response.source;
       
-      // Salvar no banco de dados
-      const savedId = await saveLiveAnalysis(aiAnalysis, imageUrl);
+      if (analysisSource !== 'ai') {
+        console.warn(`⚠️ Live usando fallback: ${analysisSource}`);
+        setIsOfflineMode(true);
+      }
+      
+      // Salvar no banco de dados (apenas se veio da IA real)
+      const savedId = analysisSource === 'ai' ? await saveLiveAnalysis(aiAnalysis, imageUrl) : null;
       
       const liveResult: LiveAnalysisResult = {
         id: savedId || undefined,

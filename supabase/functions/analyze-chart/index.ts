@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const SYSTEM_PROMPT = `Você é um analista técnico especializado em trading e análise de gráficos de velas (candlesticks).
@@ -50,6 +51,97 @@ Responda APENAS no formato JSON abaixo:
   "warnings": ["avisos importantes se houver"]
 }`;
 
+// Buscar última análise do banco de dados como fallback
+async function getLastAnalysisFromDb(userId: string): Promise<any | null> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabase
+      .from("professional_analyses")
+      .select("smart_analysis_result, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.smart_analysis_result) {
+      console.log("Nenhuma análise anterior encontrada no banco");
+      return null;
+    }
+
+    console.log("✅ Análise anterior encontrada no banco de:", data.created_at);
+    return data.smart_analysis_result;
+  } catch (err) {
+    console.error("Erro ao buscar fallback do banco:", err);
+    return null;
+  }
+}
+
+// Buscar padrões da pattern_library como fallback genérico
+async function getPatternLibraryFallback(): Promise<any | null> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabase
+      .from("pattern_library")
+      .select("*")
+      .limit(5);
+
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+
+    // Criar uma análise genérica baseada nos padrões da biblioteca
+    return {
+      patterns: data.map((p: any) => ({
+        type: p.pattern_name,
+        confidence: p.reliability_score || 0.5,
+        description: p.description || "Padrão da biblioteca de referência",
+        location: "Referência de estudo"
+      })),
+      trend: "lateral",
+      trendStrength: 0.5,
+      supportLevels: [],
+      resistanceLevels: [],
+      recommendation: {
+        action: "neutro",
+        confidence: 0.3,
+        reasoning: "Análise baseada na biblioteca de padrões. A IA não está disponível no momento. Consulte os padrões de referência para tomar decisões.",
+        riskLevel: "alto"
+      },
+      marketContext: {
+        phase: "indefinida",
+        sentiment: "neutro",
+        volatility: "normal"
+      },
+      warnings: [
+        "⚠️ IA indisponível - usando dados da biblioteca de padrões como referência",
+        "Esta análise NÃO é baseada na imagem enviada",
+        "Use apenas como referência de estudo"
+      ]
+    };
+  } catch (err) {
+    console.error("Erro ao buscar pattern_library:", err);
+    return null;
+  }
+}
+
+// Extrair userId do JWT
+function extractUserIdFromAuth(authHeader: string | null): string | null {
+  if (!authHeader) return null;
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,7 +149,9 @@ serve(async (req) => {
 
   try {
     const { imageData, timeframe } = await req.json();
-    
+    const authHeader = req.headers.get("authorization");
+    const userId = extractUserIdFromAuth(authHeader);
+
     if (!imageData) {
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem fornecida" }),
@@ -67,120 +161,198 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY não configurada");
+      console.error("LOVABLE_API_KEY não configurada - tentando fallback do banco");
+      // Tentar fallback ao invés de crashar
+      return await handleAIFailure(userId, "Chave de API não configurada");
     }
 
     console.log("Iniciando análise de gráfico com IA...");
     console.log("Timeframe:", timeframe || "não especificado");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { 
-            role: "system", 
-            content: SYSTEM_PROMPT 
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analise este gráfico de trading${timeframe ? ` (timeframe: ${timeframe})` : ''}. Identifique APENAS os padrões que realmente existem na imagem.`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageData
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 2000,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em Settings -> Workspace -> Usage." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("Erro da API:", response.status, errorText);
-      throw new Error(`Erro na API de IA: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("Resposta vazia da IA");
-    }
-
-    console.log("Resposta da IA recebida, processando...");
-
-    // Extrair JSON da resposta
-    let analysisResult;
     try {
-      // Tenta extrair JSON do conteúdo (pode vir com markdown)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysisResult = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("JSON não encontrado na resposta");
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analise este gráfico de trading${timeframe ? ` (timeframe: ${timeframe})` : ''}. Identifique APENAS os padrões que realmente existem na imagem.`
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: imageData }
+                }
+              ]
+            }
+          ],
+          max_tokens: 2000,
+        }),
+      });
+
+      // Se a IA falhou (tokens, rate limit, etc), usar fallback
+      if (!response.ok) {
+        const errorStatus = response.status;
+        let errorReason = "Erro desconhecido da IA";
+
+        if (errorStatus === 429) {
+          errorReason = "Limite de requisições excedido";
+        } else if (errorStatus === 402) {
+          errorReason = "Créditos da IA esgotados";
+        } else if (errorStatus === 503 || errorStatus === 500) {
+          errorReason = "Serviço de IA temporariamente indisponível";
+        }
+
+        console.warn(`⚠️ IA retornou ${errorStatus}: ${errorReason} - Ativando fallback do banco de dados`);
+        return await handleAIFailure(userId, errorReason);
       }
-    } catch (parseError) {
-      console.error("Erro ao parsear JSON:", parseError);
-      console.log("Conteúdo recebido:", content);
-      
-      // Retorna uma análise padrão se não conseguir parsear
-      analysisResult = {
-        patterns: [],
-        trend: "lateral",
-        trendStrength: 0.5,
-        supportLevels: [],
-        resistanceLevels: [],
-        recommendation: {
-          action: "neutro",
-          confidence: 0.3,
-          reasoning: "Não foi possível analisar a imagem corretamente. A imagem pode não ser um gráfico de trading ou estar em formato não suportado.",
-          riskLevel: "alto"
-        },
-        marketContext: {
-          phase: "indefinida",
-          sentiment: "neutro",
-          volatility: "normal"
-        },
-        warnings: ["Análise inconclusiva - verifique se a imagem é um gráfico de trading válido"]
-      };
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) {
+        console.warn("⚠️ Resposta vazia da IA - Ativando fallback");
+        return await handleAIFailure(userId, "Resposta vazia da IA");
+      }
+
+      console.log("Resposta da IA recebida, processando...");
+
+      // Extrair JSON da resposta
+      let analysisResult;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysisResult = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("JSON não encontrado na resposta");
+        }
+      } catch (parseError) {
+        console.error("Erro ao parsear JSON:", parseError);
+        console.log("Conteúdo recebido:", content);
+        
+        // Se não conseguiu parsear, tenta fallback
+        console.warn("⚠️ Falha no parse - Ativando fallback");
+        return await handleAIFailure(userId, "Falha ao processar resposta da IA");
+      }
+
+      console.log("✅ Análise com IA concluída com sucesso");
+
+      return new Response(
+        JSON.stringify({ 
+          analysis: analysisResult, 
+          source: "ai",
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } catch (fetchError) {
+      // Erro de rede ao chamar IA - usar fallback
+      console.error("❌ Erro de rede ao chamar IA:", fetchError);
+      return await handleAIFailure(userId, "Erro de conexão com a IA");
     }
-
-    console.log("Análise concluída com sucesso");
-
-    return new Response(
-      JSON.stringify({ analysis: analysisResult }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
 
   } catch (error) {
-    console.error("Erro na análise:", error);
+    console.error("Erro geral na análise:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Erro interno ao analisar gráfico" }),
+      JSON.stringify({ 
+        error: error.message || "Erro interno",
+        fallbackAvailable: true 
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
+// Handler centralizado para quando a IA falha
+async function handleAIFailure(userId: string | null, reason: string): Promise<Response> {
+  console.log(`🔄 Fallback ativado - Motivo: ${reason}`);
+
+  // Primeiro: tentar última análise do usuário no banco
+  if (userId) {
+    const lastAnalysis = await getLastAnalysisFromDb(userId);
+    if (lastAnalysis) {
+      console.log("✅ Usando última análise do banco como fallback");
+      
+      // Adicionar warnings sobre ser fallback
+      const fallbackAnalysis = {
+        ...lastAnalysis,
+        warnings: [
+          ...(lastAnalysis.warnings || []),
+          `⚠️ IA indisponível: ${reason}`,
+          "📊 Exibindo última análise salva no banco de dados",
+          "Os dados podem não refletir o gráfico atual"
+        ]
+      };
+
+      return new Response(
+        JSON.stringify({ 
+          analysis: fallbackAnalysis, 
+          source: "database_fallback",
+          fallbackReason: reason,
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  // Segundo: tentar pattern_library como referência genérica
+  const patternFallback = await getPatternLibraryFallback();
+  if (patternFallback) {
+    console.log("✅ Usando pattern_library como fallback genérico");
+    return new Response(
+      JSON.stringify({ 
+        analysis: patternFallback, 
+        source: "pattern_library_fallback",
+        fallbackReason: reason,
+        timestamp: new Date().toISOString()
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Último recurso: análise neutra padrão (app nunca para)
+  console.log("⚠️ Nenhum fallback encontrado - retornando análise neutra padrão");
+  const defaultAnalysis = {
+    patterns: [],
+    trend: "lateral",
+    trendStrength: 0.5,
+    supportLevels: [],
+    resistanceLevels: [],
+    recommendation: {
+      action: "neutro",
+      confidence: 0.1,
+      reasoning: `IA temporariamente indisponível (${reason}). Nenhuma análise anterior encontrada no banco de dados. Aguarde e tente novamente.`,
+      riskLevel: "alto"
+    },
+    marketContext: {
+      phase: "indefinida",
+      sentiment: "neutro",
+      volatility: "normal"
+    },
+    warnings: [
+      `⚠️ IA indisponível: ${reason}`,
+      "Nenhuma análise anterior encontrada no banco de dados",
+      "Recomendação: aguarde a IA voltar ou capture um novo gráfico"
+    ]
+  };
+
+  return new Response(
+    JSON.stringify({ 
+      analysis: defaultAnalysis, 
+      source: "default_fallback",
+      fallbackReason: reason,
+      timestamp: new Date().toISOString()
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
