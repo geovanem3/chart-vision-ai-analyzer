@@ -24,7 +24,8 @@ const AnalysisResults = () => {
     recommendation,
     warnings = [],
     savedToDb,
-    timestamp
+    timestamp,
+    source
   } = analysisResults;
 
   const getActionColor = (action: string) => {
@@ -46,19 +47,51 @@ const AnalysisResults = () => {
 
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
-      {/* Status de salvamento */}
+      {/* Fonte da análise e status */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <div className="flex items-center gap-2">
           <Clock className="h-3 w-3" />
           <span>{new Date(timestamp).toLocaleString()}</span>
         </div>
-        {savedToDb && (
-          <Badge variant="outline" className="text-green-400 border-green-400/30 text-xs">
-            <Database className="h-3 w-3 mr-1" />
-            Salvo
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {source && source !== 'ai' && (
+            <Badge variant="outline" className="text-yellow-400 border-yellow-400/30 text-xs">
+              <Database className="h-3 w-3 mr-1" />
+              {source === 'database_fallback' ? 'Dados Salvos' : 
+               source === 'pattern_library_fallback' ? 'Biblioteca' : 'Fallback'}
+            </Badge>
+          )}
+          {savedToDb && (
+            <Badge variant="outline" className="text-green-400 border-green-400/30 text-xs">
+              <Database className="h-3 w-3 mr-1" />
+              Salvo
+            </Badge>
+          )}
+        </div>
       </div>
+
+      {/* Banner de fallback quando IA está indisponível */}
+      {source && source !== 'ai' && (
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start gap-2">
+              <Database className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-yellow-400">
+                  IA temporariamente indisponível
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {source === 'database_fallback' 
+                    ? 'Exibindo sua última análise salva no banco de dados. O app continua funcionando normalmente.'
+                    : source === 'pattern_library_fallback'
+                    ? 'Exibindo dados da biblioteca de padrões como referência. Não reflete o gráfico atual.'
+                    : 'Análise padrão gerada automaticamente. Aguarde a IA voltar para análises precisas.'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recomendação Principal */}
       {recommendation && (

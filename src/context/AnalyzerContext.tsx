@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { analyzeChartWithAI, convertAIAnalysisToPatterns, AIAnalysisResult } from '../services/chartAnalysisService';
+import { analyzeChartWithAI, convertAIAnalysisToPatterns, AIAnalysisResult, AnalysisSource } from '../services/chartAnalysisService';
 import { supabase } from '@/integrations/supabase/client';
 import { convertAIToDbFormat, convertDbToSavedAnalysis, SavedAnalysis } from '@/hooks/useAnalysisPersistence';
 
@@ -57,6 +57,7 @@ export type AnalysisResult = {
     riskLevel: string;
   };
   savedToDb?: boolean;
+  source?: AnalysisSource; // De onde veio a análise
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -278,16 +279,22 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     setIsAnalyzing(true);
     
     try {
-      console.log('🔍 Iniciando análise com IA Gemini...');
+      console.log('🔍 Iniciando análise...');
       
-      // Análise com IA real
-      const aiAnalysis: AIAnalysisResult = await analyzeChartWithAI(imageUrl, timeframe);
+      // Análise com IA (com fallback automático do backend)
+      const response = await analyzeChartWithAI(imageUrl, timeframe);
+      const aiAnalysis = response.analysis;
+      const analysisSource = response.source;
       const aiPatterns = convertAIAnalysisToPatterns(aiAnalysis);
       
-      console.log('✅ Análise com IA concluída:', aiAnalysis);
+      if (analysisSource !== 'ai') {
+        console.warn(`⚠️ Usando fallback: ${analysisSource} - ${response.fallbackReason}`);
+      } else {
+        console.log('✅ Análise com IA concluída:', aiAnalysis);
+      }
 
-      // Salvar no banco de dados automaticamente
-      const savedId = await saveAnalysisToDb(aiAnalysis, imageUrl);
+      // Salvar no banco de dados (apenas se veio da IA real)
+      const savedId = analysisSource === 'ai' ? await saveAnalysisToDb(aiAnalysis, imageUrl) : null;
 
       // Construir resultado final
       const results: AnalysisResult = {
@@ -312,7 +319,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
           trend: aiAnalysis.trend,
           trendStrength: aiAnalysis.trendStrength
         },
-        savedToDb: !!savedId
+        savedToDb: !!savedId,
+        source: analysisSource
       };
 
       setAnalysisResults(results);

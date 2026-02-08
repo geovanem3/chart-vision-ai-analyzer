@@ -25,28 +25,69 @@ export interface AIAnalysisResult {
   warnings?: string[];
 }
 
+export type AnalysisSource = "ai" | "database_fallback" | "pattern_library_fallback" | "default_fallback";
+
+export interface AnalysisResponse {
+  analysis: AIAnalysisResult;
+  source: AnalysisSource;
+  fallbackReason?: string;
+  timestamp: string;
+}
+
 export const analyzeChartWithAI = async (
   imageData: string,
   timeframe?: string
+): Promise<AnalysisResponse> => {
+  console.log("🤖 Enviando imagem para análise...");
+
+  try {
+    const { data, error } = await supabase.functions.invoke("analyze-chart", {
+      body: { imageData, timeframe },
+    });
+
+    if (error) {
+      console.error("Erro ao chamar função de análise:", error);
+      throw new Error(error.message || "Erro ao analisar gráfico");
+    }
+
+    // Se retornou erro mas com fallback disponível
+    if (data.error && !data.analysis) {
+      console.error("Erro retornado pela função:", data.error);
+      throw new Error(data.error);
+    }
+
+    const source: AnalysisSource = data.source || "ai";
+    const analysis = data.analysis;
+
+    if (!analysis) {
+      throw new Error("Resposta sem dados de análise");
+    }
+
+    if (source !== "ai") {
+      console.warn(`⚠️ Análise via fallback: ${source} - Motivo: ${data.fallbackReason || "desconhecido"}`);
+    } else {
+      console.log("✅ Análise da IA recebida com sucesso");
+    }
+
+    return {
+      analysis,
+      source,
+      fallbackReason: data.fallbackReason,
+      timestamp: data.timestamp || new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("❌ Erro completo na análise:", error);
+    throw error;
+  }
+};
+
+// Manter compatibilidade - retorna só o resultado da análise
+export const analyzeChartWithAILegacy = async (
+  imageData: string,
+  timeframe?: string
 ): Promise<AIAnalysisResult> => {
-  console.log("🤖 Enviando imagem para análise com IA...");
-
-  const { data, error } = await supabase.functions.invoke("analyze-chart", {
-    body: { imageData, timeframe },
-  });
-
-  if (error) {
-    console.error("Erro ao chamar função de análise:", error);
-    throw new Error(error.message || "Erro ao analisar gráfico");
-  }
-
-  if (data.error) {
-    console.error("Erro retornado pela IA:", data.error);
-    throw new Error(data.error);
-  }
-
-  console.log("✅ Análise da IA recebida:", data.analysis);
-  return data.analysis;
+  const response = await analyzeChartWithAI(imageData, timeframe);
+  return response.analysis;
 };
 
 export const convertAIAnalysisToPatterns = (analysis: AIAnalysisResult) => {
