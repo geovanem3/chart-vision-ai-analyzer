@@ -130,13 +130,19 @@ async function getPatternLibraryFallback(): Promise<any | null> {
   }
 }
 
-// Extrair userId do JWT
-function extractUserIdFromAuth(authHeader: string | null): string | null {
-  if (!authHeader) return null;
+// Extrair userId via getClaims (seguro)
+async function extractUserIdFromAuth(authHeader: string | null): Promise<string | null> {
+  if (!authHeader?.startsWith("Bearer ")) return null;
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.sub || null;
+    const { data, error } = await supabase.auth.getClaims(token);
+    if (error || !data?.claims?.sub) return null;
+    return data.claims.sub as string;
   } catch {
     return null;
   }
@@ -148,9 +154,23 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, timeframe } = await req.json();
     const authHeader = req.headers.get("authorization");
-    const userId = extractUserIdFromAuth(authHeader);
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Não autorizado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = await extractUserIdFromAuth(authHeader);
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Token inválido" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { imageData, timeframe } = await req.json();
 
     if (!imageData) {
       return new Response(
