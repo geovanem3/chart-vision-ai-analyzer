@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Shield, BarChart3, Database, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Shield, BarChart3, Database, Clock, Eye, Zap } from 'lucide-react';
 
 const AnalysisResults = () => {
   const { analysisResults } = useAnalyzer();
@@ -22,6 +22,8 @@ const AnalysisResults = () => {
     supportLevels = [],
     resistanceLevels = [],
     recommendation,
+    fearGreedAnalysis,
+    smartMoney,
     warnings = [],
     savedToDb,
     timestamp,
@@ -168,6 +170,125 @@ const AnalysisResults = () => {
                 <span className="text-muted-foreground text-xs">Volatilidade</span>
                 <div className="font-medium capitalize">{marketContext.volatility}</div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Medo & Ganância */}
+      {fearGreedAnalysis && (
+        <Card className="border-2 border-orange-500/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Eye className="h-5 w-5 text-orange-400" />
+              Medo & Ganância
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Badge className={`text-sm px-3 py-1 ${
+                  fearGreedAnalysis.level.includes('medo') 
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                    : fearGreedAnalysis.level.includes('ganancia')
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                }`}>
+                  {fearGreedAnalysis.level === 'medo_extremo' ? '😱 MEDO EXTREMO' :
+                   fearGreedAnalysis.level === 'medo' ? '😰 MEDO' :
+                   fearGreedAnalysis.level === 'ganancia' ? '🤑 GANÂNCIA' :
+                   fearGreedAnalysis.level === 'ganancia_extrema' ? '🔥 GANÂNCIA EXTREMA' :
+                   '😐 NEUTRO'}
+                </Badge>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-orange-400">{fearGreedAnalysis.score}</div>
+                  <div className="text-xs text-muted-foreground">Score 0-100</div>
+                </div>
+              </div>
+              
+              {/* Barra visual do score */}
+              <div className="w-full h-3 rounded-full bg-secondary/50 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${
+                    fearGreedAnalysis.score <= 25 ? 'bg-red-500' :
+                    fearGreedAnalysis.score <= 45 ? 'bg-orange-500' :
+                    fearGreedAnalysis.score <= 55 ? 'bg-yellow-500' :
+                    fearGreedAnalysis.score <= 75 ? 'bg-lime-500' :
+                    'bg-green-500'
+                  }`}
+                  style={{ width: `${fearGreedAnalysis.score}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Medo Extremo</span>
+                <span>Ganância Extrema</span>
+              </div>
+
+              <p className="text-sm text-muted-foreground">{fearGreedAnalysis.interpretation}</p>
+
+              {fearGreedAnalysis.signals?.length > 0 && (
+                <div className="space-y-1 pt-2 border-t border-border/50">
+                  <span className="text-xs font-medium text-muted-foreground">Sinais detectados:</span>
+                  {fearGreedAnalysis.signals.map((signal, i) => (
+                    <p key={i} className="text-xs text-muted-foreground pl-2 border-l-2 border-orange-500/30">
+                      {signal}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Smart Money - Entrada dos Grandes */}
+      {smartMoney?.detected && (
+        <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-card to-purple-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Zap className="h-5 w-5 text-purple-400" />
+              Smart Money (Grandes Players)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Badge className={`text-sm px-3 py-1 ${
+                  smartMoney.action === 'comprando' 
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : smartMoney.action === 'vendendo'
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                    : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                }`}>
+                  {smartMoney.action === 'comprando' ? '🐋 COMPRANDO' :
+                   smartMoney.action === 'vendendo' ? '🐋 VENDENDO' :
+                   '🐋 NEUTRO'}
+                </Badge>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-purple-400">
+                    {Math.round(smartMoney.confidence * 100)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">Confiança</div>
+                </div>
+              </div>
+
+              {smartMoney.entryZone && (
+                <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                  <span className="text-xs font-medium text-purple-400">📍 Zona de Entrada:</span>
+                  <p className="text-sm text-foreground mt-1">{smartMoney.entryZone}</p>
+                </div>
+              )}
+
+              {smartMoney.evidence?.length > 0 && (
+                <div className="space-y-1 pt-2 border-t border-border/50">
+                  <span className="text-xs font-medium text-muted-foreground">Evidências:</span>
+                  {smartMoney.evidence.map((ev, i) => (
+                    <p key={i} className="text-xs text-muted-foreground pl-2 border-l-2 border-purple-500/30">
+                      {ev}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

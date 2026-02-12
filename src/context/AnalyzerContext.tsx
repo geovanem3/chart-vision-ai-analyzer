@@ -42,7 +42,7 @@ export type MarketContext = {
 };
 
 export type AnalysisResult = {
-  id?: string; // ID do banco de dados
+  id?: string;
   patterns: PatternResult[];
   timestamp: number;
   imageUrl?: string;
@@ -56,8 +56,21 @@ export type AnalysisResult = {
     reasoning: string;
     riskLevel: string;
   };
+  fearGreedAnalysis?: {
+    level: string;
+    score: number;
+    signals: string[];
+    interpretation: string;
+  };
+  smartMoney?: {
+    detected: boolean;
+    action: string;
+    evidence: string[];
+    entryZone: string;
+    confidence: number;
+  };
   savedToDb?: boolean;
-  source?: AnalysisSource; // De onde veio a análise
+  source?: AnalysisSource;
 };
 
 export type RegionType = 'rectangle' | 'circle';
@@ -319,6 +332,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
           trend: aiAnalysis.trend,
           trendStrength: aiAnalysis.trendStrength
         },
+        fearGreedAnalysis: aiAnalysis.fearGreedAnalysis,
+        smartMoney: aiAnalysis.smartMoney,
         savedToDb: !!savedId,
         source: analysisSource
       };

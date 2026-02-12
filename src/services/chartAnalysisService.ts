@@ -22,6 +22,19 @@ export interface AIAnalysisResult {
     sentiment: "bullish" | "bearish" | "neutro";
     volatility: "baixa" | "normal" | "alta";
   };
+  fearGreedAnalysis?: {
+    level: "medo_extremo" | "medo" | "neutro" | "ganancia" | "ganancia_extrema";
+    score: number;
+    signals: string[];
+    interpretation: string;
+  };
+  smartMoney?: {
+    detected: boolean;
+    action: "comprando" | "vendendo" | "neutro";
+    evidence: string[];
+    entryZone: string;
+    confidence: number;
+  };
   warnings?: string[];
 }
 

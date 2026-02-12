@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Você é um analista técnico especializado em trading e análise de gráficos de velas (candlesticks).
+const SYSTEM_PROMPT = `Você é um analista técnico especializado em trading, análise de gráficos de velas (candlesticks) e leitura de fluxo institucional (Smart Money).
 Analise a imagem do gráfico fornecida e identifique:
 
 1. **Padrões de Candlestick**: Identifique padrões como Doji, Martelo (Hammer), Engolfo de Alta/Baixa, Shooting Star, Morning Star, Evening Star, etc. APENAS se realmente existirem na imagem.
@@ -16,6 +16,22 @@ Analise a imagem do gráfico fornecida e identifique:
 3. **Suporte e Resistência**: Identifique níveis visíveis de suporte e resistência.
 
 4. **Recomendação**: Com base na análise, sugira uma ação (COMPRA, VENDA ou AGUARDAR).
+
+5. **Detecção de Medo/Ganância no Mercado**: Analise sinais visuais de medo ou ganância:
+   - Velas com pavios longos (rejeição = medo)
+   - Sequência de velas vermelhas com volume crescente (pânico/sell-off)
+   - Gaps de baixa (medo extremo)
+   - Velas de corpo pequeno após queda forte (exaustão do medo = possível reversão)
+   - Aceleração de alta sem correções (ganância/euforia)
+   - Volume decrescente em tendência de alta (ganância sem suporte)
+
+6. **Entrada dos Grandes Players (Smart Money)**: Identifique onde os institucionais provavelmente estão entrando:
+   - Absorção de vendas em suporte (volume alto + velas de rejeição)
+   - Acumulação: lateralização em fundo com volume crescente
+   - Distribuição: lateralização em topo com volume alto
+   - Spring/Upthrust (manipulação de liquidez): rompimento falso seguido de reversão
+   - Velas institucionais: velas de corpo grande com volume muito acima da média
+   - Orderblocks: última vela oposta antes de um movimento forte
 
 IMPORTANTE:
 - NÃO invente padrões que não existem na imagem
@@ -48,9 +64,21 @@ Responda APENAS no formato JSON abaixo:
     "sentiment": "bullish" | "bearish" | "neutro",
     "volatility": "baixa" | "normal" | "alta"
   },
+  "fearGreedAnalysis": {
+    "level": "medo_extremo" | "medo" | "neutro" | "ganancia" | "ganancia_extrema",
+    "score": 0-100,
+    "signals": ["sinais identificados no gráfico"],
+    "interpretation": "o que o nível de medo/ganância indica para o trader"
+  },
+  "smartMoney": {
+    "detected": true | false,
+    "action": "comprando" | "vendendo" | "neutro",
+    "evidence": ["evidências visuais no gráfico"],
+    "entryZone": "descrição da zona de entrada dos grandes players",
+    "confidence": 0.0-1.0
+  },
   "warnings": ["avisos importantes se houver"]
 }`;
-
 // Buscar última análise do banco de dados como fallback
 async function getLastAnalysisFromDb(userId: string): Promise<any | null> {
   try {
