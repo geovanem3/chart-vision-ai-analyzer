@@ -198,14 +198,36 @@ serve(async (req) => {
       );
     }
 
-    const { imageData, timeframe } = await req.json();
+    const body = await req.json();
+    const { imageData, timeframe } = body;
 
-    if (!imageData) {
+    // Validação de input
+    if (!imageData || typeof imageData !== "string") {
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem fornecida" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Validar formato da imagem (deve ser data URL)
+    if (!imageData.startsWith("data:image/")) {
+      return new Response(
+        JSON.stringify({ error: "Formato de imagem inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Limitar tamanho (10MB max)
+    if (imageData.length > 10_000_000) {
+      return new Response(
+        JSON.stringify({ error: "Imagem muito grande (máximo 10MB)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validar timeframe se fornecido
+    const validTimeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
+    const validatedTimeframe = timeframe && typeof timeframe === "string" && validTimeframes.includes(timeframe) ? timeframe : undefined;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -215,7 +237,7 @@ serve(async (req) => {
     }
 
     console.log("Iniciando análise de gráfico com IA...");
-    console.log("Timeframe:", timeframe || "não especificado");
+    console.log("Timeframe:", validatedTimeframe || "não especificado");
 
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -233,7 +255,7 @@ serve(async (req) => {
               content: [
                 {
                   type: "text",
-                  text: `Analise este gráfico de trading${timeframe ? ` (timeframe: ${timeframe})` : ''}. Identifique APENAS os padrões que realmente existem na imagem.`
+                  text: `Analise este gráfico de trading${validatedTimeframe ? ` (timeframe: ${validatedTimeframe})` : ''}. Identifique APENAS os padrões que realmente existem na imagem.`
                 },
                 {
                   type: "image_url",
