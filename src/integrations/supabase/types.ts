@@ -28,6 +28,7 @@ export type Database = {
           patterns_detected: string[] | null
           sentiment: string | null
           timeframe: string
+          user_id: string | null
         }
         Insert: {
           analysis_result: Json
@@ -42,6 +43,7 @@ export type Database = {
           patterns_detected?: string[] | null
           sentiment?: string | null
           timeframe: string
+          user_id?: string | null
         }
         Update: {
           analysis_result?: Json
@@ -56,6 +58,7 @@ export type Database = {
           patterns_detected?: string[] | null
           sentiment?: string | null
           timeframe?: string
+          user_id?: string | null
         }
         Relationships: []
       }
