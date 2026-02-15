@@ -126,6 +126,8 @@ type AnalyzerContextType = {
   setMarkupMode: (enabled: boolean) => void;
   timeframe: TimeframeType;
   setTimeframe: (timeframe: TimeframeType) => void;
+  forceFailure: boolean;
+  setForceFailure: (force: boolean) => void;
   analyzeChartRegion: (imageUrl: string, region?: SelectedRegion) => Promise<void>;
   loadLastAnalysis: () => Promise<AnalysisResult | null>;
   recentAnalyses: SavedAnalysis[];
@@ -147,6 +149,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
   const [isMarkupMode, setMarkupMode] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
+  const [forceFailure, setForceFailure] = useState(false);
   const [recentAnalyses, setRecentAnalyses] = useState<SavedAnalysis[]>([]);
 
   const resetAnalysis = () => {
@@ -295,6 +298,12 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
       console.log('🔍 Iniciando análise...');
       
       // Análise com IA (com fallback automático do backend)
+      // Se forceFailure está ativo, simular falha para testar fallback
+      if (forceFailure) {
+        console.warn('🧪 STRESS TEST: Forçando falha da IA para testar fallbacks');
+        throw new Error('STRESS_TEST: Falha forçada para teste de fallback');
+      }
+
       const response = await analyzeChartWithAI(imageUrl, timeframe);
       const aiAnalysis = response.analysis;
       const analysisSource = response.source;
@@ -402,6 +411,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarkupMode,
         timeframe,
         setTimeframe,
+        forceFailure,
+        setForceFailure,
         analyzeChartRegion,
         loadLastAnalysis,
         recentAnalyses,

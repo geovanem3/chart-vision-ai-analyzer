@@ -4,10 +4,11 @@ import ChartRegionSelector from './ChartRegionSelector';
 import AnalysisResults from './AnalysisResults';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ZoomIn, Clock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ZoomIn, Clock, ChevronRight, Bug } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,7 +21,9 @@ const GraphAnalyzer = () => {
     timeframe,
     setTimeframe,
     isAnalyzing,
-    analyzeChartRegion
+    analyzeChartRegion,
+    forceFailure,
+    setForceFailure
   } = useAnalyzer();
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -203,6 +206,32 @@ const GraphAnalyzer = () => {
         </Card>
         
         <ChartRegionSelector />
+        
+        {/* Módulo de Stress Test */}
+        <Card className="p-0 overflow-hidden bg-destructive/5 border-destructive/20 rounded-lg">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bug className="h-4 w-4 text-destructive" />
+                <div>
+                  <p className="text-xs font-medium">Stress Test - Forçar Fallback</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Simula falha da IA para testar o módulo manual
+                  </p>
+                </div>
+              </div>
+              <Switch 
+                checked={forceFailure} 
+                onCheckedChange={setForceFailure}
+              />
+            </div>
+            {forceFailure && (
+              <p className="text-[10px] text-destructive mt-2 border-t border-destructive/20 pt-2">
+                ⚠️ Ativo: A IA será ignorada. O sistema usará dados salvos ou biblioteca de padrões.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
     );
   };
