@@ -4,7 +4,7 @@ import ChartRegionSelector from './ChartRegionSelector';
 import AnalysisResults from './AnalysisResults';
 import { useAnalyzer } from '@/context/AnalyzerContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ZoomIn, Clock, ChevronRight, Bug } from 'lucide-react';
+import { ArrowLeft, ZoomIn, Clock, ChevronRight, Bug, Flame } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,7 +23,9 @@ const GraphAnalyzer = () => {
     isAnalyzing,
     analyzeChartRegion,
     forceFailure,
-    setForceFailure
+    setForceFailure,
+    analysisMode,
+    setAnalysisMode
   } = useAnalyzer();
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -206,6 +208,37 @@ const GraphAnalyzer = () => {
         </Card>
         
         <ChartRegionSelector />
+
+        {/* Modo de Análise: Completa ou Vela Única */}
+        <Card className="p-0 overflow-hidden bg-card/50 rounded-lg">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <div>
+                  <p className="text-xs font-medium">Modo de Análise</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {analysisMode === 'single_candle' ? 'Analisando apenas 1 vela' : 'Análise completa do gráfico'}
+                  </p>
+                </div>
+              </div>
+              <Select value={analysisMode} onValueChange={(v) => setAnalysisMode(v as 'full' | 'single_candle')}>
+                <SelectTrigger className="h-7 w-32 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full">Completa</SelectItem>
+                  <SelectItem value="single_candle">Vela Única</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {analysisMode === 'single_candle' && (
+              <p className="text-[10px] text-orange-600 mt-2 border-t border-border/30 pt-2">
+                🕯️ A IA vai focar na última vela do gráfico: tipo, anatomia, sombras e significado.
+              </p>
+            )}
+          </CardContent>
+        </Card>
         
         {/* Módulo de Stress Test */}
         <Card className="p-0 overflow-hidden bg-destructive/5 border-destructive/20 rounded-lg">
