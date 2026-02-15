@@ -49,13 +49,14 @@ export interface AnalysisResponse {
 
 export const analyzeChartWithAI = async (
   imageData: string,
-  timeframe?: string
+  timeframe?: string,
+  analysisMode?: string
 ): Promise<AnalysisResponse> => {
   console.log("🤖 Enviando imagem para análise...");
 
   try {
     const { data, error } = await supabase.functions.invoke("analyze-chart", {
-      body: { imageData, timeframe },
+      body: { imageData, timeframe, analysisMode },
     });
 
     if (error) {

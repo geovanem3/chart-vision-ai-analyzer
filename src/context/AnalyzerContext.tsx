@@ -97,6 +97,7 @@ export type MarkupSize = 'small' | 'medium' | 'large';
 export type MarkupToolType = 'line' | 'arrow' | 'rectangle' | 'circle' | 'label';
 
 export type TimeframeType = '1m' | '5m';
+export type AnalysisModeType = 'full' | 'single_candle';
 
 type AnalyzerContextType = {
   capturedImage: string | null;
@@ -126,6 +127,8 @@ type AnalyzerContextType = {
   setMarkupMode: (enabled: boolean) => void;
   timeframe: TimeframeType;
   setTimeframe: (timeframe: TimeframeType) => void;
+  analysisMode: AnalysisModeType;
+  setAnalysisMode: (mode: AnalysisModeType) => void;
   forceFailure: boolean;
   setForceFailure: (force: boolean) => void;
   analyzeChartRegion: (imageUrl: string, region?: SelectedRegion) => Promise<void>;
@@ -149,6 +152,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [manualMarkups, setManualMarkups] = useState<TechnicalElement[]>([]);
   const [isMarkupMode, setMarkupMode] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeType>('1m');
+  const [analysisMode, setAnalysisMode] = useState<AnalysisModeType>('full');
   const [forceFailure, setForceFailure] = useState(false);
   const [recentAnalyses, setRecentAnalyses] = useState<SavedAnalysis[]>([]);
 
@@ -304,7 +308,7 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('STRESS_TEST: Falha forçada para teste de fallback');
       }
 
-      const response = await analyzeChartWithAI(imageUrl, timeframe);
+      const response = await analyzeChartWithAI(imageUrl, timeframe, analysisMode);
       const aiAnalysis = response.analysis;
       const analysisSource = response.source;
       const aiPatterns = convertAIAnalysisToPatterns(aiAnalysis);
@@ -411,6 +415,8 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
         setMarkupMode,
         timeframe,
         setTimeframe,
+        analysisMode,
+        setAnalysisMode,
         forceFailure,
         setForceFailure,
         analyzeChartRegion,

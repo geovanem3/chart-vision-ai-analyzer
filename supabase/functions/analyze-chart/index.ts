@@ -79,6 +79,51 @@ Responda APENAS no formato JSON abaixo:
   },
   "warnings": ["avisos importantes se houver"]
 }`;
+
+const SINGLE_CANDLE_PROMPT = `Você é um analista técnico especializado em leitura de velas japonesas (candlesticks).
+O usuário quer analisar UMA ÚNICA VELA ESPECÍFICA no gráfico. Foque EXCLUSIVAMENTE na última vela ou na vela mais proeminente/destacada.
+
+Analise a vela e identifique:
+
+1. **Tipo da Vela**: Identifique exatamente o tipo (Doji, Martelo, Shooting Star, Engolfo, Spinning Top, Marubozu, Hanging Man, Inverted Hammer, etc.)
+2. **Anatomia da Vela**: Descreva o corpo (grande/pequeno/ausente), sombra superior (longa/curta/ausente), sombra inferior (longa/curta/ausente), cor (verde/vermelha)
+3. **Significado**: O que essa vela indica sozinha sobre pressão compradora vs vendedora
+4. **Contexto**: Onde essa vela aparece em relação às velas anteriores (topo, fundo, meio de tendência)
+5. **Sinal**: Se essa vela sozinha sugere reversão, continuação ou indecisão
+
+IMPORTANTE:
+- Foque em UMA ÚNICA VELA, não no gráfico inteiro
+- Seja extremamente detalhado sobre a anatomia da vela
+- Considere o contexto das 2-3 velas anteriores apenas como referência
+
+Responda APENAS no formato JSON abaixo:
+{
+  "patterns": [
+    {
+      "type": "nome_exato_da_vela",
+      "confidence": 0.0-1.0,
+      "description": "descrição detalhada da anatomia: corpo, sombras, proporções",
+      "location": "posição no gráfico (ex: última vela, topo da tendência)"
+    }
+  ],
+  "trend": "bullish" | "bearish" | "lateral",
+  "trendStrength": 0.0-1.0,
+  "supportLevels": ["nível baseado na mínima da vela"],
+  "resistanceLevels": ["nível baseado na máxima da vela"],
+  "recommendation": {
+    "action": "compra" | "venda" | "neutro",
+    "confidence": 0.0-1.0,
+    "reasoning": "explicação baseada apenas nessa vela e contexto imediato",
+    "riskLevel": "baixo" | "médio" | "alto"
+  },
+  "marketContext": {
+    "phase": "acumulação" | "markup" | "distribuição" | "markdown",
+    "sentiment": "bullish" | "bearish" | "neutro",
+    "volatility": "baixa" | "normal" | "alta"
+  },
+  "warnings": ["avisos importantes"]
+}`;
+
 // Buscar última análise do banco de dados como fallback
 async function getLastAnalysisFromDb(userId: string): Promise<any | null> {
   try {
@@ -199,7 +244,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { imageData, timeframe } = body;
+    const { imageData, timeframe, analysisMode } = body;
 
     // Validação de input
     if (!imageData || typeof imageData !== "string") {
@@ -236,8 +281,15 @@ serve(async (req) => {
       return await handleAIFailure(userId, "Chave de API não configurada");
     }
 
+    const isSingleCandle = analysisMode === 'single_candle';
+    const selectedPrompt = isSingleCandle ? SINGLE_CANDLE_PROMPT : SYSTEM_PROMPT;
+    const userMessage = isSingleCandle
+      ? `Analise a ÚLTIMA VELA (ou a vela mais destacada) deste gráfico${validatedTimeframe ? ` (timeframe: ${validatedTimeframe})` : ''}. Foque APENAS nessa vela específica.`
+      : `Analise este gráfico de trading${validatedTimeframe ? ` (timeframe: ${validatedTimeframe})` : ''}. Identifique APENAS os padrões que realmente existem na imagem.`;
+
     console.log("Iniciando análise de gráfico com IA...");
     console.log("Timeframe:", validatedTimeframe || "não especificado");
+    console.log("Modo:", isSingleCandle ? "Vela Única" : "Completo");
 
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -249,13 +301,13 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: selectedPrompt },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: `Analise este gráfico de trading${validatedTimeframe ? ` (timeframe: ${validatedTimeframe})` : ''}. Identifique APENAS os padrões que realmente existem na imagem.`
+                  text: userMessage
                 },
                 {
                   type: "image_url",
