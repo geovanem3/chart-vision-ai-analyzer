@@ -13,6 +13,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu';
+import AIStatusIndicator from '@/components/AIStatusIndicator';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -37,7 +38,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               <BarChart2 className="h-5 w-5 text-primary" />
               <h1 className="text-lg font-bold tracking-tight">Chart Vision AI</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <AIStatusIndicator />
               <div className="text-xs text-muted-foreground">
                 Análise Técnica Precisa
               </div>
@@ -79,7 +81,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             <p className="text-xs text-muted-foreground">AI Analyzer</p>
           </div>
         </div>
-        <UserMenu />
+        <div className="flex items-center gap-2">
+          <AIStatusIndicator />
+          <UserMenu />
+        </div>
       </motion.header>
 
       {/* Main Content */}
