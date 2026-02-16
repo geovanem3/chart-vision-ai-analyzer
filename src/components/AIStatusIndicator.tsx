@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Wifi, WifiOff, AlertTriangle } from 'lucide-react';
-import { useAnalyzer } from '@/context/AnalyzerContext';
+import { AnalyzerContext } from '@/context/AnalyzerContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type AIStatus = 'online' | 'offline' | 'fallback';
 
 const AIStatusIndicator = () => {
-  const { analysisResults, forceFailure, isAnalyzing } = useAnalyzer();
+  const ctx = useContext(AnalyzerContext);
+
+  const analysisResults = ctx?.analysisResults ?? null;
+  const forceFailure = ctx?.forceFailure ?? false;
+  const isAnalyzing = ctx?.isAnalyzing ?? false;
 
   const getStatus = (): AIStatus => {
     if (forceFailure) return 'offline';
