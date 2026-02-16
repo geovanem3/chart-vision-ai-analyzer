@@ -1,5 +1,4 @@
 import React from 'react';
-import { AnalyzerProvider } from '@/context/AnalyzerContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import GraphAnalyzer from '@/components/GraphAnalyzer';
 import { BarChart2, Zap, Clock, ChartCandlestick } from 'lucide-react';
@@ -10,8 +9,7 @@ const Home = () => {
 
   return (
     <LanguageProvider>
-      <AnalyzerProvider>
-        <div className={`${isMobile ? 'p-3' : 'container py-8'}`}>
+      <div className={`${isMobile ? 'p-3' : 'container py-8'}`}>
           <div className={`text-center ${isMobile ? 'mb-4' : 'mb-8'}`}>
             {!isMobile ? (
               <>
@@ -94,8 +92,7 @@ const Home = () => {
           </div>
           
           <GraphAnalyzer />
-        </div>
-      </AnalyzerProvider>
+      </div>
     </LanguageProvider>
   );
 };

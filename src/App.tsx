@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AnalyzerProvider } from "@/context/AnalyzerContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
 import Home from "./pages/Home";
@@ -23,38 +24,40 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Home />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/analysis" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Analysis />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/quick" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Quick />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Settings />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AnalyzerProvider>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Home />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/analysis" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Analysis />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/quick" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Quick />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Settings />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AnalyzerProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
