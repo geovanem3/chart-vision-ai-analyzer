@@ -62,7 +62,7 @@ export const convertAIToDbFormat = (
       ? (aiResult.patterns[0].type.toLowerCase().replace(/\s+/g, '_') as any)
       : null,
     pattern_confidence: aiResult.patterns.length > 0 
-      ? aiResult.patterns[0].confidence 
+      ? Math.min(aiResult.patterns[0].confidence <= 1 ? aiResult.patterns[0].confidence * 100 : aiResult.patterns[0].confidence, 99999)
       : null,
     market_sentiment: sentimentMap[aiResult.trend] || 'neutral',
     market_phase: aiResult.marketContext.phase.toLowerCase().includes('acumul') 
@@ -72,12 +72,12 @@ export const convertAIToDbFormat = (
         : aiResult.marketContext.phase.toLowerCase().includes('alta') || aiResult.marketContext.phase.toLowerCase().includes('markup')
           ? 'markup'
           : 'markdown',
-    market_strength: aiResult.trendStrength,
+    market_strength: Math.min(aiResult.trendStrength <= 1 ? aiResult.trendStrength * 100 : aiResult.trendStrength, 99999),
     market_description: aiResult.recommendation.reasoning,
     overall_action: aiResult.recommendation.action,
-    overall_confidence: aiResult.recommendation.confidence,
-    analysis_score: aiResult.recommendation.confidence * 100,
-    reliability_score: aiResult.trendStrength * 100,
+    overall_confidence: Math.min(aiResult.recommendation.confidence <= 1 ? aiResult.recommendation.confidence * 100 : aiResult.recommendation.confidence, 99999),
+    analysis_score: Math.min(aiResult.recommendation.confidence <= 1 ? aiResult.recommendation.confidence * 100 : aiResult.recommendation.confidence, 99999),
+    reliability_score: Math.min(aiResult.trendStrength <= 1 ? aiResult.trendStrength * 100 : aiResult.trendStrength, 99999),
     risk_level: aiResult.recommendation.riskLevel,
     timeframe: timeframe ? timeframeMap[timeframe] : 'M15',
     price_levels: {
