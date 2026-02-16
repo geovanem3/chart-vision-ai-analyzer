@@ -137,7 +137,7 @@ type AnalyzerContextType = {
   loadRecentAnalyses: () => Promise<void>;
 };
 
-const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
+export const AnalyzerContext = createContext<AnalyzerContextType | undefined>(undefined);
 
 export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
