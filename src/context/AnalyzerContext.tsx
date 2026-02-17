@@ -361,25 +361,13 @@ export const AnalyzerProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('❌ Erro durante análise:', error);
       
-      // Tentar carregar última análise do banco como fallback
-      console.log('🔄 Tentando carregar última análise do banco...');
-      const lastAnalysis = await loadLastAnalysis();
-      
-      if (lastAnalysis) {
-        setAnalysisResults({
-          ...lastAnalysis,
-          warnings: [
-            'Erro na análise em tempo real. Exibindo última análise salva.',
-            (error as Error).message
-          ]
-        });
-      } else {
-        setAnalysisResults({
-          patterns: [],
-          timestamp: Date.now(),
-          warnings: ['Erro durante a análise: ' + (error as Error).message]
-        });
-      }
+      // Não duplicar fallback do banco - o backend já tem seu próprio sistema de fallback
+      // Aqui só mostramos o erro para o usuário
+      setAnalysisResults({
+        patterns: [],
+        timestamp: Date.now(),
+        warnings: ['Erro durante a análise: ' + (error as Error).message, 'Tente novamente em alguns segundos.']
+      });
     } finally {
       setIsAnalyzing(false);
     }
