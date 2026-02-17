@@ -2,10 +2,11 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAnalyzer } from '@/context/AnalyzerContext';
-import { TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Shield, BarChart3, Database, Clock, Eye, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Shield, BarChart3, Database, Clock, Eye, Zap, ImageIcon } from 'lucide-react';
 
 const AnalysisResults = () => {
-  const { analysisResults } = useAnalyzer();
+  const { analysisResults, capturedImage } = useAnalyzer();
+  const [showImage, setShowImage] = React.useState(true);
 
   if (!analysisResults) {
     return (
@@ -49,6 +50,35 @@ const AnalysisResults = () => {
 
   return (
     <div className="space-y-4 max-w-full overflow-hidden">
+      {/* Imagem analisada */}
+      {capturedImage && (
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <ImageIcon className="h-4 w-4 text-primary" />
+              Gráfico Analisado
+            </CardTitle>
+            <button 
+              onClick={() => setShowImage(!showImage)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showImage ? 'Ocultar' : 'Mostrar'}
+            </button>
+          </CardHeader>
+          {showImage && (
+            <CardContent className="pt-0 pb-3">
+              <div className="rounded-md overflow-hidden border border-border/30">
+                <img 
+                  src={capturedImage} 
+                  alt="Gráfico analisado" 
+                  className="w-full object-contain max-h-48"
+                />
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
       {/* Fonte da análise e status */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <div className="flex items-center gap-2">
