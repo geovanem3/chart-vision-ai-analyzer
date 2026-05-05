@@ -566,7 +566,45 @@ const Auth = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Senha</Label>
+                    {isLogin && (
+                      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+                        <DialogTrigger asChild>
+                          <button type="button" className="text-xs text-primary hover:underline">
+                            Esqueci minha senha
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Recuperar senha</DialogTitle>
+                            <DialogDescription>
+                              Informe seu email e enviaremos um link para redefinir sua senha.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-2">
+                            <Label htmlFor="forgot-email">Email</Label>
+                            <Input
+                              id="forgot-email"
+                              type="email"
+                              placeholder="seu@email.com"
+                              value={forgotEmail}
+                              onChange={(e) => setForgotEmail(e.target.value)}
+                            />
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setForgotOpen(false)}>
+                              Cancelar
+                            </Button>
+                            <Button onClick={handleForgot} disabled={forgotLoading}>
+                              {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              Enviar link
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
                   <div className="relative">
                     <Input
                       id="password"
