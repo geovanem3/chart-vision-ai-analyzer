@@ -29,7 +29,7 @@ interface LiveAnalysisResult {
 const LiveAnalysis = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [analysisInterval, setAnalysisInterval] = useState(5000); // 5 segundos
