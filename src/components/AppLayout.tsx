@@ -8,6 +8,7 @@ import {
   Zap,
   Menu,
   User,
+  Monitor,
   TrendingUp
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -117,6 +118,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             label="Rápido" 
             active={location.pathname === '/quick'}
             onClick={() => navigate('/quick')}
+          />
+          <NavButton 
+            icon={<Monitor />} 
+            label="Tela" 
+            active={location.pathname === '/screen'}
+            onClick={() => navigate('/screen')}
           />
           <NavButton 
             icon={<Settings />} 

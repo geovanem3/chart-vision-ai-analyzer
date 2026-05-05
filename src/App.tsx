@@ -11,6 +11,7 @@ import AppLayout from "@/components/AppLayout";
 import Home from "./pages/Home";
 import Analysis from "./pages/Analysis";
 import Quick from "./pages/Quick";
+import ScreenCapture from "./pages/ScreenCapture";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -45,6 +46,13 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout>
                     <Quick />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/screen" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ScreenCapture />
                   </AppLayout>
                 </ProtectedRoute>
               } />
